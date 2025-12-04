@@ -1,7 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CLIENTS, STORIES, ACTIVITY_LOG } from "@/lib/mockData";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from "recharts";
-import { ArrowUpRight, Clock, TrendingUp, Users, AlertCircle } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Area, AreaChart } from "recharts";
+import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -12,115 +13,163 @@ export default function Dashboard() {
   const completionRate = Math.round((completedStories / totalStories) * 100) || 0;
 
   const revenueData = CLIENTS.map(c => ({
-    name: c.name.split(' ')[0], // Short name
+    name: c.name.split(' ')[0], 
     revenue: c.revenueTotal,
   }));
 
   const statusDistribution = [
-    { name: 'Hot', value: CLIENTS.filter(c => c.stage === 'Hot').length, color: 'hsl(var(--chart-1))' },
-    { name: 'Warm', value: CLIENTS.filter(c => c.stage === 'Warm').length, color: 'hsl(var(--chart-4))' },
-    { name: 'Cool', value: CLIENTS.filter(c => c.stage === 'Cool').length, color: 'hsl(var(--chart-3))' },
+    { name: 'Hot', value: CLIENTS.filter(c => c.stage === 'Hot').length, color: 'hsl(var(--chart-1))' }, // Orange
+    { name: 'Warm', value: CLIENTS.filter(c => c.stage === 'Warm').length, color: '#fbbf24' }, // Amber
+    { name: 'Cool', value: CLIENTS.filter(c => c.stage === 'Cool').length, color: '#94a3b8' }, // Slate
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your clients and projects.</p>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Overview</h1>
+        <p className="text-muted-foreground">Welcome back, Alex. Here's what's happening today.</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Hero Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
           title="Total Revenue" 
           value={`$${totalRevenue.toLocaleString()}`} 
           icon={TrendingUp} 
-          trend="+12.5% from last month"
+          trend="+12.5%"
+          trendUp={true}
+          color="text-green-600"
+          bgColor="bg-green-100/50"
         />
         <StatCard 
           title="Active Clients" 
           value={activeClients.toString()} 
-          icon={Users} 
-          trend="+2 new this month"
+          icon={Briefcase} 
+          trend="+2 new"
+          trendUp={true}
+          color="text-blue-600"
+          bgColor="bg-blue-100/50"
         />
         <StatCard 
           title="Pending Stories" 
           value={(totalStories - completedStories).toString()} 
           icon={Clock} 
-          trend="5 due this week"
+          trend="5 due soon"
+          trendUp={false}
+          color="text-orange-600"
+          bgColor="bg-orange-100/50"
         />
         <StatCard 
           title="Completion Rate" 
           value={`${completionRate}%`} 
-          icon={ArrowUpRight} 
-          trend="Up by 4%"
+          icon={CheckCircle2} 
+          trend="+4%"
+          trendUp={true}
+          color="text-purple-600"
+          bgColor="bg-purple-100/50"
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7">
-        {/* Revenue Chart */}
-        <Card className="col-span-4 glass-card border-none">
-          <CardHeader>
-            <CardTitle>Revenue by Client</CardTitle>
-            <CardDescription>Total recognized revenue per client account.</CardDescription>
+      <div className="grid gap-6 md:grid-cols-7">
+        {/* Revenue Chart - Main Focus */}
+        <Card className="col-span-7 lg:col-span-4 macos-card border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">Revenue by Client</CardTitle>
           </CardHeader>
-          <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={revenueData}>
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#888888" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                />
-                <YAxis 
-                  stroke="#888888" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(value) => `$${value}`} 
-                />
-                <Tooltip 
-                  cursor={{fill: 'rgba(255,255,255,0.1)'}}
-                  contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
-                />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="pl-0">
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#888888" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke="#888888" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(value) => `$${value/1000}k`} 
+                    dx={-10}
+                  />
+                  <Tooltip 
+                    cursor={{fill: 'rgba(0,0,0,0.05)'}}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      background: 'rgba(255,255,255,0.9)', 
+                      backdropFilter: 'blur(12px)', 
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                      padding: '12px'
+                    }}
+                  />
+                  <Bar 
+                    dataKey="revenue" 
+                    fill="url(#colorRevenue)" 
+                    radius={[6, 6, 0, 0]} 
+                    barSize={40} 
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Client Health */}
-        <Card className="col-span-3 glass-card border-none">
-          <CardHeader>
-            <CardTitle>Client Health Distribution</CardTitle>
-            <CardDescription>Breakdown of clients by engagement stage.</CardDescription>
+        {/* Client Health Donut */}
+        <Card className="col-span-7 lg:col-span-3 macos-card border-none shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">Client Health</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie
-                  data={statusDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {statusDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)' }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex justify-center gap-6 mt-4 text-sm text-muted-foreground">
+            <div className="h-[250px] w-full relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={statusDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={4}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {statusDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      background: 'rgba(255,255,255,0.9)', 
+                      backdropFilter: 'blur(12px)', 
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.12)' 
+                    }} 
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center Label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                 <span className="text-3xl font-bold text-foreground">{activeClients}</span>
+                 <span className="text-xs text-muted-foreground uppercase tracking-wide">Clients</span>
+              </div>
+            </div>
+            <div className="flex justify-center gap-6 mt-6">
               {statusDistribution.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  {item.name} ({item.value})
+                <div key={item.name} className="flex flex-col items-center gap-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs font-medium text-muted-foreground">{item.name}</span>
                 </div>
               ))}
             </div>
@@ -128,44 +177,56 @@ export default function Dashboard() {
         </Card>
       </div>
       
-      {/* Recent Activity */}
-      <Card className="glass-card border-none">
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {ACTIVITY_LOG.map((log) => (
-              <div key={log.id} className="flex items-start gap-4 pb-4 border-b border-white/10 last:border-0 last:pb-0">
-                <div className="mt-1 rounded-full bg-primary/10 p-2">
-                  <Clock className="h-4 w-4 text-primary" />
+      {/* Recent Activity Feed */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold px-1">Latest Activity</h2>
+        <Card className="macos-card border-none shadow-sm">
+          <CardContent className="p-0">
+            <div className="divide-y divide-black/5 dark:divide-white/5">
+              {ACTIVITY_LOG.map((log) => (
+                <div key={log.id} className="flex items-center gap-4 p-4 hover:bg-black/[0.02] transition-colors">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    {log.entityType === 'story' ? <Clock className="h-5 w-5" /> : <Users className="h-5 w-5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{log.details}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                       <span className="text-xs text-muted-foreground">by Alex Chen</span>
+                       <span className="text-[10px] text-muted-foreground/50">•</span>
+                       <span className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs">View</Button>
                 </div>
-                <div>
-                  <p className="text-sm font-medium">{log.details}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
-function StatCard({ title, value, icon: Icon, trend }: { title: string, value: string, icon: any, trend: string }) {
+function StatCard({ title, value, icon: Icon, trend, trendUp, color, bgColor }: any) {
   return (
-    <Card className="glass-card border-none overflow-hidden relative group">
-      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <Icon className="h-16 w-16" />
-      </div>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground mt-1">{trend}</p>
+    <Card className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className={cn("p-3 rounded-xl transition-colors", bgColor)}>
+            <Icon className={cn("h-6 w-6", color)} />
+          </div>
+          <div className={cn(
+            "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
+            trendUp ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+          )}>
+            {trendUp ? <ArrowUpRight className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+            {trend}
+          </div>
+        </div>
+        <div className="mt-4 space-y-1">
+          <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+          <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
+        </div>
       </CardContent>
     </Card>
   );

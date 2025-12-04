@@ -54,71 +54,71 @@
 }
 
 :root {
-  /* Apple Glassmorphism Palette with Agentix Orange */
+  /* Refined Apple Glassmorphism Palette - Cleaner, brighter, more depth */
   
-  /* Base White Glass */
+  /* Base - The "Desktop" feel */
   --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
+  --foreground: 220 10% 10%; /* Darker gray for better readability */
 
-  /* Glass Cards */
-  --card: 0 0% 100%; /* We will use opacity in utility classes */
-  --card-foreground: 222 47% 11%;
+  /* Glass Cards - More opaque for better contrast */
+  --card: 0 0% 100%; 
+  --card-foreground: 220 10% 10%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 220 10% 10%;
 
-  /* Agentix Orange */
+  /* Agentix Orange - used sparingly as action color */
   --primary: 21 90% 54%;
-  --primary-foreground: 210 40% 98%;
+  --primary-foreground: 0 0% 100%;
 
-  /* Secondary - Soft Gray */
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11.2%;
+  /* Secondary - Subtle gray surfaces */
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 220 10% 10%;
 
-  /* Muted Text */
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215 16% 47%;
+  /* Muted - Auxiliary text */
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 10% 45%;
 
-  /* Accent - For hover states on glass */
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222 47% 11.2%;
+  /* Accent - Selection states */
+  --accent: 215 25% 95%; /* Very slight blue tint for hover */
+  --accent-foreground: 220 10% 10%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
 
-  /* Borders - subtle for glass */
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 21 90% 54%; /* Focus ring is orange */
+  /* Borders - Ultra subtle */
+  --border: 220 13% 90%;
+  --input: 220 13% 90%;
+  --ring: 21 90% 54%;
 
-  --radius: 1rem; /* Rounded corners usually 16px or more for Apple style */
+  --radius: 0.75rem; /* 12px - Standard macOS rounded corner */
 
-  /* Sidebar - Glassy Dark or Light? Let's go Glassy Light to match */
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 215 25% 27%;
+  /* Sidebar - Translucent material */
+  --sidebar: 220 20% 97%; /* Slightly tinted off-white */
+  --sidebar-foreground: 220 10% 40%;
   --sidebar-primary: 21 90% 54%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 210 40% 96.1%;
-  --sidebar-accent-foreground: 222 47% 11.2%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 0%; /* Using alpha in utility */
+  --sidebar-accent-foreground: 220 10% 10%;
+  --sidebar-border: 0 0% 0%; /* Handled by opacity */
+  --sidebar-ring: 21 90% 54%;
   
-  /* Chart Colors - Apple style uses nice pastels/vibrants */
-  --chart-1: 21 90% 54%; /* Orange */
-  --chart-2: 173 58% 39%; /* Teal */
-  --chart-3: 197 37% 24%; /* Navy */
-  --chart-4: 43 74% 66%; /* Yellow */
-  --chart-5: 27 87% 67%; /* Light Orange */
+  /* Chart Colors - Professional Palette */
+  --chart-1: 21 90% 54%;   /* Agentix Orange */
+  --chart-2: 215 80% 55%;  /* Blue */
+  --chart-3: 160 60% 45%;  /* Green */
+  --chart-4: 280 60% 60%;  /* Purple */
+  --chart-5: 340 75% 60%;  /* Pink */
 }
 
 .dark {
-  --background: 222 47% 11%;
+  --background: 224 71% 4%;
   --foreground: 210 40% 98%;
 
-  --card: 222 47% 11%;
+  --card: 224 71% 4%;
   --card-foreground: 210 40% 98%;
 
-  --popover: 222 47% 11%;
+  --popover: 224 71% 4%;
   --popover-foreground: 210 40% 98%;
 
   --primary: 21 90% 54%;
@@ -140,7 +140,7 @@
   --input: 217 19% 27%;
   --ring: 21 90% 54%;
   
-  --sidebar: 222 47% 11%;
+  --sidebar: 224 71% 4%;
   --sidebar-foreground: 215 20% 65%;
   --sidebar-primary: 21 90% 54%;
   --sidebar-primary-foreground: 0 0% 100%;
@@ -156,26 +156,45 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    /* Fallback background if image fails, but we'll overlay the image in Layout */
-    background-color: #f5f5f7; 
+    background-color: #f2f2f7; /* Apple system gray 6 */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    letter-spacing: -0.01em; /* Slightly tight tracking like SF Pro */
+  }
+  
+  /* Typography Tweaks for SF Pro feel */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: -0.02em;
+    font-weight: 600;
   }
 }
 
-/* Glassmorphism Utilities */
+/* Enhanced Glassmorphism Utilities */
 @layer utilities {
-  .glass-panel {
-    @apply bg-white/70 dark:bg-black/50 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-xl;
-  }
-  
-  .glass-card {
-    @apply bg-white/60 dark:bg-black/40 backdrop-blur-lg border border-white/30 dark:border-white/10 shadow-sm hover:bg-white/80 transition-all duration-200;
-  }
-  
-  .glass-sidebar {
-    @apply bg-white/50 dark:bg-black/30 backdrop-blur-2xl border-r border-white/20 dark:border-white/10;
+  /* The main sidebar material */
+  .macos-sidebar {
+    @apply bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl border-r border-black/[0.05] dark:border-white/[0.05];
   }
 
-  /* Scrollbar hiding for sleek look */
+  /* The main content area glass */
+  .macos-panel {
+    @apply bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-lg shadow-black/[0.03];
+  }
+  
+  /* Interactive cards */
+  .macos-card {
+    @apply bg-white/70 dark:bg-[#2C2C2E]/70 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm transition-all duration-200;
+  }
+  
+  .macos-card:hover {
+    @apply bg-white/90 dark:bg-[#3A3A3C]/90 shadow-md transform scale-[1.01];
+  }
+
+  /* Input fields */
+  .macos-input {
+    @apply bg-white/50 dark:bg-white/10 border border-black/[0.05] dark:border-white/[0.1] focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all backdrop-blur-sm;
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

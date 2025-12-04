@@ -2,7 +2,7 @@ import { Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Paperclip } from "lucide-react";
+import { Calendar, Paperclip, Clock } from "lucide-react";
 import { Story, USERS } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -16,10 +16,10 @@ interface StoryCardProps {
 export function StoryCard({ story, index, onClick }: StoryCardProps) {
   const assignee = USERS.find(u => u.id === story.assignedTo);
   
-  const priorityColor = {
-    Low: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-    Medium: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
-    High: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+  const priorityConfig = {
+    Low: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Low" },
+    Medium: { color: "bg-yellow-100 text-yellow-700 border-yellow-200", label: "Med" },
+    High: { color: "bg-red-100 text-red-700 border-red-200", label: "High" },
   }[story.priority];
 
   return (
@@ -31,47 +31,50 @@ export function StoryCard({ story, index, onClick }: StoryCardProps) {
           {...provided.dragHandleProps}
           className={cn(
             "mb-3 group outline-none",
-            snapshot.isDragging ? "z-50 rotate-2 scale-105" : ""
+            snapshot.isDragging ? "z-50 rotate-2 scale-105 opacity-90" : ""
           )}
           onClick={() => onClick(story)}
         >
           <Card className={cn(
-            "glass-card border-none cursor-pointer hover:shadow-md transition-all duration-200 active:cursor-grabbing",
+            "macos-card border-none cursor-pointer hover:shadow-md transition-all duration-200 group-active:cursor-grabbing",
             snapshot.isDragging ? "shadow-xl ring-2 ring-primary/50" : ""
           )}>
-            <CardHeader className="p-3 pb-0 space-y-0">
-              <div className="flex justify-between items-start gap-2">
-                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border", priorityColor)}>
-                  {story.priority}
-                </Badge>
-                {story.tags.length > 0 && (
-                   <span className="text-[10px] text-muted-foreground truncate max-w-[80px] bg-muted/50 px-1.5 rounded-sm">
-                     {story.tags[0]}
-                   </span>
-                )}
+            <CardContent className="p-4 space-y-3">
+              {/* Header Tags */}
+              <div className="flex justify-between items-start">
+                <div className="flex gap-2 flex-wrap">
+                   <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border font-medium shadow-none", priorityConfig.color)}>
+                    {priorityConfig.label}
+                  </Badge>
+                  {story.tags.map(tag => (
+                    <span key={tag} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-[4px] border border-black/5">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <CardTitle className="text-sm font-medium leading-tight mt-2 group-hover:text-primary transition-colors line-clamp-2">
+
+              {/* Title */}
+              <h4 className="text-sm font-semibold text-foreground leading-snug group-hover:text-primary transition-colors">
                 {story.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 pt-2">
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+              </h4>
+
+              {/* Footer Meta */}
+              <div className="flex items-center justify-between pt-2 border-t border-black/[0.03]">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className={cn(
+                    "flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors",
+                    new Date(story.dueDate) < new Date() ? "bg-red-50 text-red-600" : "bg-transparent"
+                  )}>
+                    <Clock className="h-3 w-3" />
                     <span>{format(new Date(story.dueDate), "MMM d")}</span>
-                  </div>
-                  {/* Placeholder for attachments indicator */}
-                  <div className="flex items-center gap-1">
-                     <Paperclip className="h-3 w-3" />
-                     <span>2</span>
                   </div>
                 </div>
                 
                 {assignee && (
-                  <Avatar className="h-6 w-6 border-2 border-white/50">
+                  <Avatar className="h-6 w-6 ring-2 ring-white shadow-sm">
                     <AvatarImage src={assignee.avatarUrl} />
-                    <AvatarFallback className="text-[10px]">{assignee.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">{assignee.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                 )}
               </div>

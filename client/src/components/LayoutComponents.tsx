@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Bell } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Bell, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,7 @@ import { USERS } from "@/lib/mockData";
 
 export function Sidebar() {
   const [location] = useLocation();
+  // Sidebar state
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
@@ -28,56 +29,75 @@ export function Sidebar() {
   return (
     <aside 
       className={cn(
-        "h-screen sticky top-0 left-0 z-40 flex flex-col transition-all duration-300 ease-in-out border-r border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-lg",
-        collapsed ? "w-20" : "w-64"
+        "h-screen sticky top-0 left-0 z-50 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] macos-sidebar",
+        collapsed ? "w-[70px]" : "w-[260px]"
       )}
     >
-      <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
+      {/* Logo Area */}
+      <div className="h-14 flex items-center justify-between px-4 mb-2">
         {!collapsed && (
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-transparent">
-            AGENTiX
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-orange-600 shadow-sm flex items-center justify-center">
+              <span className="text-white font-bold text-lg">A</span>
+            </div>
+            <span className="font-bold text-lg tracking-tight text-foreground">
+              Agentix
+            </span>
+          </div>
         )}
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto hover:bg-white/20"
+          className={cn(
+            "h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5",
+            collapsed && "mx-auto"
+          )}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
 
-      <div className="flex-1 py-6 px-3 space-y-2">
+      {/* Navigation */}
+      <div className="flex-1 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== '/' && location.startsWith(item.href));
           return (
             <Link key={item.href} href={item.href}>
               <div 
                 className={cn(
-                  "flex items-center px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 group",
+                  "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group relative",
                   isActive 
-                    ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20" 
-                    : "text-muted-foreground hover:bg-white/40 hover:text-foreground hover:shadow-sm"
+                    ? "bg-primary/10 text-primary font-medium" 
+                    : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground"
                 )}
               >
-                <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                {!collapsed && <span className="ml-3 font-medium text-sm">{item.label}</span>}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full" />
+                )}
+                <item.icon className={cn(
+                  "h-5 w-5 transition-colors", 
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                  collapsed ? "mx-auto" : "mr-3"
+                )} />
+                {!collapsed && <span>{item.label}</span>}
               </div>
             </Link>
           );
         })}
       </div>
 
-      <div className="p-4 border-t border-white/10">
+      {/* Bottom Actions */}
+      <div className="p-4 border-t border-black/5 space-y-2">
          <Link href="/settings">
             <div 
               className={cn(
-                "flex items-center px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-white/40 text-muted-foreground hover:text-foreground",
+                "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 hover:bg-black/5 text-muted-foreground hover:text-foreground",
+                collapsed && "justify-center px-0"
               )}
             >
               <Settings className="h-5 w-5" />
-              {!collapsed && <span className="ml-3 font-medium text-sm">Settings</span>}
+              {!collapsed && <span className="ml-3 text-sm">Settings</span>}
             </div>
           </Link>
       </div>
@@ -89,44 +109,57 @@ export function TopBar() {
   const currentUser = USERS[0]; // Mock logged in user
 
   return (
-    <header className="h-16 sticky top-0 z-30 flex items-center justify-between px-6 border-b border-white/20 bg-white/30 dark:bg-black/20 backdrop-blur-md shadow-sm">
+    <header className="h-14 sticky top-0 z-40 flex items-center justify-between px-6 transition-all duration-200 bg-transparent">
       <div className="flex items-center flex-1 max-w-xl">
-        <div className="relative w-full max-w-md group">
+        {/* Glass Search Bar */}
+        <div className="relative w-full max-w-sm group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="Search clients, stories, or tags..." 
-            className="pl-10 bg-white/40 border-white/20 focus:bg-white/70 transition-all rounded-2xl shadow-inner"
+            placeholder="Search..." 
+            className="pl-10 h-9 macos-input rounded-lg text-sm shadow-sm focus-visible:ring-offset-0"
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/40 relative">
+      <div className="flex items-center gap-3">
+        {/* Action Buttons */}
+        <Button className="h-9 rounded-lg shadow-sm bg-primary hover:bg-primary/90 text-white gap-2 px-4 transition-all active:scale-95">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">New Item</span>
+        </Button>
+
+        <div className="h-6 w-px bg-black/10 dark:bg-white/10 mx-2" />
+
+        <Button variant="ghost" size="icon" className="rounded-full hover:bg-black/5 relative h-9 w-9">
           <Bell className="h-5 w-5 text-muted-foreground" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary animate-pulse" />
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-white" />
         </Button>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="rounded-full h-10 w-10 p-0 ring-2 ring-white/50 shadow-sm">
-              <Avatar>
+            <Button variant="ghost" className="rounded-full h-9 w-9 p-0 ring-2 ring-white/50 shadow-sm hover:ring-primary/20 transition-all ml-1">
+              <Avatar className="h-9 w-9">
                 <AvatarImage src={currentUser.avatarUrl} />
                 <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 glass-panel">
-            <DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56 macos-panel rounded-xl p-2 mt-2">
+            <DropdownMenuLabel className="px-2 py-1.5">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{currentUser.name}</p>
                 <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <DropdownMenuSeparator className="bg-black/5" />
+            <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-black/5" />
+            <DropdownMenuItem className="rounded-lg cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>

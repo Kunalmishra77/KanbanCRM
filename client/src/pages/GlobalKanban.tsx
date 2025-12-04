@@ -2,15 +2,17 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { STORIES, KanbanStatus, Story } from "@/lib/mockData";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
+import { CreateStoryModal } from "@/components/CreateStoryModal";
 
 export default function GlobalKanban() {
   const [stories, setStories] = useState(STORIES);
   const { toast } = useToast();
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
     setStories(prev => prev.map(s => s.id === storyId ? { ...s, status: newStatus } : s));
@@ -22,23 +24,32 @@ export default function GlobalKanban() {
 
   const handleStoryClick = (story: Story) => {
     setSelectedStory(story);
-    setIsModalOpen(true);
+    setIsDetailsOpen(true);
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
+    <div className="h-[calc(100vh-8rem)] flex flex-col space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Global Board</h1>
-          <p className="text-muted-foreground mt-1">Manage all tasks across all clients.</p>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Global Board</h1>
+          <p className="text-muted-foreground">Manage tasks across all active client accounts.</p>
         </div>
-        <Button className="gap-2 shadow-lg shadow-primary/20">
-          <Plus className="h-4 w-4" />
-          Add Story
-        </Button>
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="macos-input bg-white/50 gap-2">
+             <Filter className="h-4 w-4" />
+             Filter
+           </Button>
+           <Button 
+             className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
+             onClick={() => setIsCreateOpen(true)}
+           >
+            <Plus className="h-4 w-4" />
+            Add Story
+          </Button>
+        </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 bg-transparent">
         <KanbanBoard 
           stories={stories} 
           onStoryMove={handleStoryMove} 
@@ -48,8 +59,13 @@ export default function GlobalKanban() {
 
       <StoryModal 
         story={selectedStory} 
-        open={isModalOpen} 
-        onOpenChange={setIsModalOpen} 
+        open={isDetailsOpen} 
+        onOpenChange={setIsDetailsOpen} 
+      />
+
+      <CreateStoryModal 
+        open={isCreateOpen} 
+        onOpenChange={setIsCreateOpen} 
       />
     </div>
   );
