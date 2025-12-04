@@ -40,6 +40,9 @@ export const clients = pgTable("clients", {
   stage: text("stage").notNull().default('Warm'),
   averageProgress: numeric("average_progress").default('0').notNull(),
   revenueTotal: numeric("revenue_total").default('0').notNull(),
+  notes: text("notes"),
+  proposalFileName: text("proposal_file_name"),
+  proposalFileData: text("proposal_file_data"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
