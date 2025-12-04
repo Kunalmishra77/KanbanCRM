@@ -1,21 +1,42 @@
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { STORIES, KanbanStatus, Story } from "@/lib/mockData";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter } from "lucide-react";
+import { Plus, Filter, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
+import { useStories, useUpdateStory } from "@/lib/queries";
+
+type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
+
+type Story = {
+  id: string;
+  clientId: string;
+  title: string;
+  description?: string | null;
+  assignedTo?: string | null;
+  priority: string;
+  estimatedEffortHours?: number | null;
+  dueDate?: Date | string | null;
+  status: string;
+  progressPercent?: number | null;
+  person?: string | null;
+  tags?: string[] | null;
+};
 
 export default function GlobalKanban() {
-  const [stories, setStories] = useState(STORIES);
+  const { data: stories = [], isLoading } = useStories();
+  const { mutate: updateStory } = useUpdateStory();
   const { toast } = useToast();
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
-    setStories(prev => prev.map(s => s.id === storyId ? { ...s, status: newStatus } : s));
+    updateStory({ 
+      id: storyId, 
+      data: { status: newStatus } 
+    });
     toast({
       title: "Status Updated",
       description: `Moved story to ${newStatus}`,
@@ -26,6 +47,14 @@ export default function GlobalKanban() {
     setSelectedStory(story);
     setIsDetailsOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-6 animate-in fade-in duration-500">

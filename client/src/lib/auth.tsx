@@ -1,7 +1,15 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useLocation } from "wouter";
-import { USERS, User } from "./mockData";
 import { useToast } from "@/hooks/use-toast";
+import { authAPI, setCurrentUserId } from "./api";
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+  role: string;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -20,55 +28,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate checking local storage or session on mount
     const storedUser = localStorage.getItem("agentix_user");
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      setCurrentUserId(parsedUser.id);
     }
     setIsLoading(false);
   }, []);
 
   const login = async (email: string) => {
     setIsLoading(true);
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Mock login logic - accept any email, but default to first mock user if match
-    const foundUser = USERS.find(u => u.email === email) || USERS[0];
-    
-    setUser(foundUser);
-    localStorage.setItem("agentix_user", JSON.stringify(foundUser));
-    setIsLoading(false);
-    
-    toast({
-      title: "Welcome back",
-      description: `Signed in as ${foundUser.name}`,
-    });
-    
-    setLocation("/");
+    try {
+      const { user: loggedInUser } = await authAPI.login(email);
+      
+      setUser(loggedInUser);
+      setCurrentUserId(loggedInUser.id);
+      localStorage.setItem("agentix_user", JSON.stringify(loggedInUser));
+      
+      toast({
+        title: "Welcome back",
+        description: `Signed in as ${loggedInUser.name}`,
+      });
+      
+      setLocation("/");
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loginWithGoogle = async () => {
     setIsLoading(true);
-    // Simulate Google Popup delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const googleUser = USERS[0]; // Default to admin for demo
-    
-    setUser(googleUser);
-    localStorage.setItem("agentix_user", JSON.stringify(googleUser));
-    setIsLoading(false);
-    
-    toast({
-      title: "Signed in with Google",
-      description: `Welcome back, ${googleUser.name}`,
-    });
-    
-    setLocation("/");
+    try {
+      // Simulate Google OAuth - in production this would redirect to Google
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { user: loggedInUser } = await authAPI.login('alex@agentix.com');
+      
+      setUser(loggedInUser);
+      setCurrentUserId(loggedInUser.id);
+      localStorage.setItem("agentix_user", JSON.stringify(loggedInUser));
+      
+      toast({
+        title: "Signed in with Google",
+        description: `Welcome back, ${loggedInUser.name}`,
+      });
+      
+      setLocation("/");
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
     setUser(null);
+    setCurrentUserId(null);
     localStorage.removeItem("agentix_user");
     setLocation("/auth");
     toast({

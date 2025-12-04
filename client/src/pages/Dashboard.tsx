@@ -1,26 +1,38 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CLIENTS, STORIES, ACTIVITY_LOG } from "@/lib/mockData";
+import { useClients, useStories, useActivityLog } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Area, AreaChart } from "recharts";
-import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
-  const totalRevenue = CLIENTS.reduce((acc, c) => acc + c.revenueTotal, 0);
-  const totalStories = STORIES.length;
-  const activeClients = CLIENTS.length;
-  const completedStories = STORIES.filter(s => s.status === 'Done').length;
+  const { data: clients = [], isLoading: isLoadingClients } = useClients();
+  const { data: stories = [], isLoading: isLoadingStories } = useStories();
+  const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog();
+
+  if (isLoadingClients || isLoadingStories || isLoadingActivity) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const totalRevenue = clients.reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0);
+  const totalStories = stories.length;
+  const activeClients = clients.length;
+  const completedStories = stories.filter(s => s.status === 'Done').length;
   const completionRate = Math.round((completedStories / totalStories) * 100) || 0;
 
-  const revenueData = CLIENTS.map(c => ({
+  const revenueData = clients.map(c => ({
     name: c.name.split(' ')[0], 
-    revenue: c.revenueTotal,
+    revenue: Number(c.revenueTotal || 0),
   }));
 
   const statusDistribution = [
-    { name: 'Hot', value: CLIENTS.filter(c => c.stage === 'Hot').length, color: 'hsl(var(--chart-1))' }, // Orange
-    { name: 'Warm', value: CLIENTS.filter(c => c.stage === 'Warm').length, color: '#fbbf24' }, // Amber
-    { name: 'Cool', value: CLIENTS.filter(c => c.stage === 'Cool').length, color: '#94a3b8' }, // Slate
+    { name: 'Hot', value: clients.filter(c => c.stage === 'Hot').length, color: 'hsl(var(--chart-1))' },
+    { name: 'Warm', value: clients.filter(c => c.stage === 'Warm').length, color: '#fbbf24' },
+    { name: 'Cool', value: clients.filter(c => c.stage === 'Cool').length, color: '#94a3b8' },
   ];
 
   return (
@@ -183,7 +195,7 @@ export default function Dashboard() {
         <Card className="macos-card border-none shadow-sm">
           <CardContent className="p-0">
             <div className="divide-y divide-black/5 dark:divide-white/5">
-              {ACTIVITY_LOG.map((log) => (
+              {activityLog.map((log) => (
                 <div key={log.id} className="flex items-center gap-4 p-4 hover:bg-black/[0.02] transition-colors">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                     {log.entityType === 'story' ? <Clock className="h-5 w-5" /> : <Users className="h-5 w-5" />}

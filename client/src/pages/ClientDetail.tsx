@@ -1,33 +1,59 @@
 import { useRoute } from "wouter";
-import { CLIENTS, STORIES, KanbanStatus, Story } from "@/lib/mockData";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ArrowLeft, TrendingUp, DollarSign } from "lucide-react";
+import { Plus, ArrowLeft, TrendingUp, DollarSign, Loader2 } from "lucide-react";
 import { Link } from "wouter";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
+import { useClient, useStories, useUpdateStory } from "@/lib/queries";
+
+type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
+
+type Story = {
+  id: string;
+  clientId: string;
+  title: string;
+  description?: string | null;
+  assignedTo?: string | null;
+  priority: string;
+  estimatedEffortHours?: number | null;
+  dueDate?: Date | string | null;
+  status: string;
+  progressPercent?: number | null;
+  person?: string | null;
+  tags?: string[] | null;
+};
 
 export default function ClientDetail() {
   const [match, params] = useRoute("/clients/:id");
   const { toast } = useToast();
   
-  const client = CLIENTS.find(c => c.id === params?.id);
-  const [clientStories, setClientStories] = useState(
-    STORIES.filter(s => s.clientId === params?.id)
-  );
+  const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
+  const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
+  const { mutate: updateStory } = useUpdateStory();
   
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  if (isLoadingClient || isLoadingStories) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!client) {
     return <div className="p-10 text-center">Client not found</div>;
   }
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
-    setClientStories(prev => prev.map(s => s.id === storyId ? { ...s, status: newStatus } : s));
-    // In a real app, we'd update the global store or DB here too
+    updateStory({ 
+      id: storyId, 
+      data: { status: newStatus } 
+    });
     toast({
       title: "Status Updated",
       description: `Story moved to ${newStatus}`,
@@ -71,11 +97,11 @@ export default function ClientDetail() {
         <div className="flex gap-6 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <DollarSign className="h-4 w-4 text-primary" />
-            <span className="font-medium text-foreground">${client.revenueTotal.toLocaleString()}</span> Revenue
+            <span className="font-medium text-foreground">${Number(client.revenueTotal).toLocaleString()}</span> Revenue
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-4 w-4 text-primary" />
-            <span className="font-medium text-foreground">{client.averageProgress}%</span> Avg Progress
+            <span className="font-medium text-foreground">{Number(client.averageProgress).toFixed(0)}%</span> Avg Progress
           </div>
         </div>
       </div>
@@ -83,7 +109,7 @@ export default function ClientDetail() {
       {/* Kanban */}
       <div className="flex-1 min-h-0">
         <KanbanBoard 
-          stories={clientStories} 
+          stories={allStories} 
           onStoryMove={handleStoryMove} 
           onStoryClick={handleStoryClick}
         />

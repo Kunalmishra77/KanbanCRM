@@ -1,12 +1,22 @@
-import { CLIENTS, Client } from "@/lib/mockData";
+import { useClients } from "@/lib/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Briefcase, TrendingUp, MoreHorizontal } from "lucide-react";
+import { Plus, Briefcase, TrendingUp, MoreHorizontal, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
 export default function Clients() {
+  const { data: clients = [], isLoading } = useClients();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
@@ -21,7 +31,7 @@ export default function Clients() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {CLIENTS.map((client) => (
+        {clients.map((client) => (
           <Link key={client.id} href={`/clients/${client.id}`}>
             <div className="block group cursor-pointer outline-none">
               <Card className="glass-card border-none h-full hover:scale-[1.02] transition-transform duration-200">
@@ -47,18 +57,18 @@ export default function Clients() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Revenue</span>
-                      <span className="font-semibold">${client.revenueTotal.toLocaleString()}</span>
+                      <span className="font-semibold">${Number(client.revenueTotal).toLocaleString()}</span>
                     </div>
                     
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Project Progress</span>
-                        <span>{client.averageProgress}%</span>
+                        <span>{Number(client.averageProgress).toFixed(0)}%</span>
                       </div>
                       <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-primary transition-all duration-500 group-hover:brightness-110" 
-                          style={{ width: `${client.averageProgress}%` }} 
+                          style={{ width: `${Number(client.averageProgress)}%` }} 
                         />
                       </div>
                     </div>
