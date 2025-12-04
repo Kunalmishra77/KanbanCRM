@@ -8,14 +8,29 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Story, Comment, USERS, COMMENTS } from "@/lib/mockData";
+import { COMMENTS, USERS } from "@/lib/mockData";
 import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+type StoryData = {
+  id: string;
+  clientId: string;
+  title: string;
+  description?: string | null;
+  assignedTo?: string | null;
+  priority: string;
+  estimatedEffortHours?: number | null;
+  dueDate?: Date | string | null;
+  status: string;
+  progressPercent?: number | null;
+  person?: string | null;
+  tags?: string[] | null;
+};
+
 interface StoryModalProps {
-  story: Story | null;
+  story: StoryData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -28,12 +43,12 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
 
   if (!story) return null;
 
-  const assignee = USERS.find(u => u.id === story.assignedTo);
   const storyComments = COMMENTS.filter(c => c.storyId === story.id);
 
   const handleGenerateDraft = () => {
     setDraftSubject(`Update on: ${story.title}`);
-    setDraftBody(`Hi ${story.person},\n\nI wanted to give you a quick update on "${story.title}".\n\nWe are currently making good progress (about ${story.progressPercent}% complete). We expect to have this ready by ${format(new Date(story.dueDate), 'MMM d')}.\n\nLet me know if you have any questions.\n\nBest,\n${assignee?.name || 'The Team'}`);
+    const dueDate = story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'soon';
+    setDraftBody(`Hi ${story.person || 'there'},\n\nI wanted to give you a quick update on "${story.title}".\n\nWe are currently making good progress (about ${story.progressPercent || 0}% complete). We expect to have this ready by ${dueDate}.\n\nLet me know if you have any questions.\n\nBest,\nThe Team`);
   };
 
   return (
@@ -56,12 +71,10 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assignee</h4>
               <div className="flex items-center gap-3 p-2 rounded-lg bg-white/40 border border-white/20">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={assignee?.avatarUrl} />
-                  <AvatarFallback>{assignee?.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>{(story.person || 'U').charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="overflow-hidden">
-                  <p className="text-sm font-medium truncate">{assignee?.name || 'Unassigned'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{assignee?.email}</p>
+                  <p className="text-sm font-medium truncate">{story.person || 'Unassigned'}</p>
                 </div>
               </div>
             </div>
@@ -75,11 +88,11 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Estimate</span>
-                  <span className="font-medium">{story.estimatedEffortHours}h</span>
+                  <span className="font-medium">{story.estimatedEffortHours || 0}h</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Due Date</span>
-                  <span className="font-medium">{format(new Date(story.dueDate), 'MMM d')}</span>
+                  <span className="font-medium">{story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'Not set'}</span>
                 </div>
               </div>
             </div>
@@ -87,7 +100,7 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
             <div className="mt-auto">
                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tags</h4>
                <div className="flex flex-wrap gap-2">
-                 {story.tags.map(tag => (
+                 {(story.tags || []).map(tag => (
                    <Badge key={tag} variant="secondary" className="text-xs bg-white/50 hover:bg-white/70 transition-colors">
                      {tag}
                    </Badge>
@@ -156,10 +169,10 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                       <div className="relative h-4 w-full bg-secondary rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-primary transition-all duration-500" 
-                          style={{ width: `${story.progressPercent}%` }} 
+                          style={{ width: `${story.progressPercent || 0}%` }} 
                         />
                       </div>
-                      <p className="text-right text-xs text-muted-foreground">{story.progressPercent}% Complete</p>
+                      <p className="text-right text-xs text-muted-foreground">{story.progressPercent || 0}% Complete</p>
                     </div>
                   </TabsContent>
 

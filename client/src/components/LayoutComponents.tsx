@@ -124,14 +124,6 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Action Buttons */}
-        <Button className="h-9 rounded-lg shadow-sm bg-primary hover:bg-primary/90 text-white gap-2 px-4 transition-all active:scale-95">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New Item</span>
-        </Button>
-
-        <div className="h-6 w-px bg-black/10 dark:bg-white/10 mx-2" />
-
         <Button variant="ghost" size="icon" className="rounded-full hover:bg-black/5 relative h-9 w-9">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-white" />
@@ -141,15 +133,15 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="rounded-full h-9 w-9 p-0 ring-2 ring-white/50 shadow-sm hover:ring-primary/20 transition-all ml-1">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.avatarUrl} />
-                <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                <AvatarImage src={user?.profileImageUrl || undefined} />
+                <AvatarFallback>{user?.firstName?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 macos-panel rounded-xl p-2 mt-2">
             <DropdownMenuLabel className="px-2 py-1.5">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                <p className="text-sm font-medium leading-none">{user?.firstName} {user?.lastName}</p>
                 <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>

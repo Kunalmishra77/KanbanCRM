@@ -74,6 +74,9 @@ export function useCreateStory() {
     mutationFn: storiesAPI.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0] === 'stories' && query.queryKey[1] === 'client'
+      });
       toast({ title: "Story created successfully" });
     },
     onError: (error: Error) => {
