@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupGoogleAuth, isAuthenticated } from "./googleAuth";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema } from "@shared/schema";
 import { ZodError } from "zod";
 
@@ -10,15 +10,13 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Setup Replit Auth (Google, GitHub, Apple, email login)
-  await setupAuth(app);
+  // Setup Google OAuth
+  await setupGoogleAuth(app);
   
   // Auth routes - get current user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      res.json(req.user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
