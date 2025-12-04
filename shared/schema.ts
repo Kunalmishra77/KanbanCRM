@@ -16,7 +16,7 @@ export const sessions = pgTable(
 
 // Users table
 export const users = pgTable("users", {
-  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id", { length: 255 }).primaryKey(),
   email: text("email").unique(),
   firstName: text("first_name"),
   lastName: text("last_name"),
@@ -27,7 +27,7 @@ export const users = pgTable("users", {
 });
 
 export type UpsertUser = typeof users.$inferInsert;
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -35,7 +35,7 @@ export type User = typeof users.$inferSelect;
 export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  ownerId: varchar("owner_id", { length: 36 }).references(() => users.id).notNull(),
+  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id).notNull(),
   industry: text("industry").notNull(),
   stage: text("stage").notNull().default('Warm'),
   averageProgress: numeric("average_progress").default('0').notNull(),
@@ -56,7 +56,7 @@ export const stories = pgTable("stories", {
   clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
   title: text("title").notNull(),
   description: text("description").notNull().default(''),
-  assignedTo: varchar("assigned_to", { length: 36 }).references(() => users.id),
+  assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id),
   priority: text("priority").notNull().default('Medium'),
   estimatedEffortHours: integer("estimated_effort_hours").default(0).notNull(),
   dueDate: timestamp("due_date").notNull(),
@@ -78,7 +78,7 @@ export type Story = typeof stories.$inferSelect;
 export const comments = pgTable("comments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   storyId: uuid("story_id").references(() => stories.id, { onDelete: 'cascade' }).notNull(),
-  authorId: varchar("author_id", { length: 36 }).references(() => users.id).notNull(),
+  authorId: varchar("author_id", { length: 255 }).references(() => users.id).notNull(),
   body: text("body").notNull(),
   isSystem: boolean("is_system").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -94,7 +94,7 @@ export const activityLog = pgTable("activity_log", {
   entityType: text("entity_type").notNull(),
   entityId: uuid("entity_id").notNull(),
   action: text("action").notNull(),
-  userId: varchar("user_id", { length: 36 }).references(() => users.id).notNull(),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id).notNull(),
   details: text("details").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
