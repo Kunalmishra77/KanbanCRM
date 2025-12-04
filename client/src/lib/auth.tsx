@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 interface AuthContextType {
   user: User | null;
   login: (email: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -47,6 +48,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLocation("/");
   };
 
+  const loginWithGoogle = async () => {
+    setIsLoading(true);
+    // Simulate Google Popup delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const googleUser = USERS[0]; // Default to admin for demo
+    
+    setUser(googleUser);
+    localStorage.setItem("agentix_user", JSON.stringify(googleUser));
+    setIsLoading(false);
+    
+    toast({
+      title: "Signed in with Google",
+      description: `Welcome back, ${googleUser.name}`,
+    });
+    
+    setLocation("/");
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem("agentix_user");
@@ -58,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, loginWithGoogle, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
