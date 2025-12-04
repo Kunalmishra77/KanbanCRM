@@ -108,3 +108,17 @@ export const commentsAPI = {
 export const activityAPI = {
   getAll: (limit = 10) => fetchAPI(`/activity?limit=${limit}`),
 };
+
+// AI Proposal Analysis API
+export const aiAPI = {
+  analyzeProposal: (proposalText: string, clientName: string) => 
+    fetchAPI('/analyze-proposal', {
+      method: 'POST',
+      body: JSON.stringify({ proposalText, clientName }),
+    }),
+  createTasksFromProposal: (clientId: string, tasks: any[]) =>
+    fetchAPI(`/clients/${clientId}/create-tasks-from-proposal`, {
+      method: 'POST',
+      body: JSON.stringify({ tasks }),
+    }),
+};

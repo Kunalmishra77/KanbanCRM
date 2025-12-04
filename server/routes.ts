@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupGoogleAuth, isAuthenticated } from "./googleAuth";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema } from "@shared/schema";
 import { ZodError } from "zod";
+import { analyzeProposal } from "./gemini";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -242,6 +243,79 @@ export async function registerRoutes(
       }
       console.error('Create comment error:', error);
       res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  // AI Proposal Analysis
+  app.post("/api/analyze-proposal", async (req, res) => {
+    try {
+      const { proposalText, clientName } = req.body;
+      
+      if (!proposalText || !clientName) {
+        return res.status(400).json({ error: "proposalText and clientName are required" });
+      }
+      
+      const analysis = await analyzeProposal(proposalText, clientName);
+      res.json(analysis);
+    } catch (error) {
+      console.error('Analyze proposal error:', error);
+      res.status(500).json({ error: "Failed to analyze proposal" });
+    }
+  });
+
+  // Create tasks from proposal analysis
+  app.post("/api/clients/:clientId/create-tasks-from-proposal", async (req, res) => {
+    try {
+      const { clientId } = req.params;
+      const { tasks } = req.body;
+      
+      if (!Array.isArray(tasks) || tasks.length === 0) {
+        return res.status(400).json({ error: "tasks array is required" });
+      }
+      
+      const createdStories = [];
+      const errors = [];
+      
+      for (const task of tasks) {
+        try {
+          const storyInput = {
+            clientId,
+            title: task.title || 'Untitled Task',
+            description: task.description || '',
+            priority: task.priority || 'Medium',
+            status: 'To Do',
+            person: '',
+            assignedTo: null,
+            estimatedEffortHours: typeof task.estimatedHours === 'number' ? task.estimatedHours : 0,
+            dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+            progressPercent: 0,
+            tags: [],
+          };
+          
+          const validatedData = insertStorySchema.parse(storyInput);
+          const story = await storage.createStory(validatedData);
+          createdStories.push(story);
+        } catch (taskError) {
+          console.error('Failed to create task:', task.title, taskError);
+          errors.push({ title: task.title, error: String(taskError) });
+        }
+      }
+      
+      if (createdStories.length === 0) {
+        return res.status(400).json({ 
+          error: "Failed to create any tasks",
+          details: errors 
+        });
+      }
+      
+      res.status(201).json({ 
+        message: `Created ${createdStories.length} tasks from proposal`,
+        stories: createdStories,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error) {
+      console.error('Create tasks from proposal error:', error);
+      res.status(500).json({ error: "Failed to create tasks from proposal" });
     }
   });
 
