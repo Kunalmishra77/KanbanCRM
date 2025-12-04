@@ -1,0 +1,376 @@
+Master Prompt — Build a Custom CRM + Kanban Web App (Supabase-only backend)
+
+Role & Experience
+You are an expert full-stack application architect and senior engineer with 12+ years building production CRMs, Kanban systems, and SaaS workflow apps. You have deep experience with React/Next.js, Tailwind CSS, glassmorphism/Apple-style UI, Supabase (Postgres, Auth, Storage, Realtime, Functions), Google OAuth/Gmail integration, and production deployment. Act and respond in that role: produce a complete, ready-to-run deliverable (code + infra + setup instructions + tests) for the app described below.
+
+Goal (one sentence)
+
+Generate a complete custom-coded web application repo and infra blueprint that implements a desktop-first, Apple-aesthetic, glassmorphic CRM + Kanban app using Supabase as the single source of truth. The app must include per-client and global Kanban boards, threaded comments, mentions, file attachments, heat scoring, automated email drafts via Google AI Studio, Gmail send via OAuth, activity logs, dashboards (heatmap, Kanban stats, recent activity, revenue, workload, time tracking, story aging), role-based access (Google Sign-In domain-restricted), real-time updates, and weekly backups/export.
+
+Constraints & Non-functional requirements
+
+Primary stack: Next.js (React) + TypeScript, Tailwind CSS, Framer Motion for micro-animations, Supabase (Postgres, Auth, Storage, Realtime, Edge Functions).
+
+Design: Apple aesthetics + glassmorphism; minimal sidebar + top bar layout; desktop-first responsive (must gracefully adapt to tablet & mobile).
+
+Auth: Supabase Auth with Google OAuth; restrict sign-up to specified GSuite domain; implement roles (Admin, Editor, Viewer).
+
+Data: Supabase Postgres is the source of truth; no reliance on Google Sheets as primary DB. Optional one-way export to Google Drive for backups only.
+
+Email AI: Use Google AI Studio (Generative API) to craft draft emails from story + comments + client context. App should call AI Studio to generate an editable draft.
+
+Email send: Use Gmail API via OAuth (user grants permission) to send emails from the authenticated user; every send must be logged and saved back into Supabase (ActivityLog + appended comment). Default flow requires user confirmation before sending.
+
+File storage: Use Supabase Storage for attachments (stories & comments). Support all common types including CSV/XLSX; max recommended upload size 50 MB per file. Provide signed URLs.
+
+Security: Implement Postgres Row-Level Security (RLS) policies to enforce role-based read/write access. Audit via ActivityLog.
+
+Real-time: Use Supabase Realtime for Kanban drag/drop, comments, activity feed updates.
+
+Deployment: Provide local dev instructions and a production deployment guide (Docker + Vercel or Fly or Supabase Edge).
+
+Deliverables: full Git repo, database migration SQL, seed data (3 clients, 6 stories), Supabase RLS policy definitions, Edge Functions / serverless functions, Next.js frontend, API wrappers, README with step-by-step setup, and unit/integration tests.
+
+Required Outputs (explicit)
+
+Produce these artifacts in the project output (file tree + file contents):
+
+README.md with setup, env vars, local dev, and production deploy steps.
+
+next-app/ — Next.js + TypeScript frontend code.
+
+Pages: / (Dashboard), /clients (list), /clients/[id] (client view + client Kanban), /stories/[id] (story detail), /global-kanban.
+
+Components: Kanban board (drag & drop), StoryCard, StoryModal, CommentThread (threading + mentions + emoji reactions), AttachmentUploader, DraftEmailModal, HeatIndicator, ProgressBar, ActivityFeed, TopBar, Sidebar.
+
+Styling: Tailwind + CSS modules implementing Apple glassmorphism tokens (blurred background, frosted cards, subtle shadows, rounded corners).
+
+Accessibility: keyboard support for drag/drop, ARIA attributes, color contrast checks.
+
+supabase/ — SQL migration files for schema plus seed data. Include:
+
+Tables: clients, stories, comments, attachments, activity_log, users (metadata), worklog (for time tracking), revenue (per client if needed), tags, story_tags (many-to-many).
+
+Columns: clear types, indexes on client_id, status, due_date, updated_at.
+
+Triggers & Functions: on story update -> insert into activity_log, compute progress_percent, update clients.average_progress and clients.stage (heat), story aging triggers.
+
+RLS policies and roles: admins, editors, viewers. Include examples of policy SQL allowing only domain users sign-in and row protections.
+
+supabase/functions/ or Edge Functions:
+
+generate_draft_email — server-side function that composes payload for Google AI Studio, calls the Generative API, returns subject + body. It must sanitize content and include latest 5 comments.
+
+send_email — server-side function that sends via Gmail API using OAuth token; it should accept draft id, recipients, subject, body, attachment IDs; after sending, log to activity_log and append a comments record with type system:email_sent. (Since Gmail OAuth requires user interaction, include instructions to handle token storage securely and consent flow.)
+
+weekly_backup — scheduled function that exports CSV of core tables and writes to Supabase Storage or Google Drive if configured.
+
+Supabase Storage policy examples for attachments (private buckets with signed URLs).
+
+Frontend integration code: Supabase client initialization, Auth hooks, real-time subscriptions for stories/comments/activity.
+
+AI prompt templates: Master prompt for email generation (system + instructions + placeholders), examples of sample responses and parsing instructions.
+
+Tests: unit tests for core UI components, integration tests for API endpoints (mocked), and E2E smoke test instructions (Cypress).
+
+CI config: sample GitHub Actions for lint/test/build/deploy.
+
+Data Schema (detailed)
+
+Provide CREATE TABLE SQL for the following (show columns & types & constraints):
+
+clients
+
+id UUID PRIMARY KEY default gen_random_uuid()
+
+name text NOT NULL
+
+owner_id UUID (references users)
+
+owner_email text
+
+industry text
+
+stage text CHECK IN ('Hot','Warm','Cool')
+
+average_progress numeric DEFAULT 0
+
+revenue_total numeric DEFAULT 0
+
+created_at timestamptz DEFAULT now()
+
+updated_at timestamptz DEFAULT now()
+
+sheet_tab_name text (optional)
+
+stories
+
+id UUID PRIMARY KEY
+
+client_id UUID REFERENCES clients(id)
+
+title text
+
+description text
+
+assigned_to UUID REFERENCES users(id)
+
+priority text CHECK ('Low','Medium','High')
+
+estimated_effort_hours integer
+
+due_date date
+
+kanban_status text CHECK ('To Do','In Progress','Blocked','Review','Done')
+
+progress_percent integer CHECK (0<=progress_percent<=100)
+
+person text
+
+has_attachments boolean DEFAULT false
+
+tags text[] or via join table story_tags
+
+created_at, updated_at
+
+comments
+
+id UUID PK
+
+story_id UUID REFERENCES stories(id)
+
+author_id UUID REFERENCES users(id)
+
+parent_comment_id UUID nullable (for threading)
+
+body text
+
+created_at timestamptz
+
+edited_at timestamptz nullable
+
+is_system boolean DEFAULT false
+
+attachments
+
+id UUID PK
+
+story_id UUID nullable
+
+comment_id UUID nullable
+
+filename text
+
+storage_path text (supabase storage key)
+
+uploaded_by UUID
+
+size_bytes bigint
+
+mime_type text
+
+created_at timestamptz
+
+activity_log
+
+id UUID PK
+
+entity_type text
+
+entity_id UUID
+
+action text
+
+user_id UUID
+
+details jsonb
+
+created_at timestamptz
+
+users (metadata)
+
+id UUID PK (from Supabase Auth)
+
+email text
+
+name text
+
+role text CHECK ('admin','editor','viewer')
+
+created_at
+
+worklog
+
+id UUID
+
+story_id UUID
+
+user_id UUID
+
+date date
+
+hours numeric
+
+notes text
+
+Business Logic & Triggers
+
+On stories insert/update/delete:
+
+Insert an activity_log row describing the change (old -> new).
+
+Update stories.updated_at and clients.average_progress using aggregate.
+
+Recompute clients.stage using thresholds:
+
+Hot if average_progress < 30 AND open_stories_count > 2 AND days_since_last_update > 14.
+
+Warm if average_progress < 60 AND days_since_last_update > 7.
+
+Else Cool. (Make thresholds configurable via settings table.)
+
+On comment insert: notify assigned user (push via Realtime event + optional email).
+
+On story moved to Blocked: immediate notification (email + activity log).
+
+Story aging: daily job increments aging metric; surface in dashboard.
+
+RLS & Security
+
+Implement RLS policies so:
+
+Only authenticated users can read/write.
+
+Admins can read/write everything.
+
+Editors can read/write stories and comments. Can’t change clients.revenue_total unless role admin.
+
+Viewers read-only.
+
+Row policies to allow client-view role optionally to see only their client rows (if later used).
+
+Provide sample policy SQL statements and guidance for applying them.
+
+Frontend UX Details (Apple glassmorphism + hybrid layout)
+
+Global layout: left minimal sidebar (icons + collapsed state), top bar with search + quick Add Client + user avatar + global notifications.
+
+Dashboard: hero summary row (counts, heat distribution), then heatmap grid (clients by stage), Kanban stats panel, revenue chart (per client), priority workload donut, work hours timeseries, story aging table, recent activity feed.
+
+Global Kanban: full-width board, 5 columns (To Do, In Progress, Blocked, Review, Done); drag & drop with animations; on drop call API to update kanban_status and updated_at; show toast + activity log entry.
+
+Client page: client header (name, owner, heat badge), client-specific Kanban, client revenue & progress widgets, stories list, Add Story modal.
+
+Story detail: title, editable description, progress slider, estimated effort, due date, assigned to dropdown, tags, attachments, threaded comments (collapsible), Draft Email button, Send Email flow.
+
+Draft Email modal: show Subject (editable), Body (editable rich text), Attachments toggle, Recipients (pre-filled from client emails), AI-Generated summary block with “Regenerate” button. Save draft, send, or cancel. On send, show success & log.
+
+AI Integration (Google AI Studio)
+
+Server function generate_draft_email should accept client_id, story_id, context_notes (optional). It must:
+
+Gather client fields, story fields, latest 5 comments (author + timestamp + text), progress% and Kanban status, recent activity summary, and attachments list.
+
+Use a deterministic system prompt that instructs AI to output JSON: { "subject": "...", "body_plain": "...", "body_html": "..." }.
+
+Constrain to 300 words and professional + concise tone.
+
+Include placeholders replacement for {ClientName}, {Owner}, {ProgressPercent}, {ActionRequired}.
+
+Provide the exact AI prompt template (system + user) in the code, with examples.
+
+Include safeguards to strip PII and remove long comment histories beyond the latest 5.
+
+Gmail Send Flow
+
+OAuth consent must be set up in Google Cloud (document steps in README).
+
+send_email Edge Function must accept: draft_id or subject, body, recipients, and attachment_ids. It must:
+
+Fetch attachments from Supabase Storage, attach them to the outgoing email.
+
+Use Gmail API to send.
+
+On success, create an activity_log entry and a comments row: is_system=true, body includes excerpt like Email sent: subject, recipients, timestamp.
+
+Keep manual confirmation in UI before calling send_email. Optionally add a toggle for future auto-send.
+
+Realtime & Subscriptions
+
+Use Supabase Realtime for stories, comments, and activity_log channels. Frontend should subscribe to relevant channels and update UI optimistically on drag/drop and comments.
+
+Testing & Acceptance Criteria
+
+Include automated tests and a manual QA checklist:
+
+Unit tests: React components (StoryCard, Kanban), util functions.
+
+Integration tests: API edge functions mocking Supabase and Gmail.
+
+E2E smoke test: user login, create client, create story, move story between columns, add comment, generate draft, send email (mock send), attachments upload.
+
+Acceptance criteria:
+
+Create client -> new client row in DB.
+
+Global Kanban displays stories and supports drag/drop persisting state.
+
+Story detail shows threaded comments and attachments.
+
+Draft Email returns human-readable subject/body and includes last 5 comments.
+
+Send Email function logs activity and appends a comment.
+
+Heat stage auto-updates based on thresholds and manual override exists.
+
+RLS prevents unauthorized access.
+
+Dev / Env / Secrets
+
+List all required environment variables and setup steps:
+
+NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+SUPABASE_SERVICE_ROLE_KEY (server only)
+
+GOOGLE_AI_API_KEY (or Google Cloud service account path)
+
+GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (Gmail send)
+
+SUPABASE_URL, SUPABASE_KEY for server-side functions
+
+SENTRY_DSN (optional)
+
+CI secrets instructions
+
+Deliverable Formatting (how to output)
+
+When you generate the project, provide:
+
+A zipped repository or repo layout with files.
+
+README.md with single-command local dev run (e.g., pnpm install && pnpm dev), database migration apply steps (supabase CLI), and how to set up Google Cloud OAuth and AI Studio keys.
+
+SQL migration files and seed.sql with sample clients & stories.
+
+Example .env.example file.
+
+Postman collection or API spec (OpenAPI) for server functions.
+
+Short checklist for manual QA and acceptance tests.
+
+Final instruction for the builder (strict)
+
+Produce clear, well-commented code. Avoid obfuscated one-liners. Use TypeScript types and JSDoc where helpful.
+
+Favor predictable behavior and explicit error handling. Provide helpful UI error states.
+
+For any interaction requiring third-party consent (Gmail OAuth), the app must guide the developer through manual setup (console steps, redirect URIs, scope lists).
+
+Keep the AI prompt templates and keys out of client-side code; call AI & Gmail send from server functions only.
+
+Include a short “operational playbook” in README.md describing how to rotate secrets, perform backups, and recover from common errors.
+
+Acceptance (what you must return to me)
+
+Return a single ready-to-run project (zipped or repo layout) that meets the above requirements, plus the supabase migration SQL, edge function code, Next.js frontend, and a README with exact steps. Also include a human-readable summary (5–8 lines) explaining the architecture choices and dev next steps.
