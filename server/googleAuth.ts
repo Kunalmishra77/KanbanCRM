@@ -33,9 +33,11 @@ export async function setupGoogleAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  const callbackURL = process.env.NODE_ENV === "production"
-    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`
-    : "/api/auth/google/callback";
+  // Use the dev domain for Replit
+  const domain = process.env.REPLIT_DEV_DOMAIN || `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  const callbackURL = `https://${domain}/api/auth/google/callback`;
+  
+  console.log("Google OAuth callback URL:", callbackURL);
 
   passport.use(
     new GoogleStrategy(
