@@ -146,7 +146,11 @@ export async function registerRoutes(
 
   app.post("/api/stories", async (req, res) => {
     try {
-      const data = insertStorySchema.parse(req.body);
+      const body = {
+        ...req.body,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : new Date(),
+      };
+      const data = insertStorySchema.parse(body);
       const story = await storage.createStory(data);
       
       const userId = req.headers['x-user-id'] as string;
