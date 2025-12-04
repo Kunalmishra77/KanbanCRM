@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,28 +9,66 @@ import Dashboard from "@/pages/Dashboard";
 import GlobalKanban from "@/pages/GlobalKanban";
 import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
+import Login from "@/pages/Login";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { useEffect } from "react";
+
+// Wrapper to protect routes
+function ProtectedRoute({ component: Component, ...rest }: any) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      setLocation("/auth");
+    }
+  }, [user, isLoading, setLocation]);
+
+  if (isLoading) return null; // Or a loading spinner
+
+  if (!user) return null;
+
+  return (
+    <Layout>
+      <Component {...rest} />
+    </Layout>
+  );
+}
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/global-kanban" component={GlobalKanban} />
-        <Route path="/clients" component={Clients} />
-        <Route path="/clients/:id" component={ClientDetail} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      <Route path="/auth" component={Login} />
+      
+      <Route path="/">
+        <ProtectedRoute component={Dashboard} />
+      </Route>
+      <Route path="/global-kanban">
+        <ProtectedRoute component={GlobalKanban} />
+      </Route>
+      <Route path="/clients">
+        <ProtectedRoute component={Clients} />
+      </Route>
+      <Route path="/clients/:id">
+        {() => (
+           <Layout><ClientDetail /></Layout>
+        )}
+      </Route>
+      
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

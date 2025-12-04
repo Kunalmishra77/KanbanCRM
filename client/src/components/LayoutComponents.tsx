@@ -105,8 +105,10 @@ export function Sidebar() {
   );
 }
 
+import { useAuth } from "@/lib/auth";
+
 export function TopBar() {
-  const currentUser = USERS[0]; // Mock logged in user
+  const { user, logout } = useAuth();
 
   return (
     <header className="h-14 sticky top-0 z-40 flex items-center justify-between px-6 transition-all duration-200 bg-transparent">
@@ -139,16 +141,16 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="rounded-full h-9 w-9 p-0 ring-2 ring-white/50 shadow-sm hover:ring-primary/20 transition-all ml-1">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={currentUser.avatarUrl} />
-                <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+                <AvatarImage src={user?.avatarUrl} />
+                <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 macos-panel rounded-xl p-2 mt-2">
             <DropdownMenuLabel className="px-2 py-1.5">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{currentUser.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
+                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-black/5" />
@@ -159,7 +161,10 @@ export function TopBar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-black/5" />
-            <DropdownMenuItem className="rounded-lg cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive">
+            <DropdownMenuItem 
+              className="rounded-lg cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+              onClick={logout}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>
