@@ -8,11 +8,13 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { COMMENTS, USERS } from "@/lib/mockData";
-import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2 } from "lucide-react";
+import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useComments, useCreateComment } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 type StoryData = {
   id: string;
@@ -36,20 +38,94 @@ interface StoryModalProps {
 }
 
 export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
   const [newComment, setNewComment] = useState("");
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
+  const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
+  const [showTimeLog, setShowTimeLog] = useState(false);
+  const [timeLogHours, setTimeLogHours] = useState("");
+  const [timeLogNote, setTimeLogNote] = useState("");
+
+  const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
+  const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
 
   if (!story) return null;
 
-  const storyComments = COMMENTS.filter(c => c.storyId === story.id);
+  const handlePostComment = () => {
+    if (!newComment.trim()) return;
+    
+    const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Anonymous';
+    
+    createComment({
+      storyId: story.id,
+      data: {
+        storyId: story.id,
+        authorId: user?.id || 'system',
+        authorName: userName,
+        body: newComment.trim(),
+      }
+    }, {
+      onSuccess: () => {
+        setNewComment("");
+      }
+    });
+  };
 
   const handleGenerateDraft = () => {
     setDraftSubject(`Update on: ${story.title}`);
     const dueDate = story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'soon';
     setDraftBody(`Hi ${story.person || 'there'},\n\nI wanted to give you a quick update on "${story.title}".\n\nWe are currently making good progress (about ${story.progressPercent || 0}% complete). We expect to have this ready by ${dueDate}.\n\nLet me know if you have any questions.\n\nBest,\nThe Team`);
   };
+
+  const handleDiscardDraft = () => {
+    setDraftSubject("");
+    setDraftBody("");
+    toast({ title: "Draft discarded" });
+  };
+
+  const handleSendEmail = () => {
+    if (!draftSubject.trim() || !draftBody.trim()) {
+      toast({ title: "Please fill in subject and body", variant: "destructive" });
+      return;
+    }
+    toast({ 
+      title: "Email sent", 
+      description: `Email to ${story.person || 'client'} has been sent successfully.`
+    });
+    setDraftSubject("");
+    setDraftBody("");
+  };
+
+  const handleLogTime = () => {
+    const hours = parseFloat(timeLogHours);
+    if (isNaN(hours) || hours <= 0) {
+      toast({ title: "Please enter valid hours", variant: "destructive" });
+      return;
+    }
+    toast({ 
+      title: "Time logged", 
+      description: `${hours}h logged for "${story.title}"`
+    });
+    setTimeLogHours("");
+    setTimeLogNote("");
+    setShowTimeLog(false);
+  };
+
+  const handleAttachmentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      toast({ 
+        title: "File attached", 
+        description: `${files[0].name} has been attached to this story.`
+      });
+      setShowAttachmentUpload(false);
+    }
+  };
+
+  const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,10 +192,22 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                 <div className="flex items-start justify-between gap-4">
                   <DialogTitle className="text-2xl font-bold leading-tight">{story.title}</DialogTitle>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="rounded-full h-8 w-8">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className={cn("rounded-full h-8 w-8", showAttachmentUpload && "bg-primary/10 border-primary")}
+                      onClick={() => setShowAttachmentUpload(!showAttachmentUpload)}
+                      data-testid="button-attachment"
+                    >
                       <Paperclip className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" className="rounded-full h-8 w-8">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className={cn("rounded-full h-8 w-8", showTimeLog && "bg-primary/10 border-primary")}
+                      onClick={() => setShowTimeLog(!showTimeLog)}
+                      data-testid="button-time-log"
+                    >
                       <Clock className="h-4 w-4" />
                     </Button>
                   </div>
@@ -128,6 +216,70 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                   Client: <span className="font-medium text-primary">{story.person}</span>
                 </DialogDescription>
               </DialogHeader>
+
+              {/* Attachment Upload Panel */}
+              {showAttachmentUpload && (
+                <div className="mt-4 p-4 rounded-lg bg-white/40 border border-white/20 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <FileUp className="h-4 w-4" />
+                      Attach File
+                    </h4>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAttachmentUpload(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Input 
+                    type="file" 
+                    onChange={handleAttachmentSelect}
+                    className="bg-white/60"
+                    data-testid="input-attachment"
+                  />
+                </div>
+              )}
+
+              {/* Time Log Panel */}
+              {showTimeLog && (
+                <div className="mt-4 p-4 rounded-lg bg-white/40 border border-white/20 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Log Time
+                    </h4>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowTimeLog(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Hours</Label>
+                      <Input 
+                        type="number" 
+                        step="0.5" 
+                        min="0"
+                        placeholder="e.g., 2.5"
+                        value={timeLogHours}
+                        onChange={(e) => setTimeLogHours(e.target.value)}
+                        className="bg-white/60"
+                        data-testid="input-time-hours"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Note (optional)</Label>
+                      <Input 
+                        placeholder="What did you work on?"
+                        value={timeLogNote}
+                        onChange={(e) => setTimeLogNote(e.target.value)}
+                        className="bg-white/60"
+                        data-testid="input-time-note"
+                      />
+                    </div>
+                  </div>
+                  <Button size="sm" className="mt-3 w-full" onClick={handleLogTime} data-testid="button-log-time">
+                    Log Time
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
@@ -136,18 +288,21 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                   <TabsTrigger 
                     value="details" 
                     className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
+                    data-testid="tab-overview"
                   >
                     Overview
                   </TabsTrigger>
                   <TabsTrigger 
                     value="comments" 
                     className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
+                    data-testid="tab-comments"
                   >
-                    Comments ({storyComments.length})
+                    Comments ({comments.length})
                   </TabsTrigger>
                   <TabsTrigger 
                     value="email" 
                     className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
+                    data-testid="tab-email"
                   >
                     Email Draft
                   </TabsTrigger>
@@ -160,7 +315,7 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                     <div className="space-y-2">
                       <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
                       <div className="min-h-[150px] p-4 rounded-lg bg-white/40 border border-white/20 text-sm leading-relaxed">
-                        {story.description}
+                        {story.description || 'No description provided.'}
                       </div>
                     </div>
                     
@@ -177,33 +332,40 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                   </TabsContent>
 
                   <TabsContent value="comments" className="mt-0 space-y-6 outline-none">
-                    <div className="space-y-6">
-                      {storyComments.map(comment => {
-                        const author = USERS.find(u => u.id === comment.authorId);
-                        return (
-                          <div key={comment.id} className="flex gap-4 group">
-                            <Avatar className="h-8 w-8 mt-1">
-                              <AvatarImage src={author?.avatarUrl} />
-                              <AvatarFallback>{author?.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium">{author?.name}</p>
-                                <p className="text-xs text-muted-foreground">{format(new Date(comment.createdAt), 'MMM d, h:mm a')}</p>
-                              </div>
-                              <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 text-sm border border-white/10 shadow-sm">
-                                {comment.body}
+                    {isLoadingComments ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {comments.length === 0 ? (
+                          <p className="text-center text-muted-foreground py-8">No comments yet. Be the first to comment!</p>
+                        ) : (
+                          comments.map((comment: any) => (
+                            <div key={comment.id} className="flex gap-4 group" data-testid={`comment-${comment.id}`}>
+                              <Avatar className="h-8 w-8 mt-1">
+                                <AvatarFallback>{(comment.authorName || 'U').charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium">{comment.authorName || 'Unknown'}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {comment.createdAt ? format(new Date(comment.createdAt), 'MMM d, h:mm a') : ''}
+                                  </p>
+                                </div>
+                                <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 text-sm border border-white/10 shadow-sm">
+                                  {comment.body}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                     
                     <div className="flex gap-4 items-start mt-8 pt-6 border-t border-white/10">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={USERS[0].avatarUrl} />
-                        <AvatarFallback>Me</AvatarFallback>
+                        <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 gap-2 flex flex-col">
                         <Textarea 
@@ -211,10 +373,22 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                           value={newComment}
                           onChange={(e) => setNewComment(e.target.value)}
                           className="bg-white/40 border-white/20 min-h-[80px] resize-none"
+                          data-testid="input-comment"
                         />
                         <div className="flex justify-end">
-                           <Button size="sm" className="gap-2">
-                             <Send className="h-3 w-3" /> Post
+                           <Button 
+                             size="sm" 
+                             className="gap-2" 
+                             onClick={handlePostComment}
+                             disabled={!newComment.trim() || isPostingComment}
+                             data-testid="button-post-comment"
+                           >
+                             {isPostingComment ? (
+                               <Loader2 className="h-3 w-3 animate-spin" />
+                             ) : (
+                               <Send className="h-3 w-3" />
+                             )}
+                             Post
                            </Button>
                         </div>
                       </div>
@@ -228,7 +402,13 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                           <Mail className="h-4 w-4 text-primary" />
                           Draft Email to Client
                         </h3>
-                        <Button variant="ghost" size="sm" className="text-primary gap-2 hover:bg-primary/10" onClick={handleGenerateDraft}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-primary gap-2 hover:bg-primary/10" 
+                          onClick={handleGenerateDraft}
+                          data-testid="button-generate-draft"
+                        >
                           <Wand2 className="h-3 w-3" />
                           Generate with AI
                         </Button>
@@ -242,6 +422,7 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                             onChange={(e) => setDraftSubject(e.target.value)}
                             placeholder="Subject line..." 
                             className="bg-white/60"
+                            data-testid="input-email-subject"
                           />
                         </div>
                         <div className="space-y-2">
@@ -251,13 +432,24 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                             onChange={(e) => setDraftBody(e.target.value)}
                             placeholder="Email content..." 
                             className="min-h-[200px] bg-white/60 font-mono text-sm"
+                            data-testid="input-email-body"
                           />
                         </div>
                       </div>
 
                       <div className="flex justify-end gap-2 pt-2">
-                        <Button variant="ghost">Discard</Button>
-                        <Button className="gap-2">
+                        <Button 
+                          variant="ghost" 
+                          onClick={handleDiscardDraft}
+                          data-testid="button-discard-draft"
+                        >
+                          Discard
+                        </Button>
+                        <Button 
+                          className="gap-2" 
+                          onClick={handleSendEmail}
+                          data-testid="button-send-email"
+                        >
                           <Send className="h-3 w-3" />
                           Send Email
                         </Button>

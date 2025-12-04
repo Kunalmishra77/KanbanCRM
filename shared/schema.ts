@@ -78,7 +78,8 @@ export type Story = typeof stories.$inferSelect;
 export const comments = pgTable("comments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   storyId: uuid("story_id").references(() => stories.id, { onDelete: 'cascade' }).notNull(),
-  authorId: varchar("author_id", { length: 255 }).references(() => users.id).notNull(),
+  authorId: varchar("author_id", { length: 255 }).notNull(),
+  authorName: varchar("author_name", { length: 255 }),
   body: text("body").notNull(),
   isSystem: boolean("is_system").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

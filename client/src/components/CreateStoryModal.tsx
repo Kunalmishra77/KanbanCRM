@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,6 +35,12 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
   const [date, setDate] = useState<Date>();
+
+  useEffect(() => {
+    if (open && defaultClientId) {
+      setClientId(defaultClientId);
+    }
+  }, [open, defaultClientId]);
 
   const resetForm = () => {
     setClientId(defaultClientId || "");

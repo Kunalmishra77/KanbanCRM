@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
+import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useClient, useStories, useUpdateStory } from "@/lib/queries";
 
 type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
@@ -36,6 +37,7 @@ export default function ClientDetail() {
   
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
 
   if (isLoadingClient || isLoadingStories) {
     return (
@@ -87,7 +89,11 @@ export default function ClientDetail() {
             </Badge>
           </div>
           <div className="ml-auto flex gap-2">
-             <Button className="gap-2 shadow-lg shadow-primary/20">
+             <Button 
+               className="gap-2 shadow-lg shadow-primary/20"
+               onClick={() => setIsCreateStoryOpen(true)}
+               data-testid="button-add-story"
+             >
                <Plus className="h-4 w-4" />
                Add Story
              </Button>
@@ -119,6 +125,12 @@ export default function ClientDetail() {
         story={selectedStory} 
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
+      />
+
+      <CreateStoryModal
+        open={isCreateStoryOpen}
+        onOpenChange={setIsCreateStoryOpen}
+        defaultClientId={params?.id}
       />
     </div>
   );
