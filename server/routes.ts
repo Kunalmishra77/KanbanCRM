@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema } from "@shared/schema";
 import { ZodError } from "zod";
 
@@ -9,43 +10,19 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Authentication
-  app.post("/api/auth/login", async (req, res) => {
+  // Setup Replit Auth (Google, GitHub, Apple, email login)
+  await setupAuth(app);
+  
+  // Auth routes - get current user
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const { email } = req.body;
-      
-      let user = await storage.getUserByEmail(email);
-      
-      if (!user) {
-        // Auto-create user for demo purposes
-        user = await storage.createUser({
-          email,
-          name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
-          role: 'editor',
-          avatarUrl: `https://i.pravatar.cc/150?u=${email}`,
-        });
-      }
-      
-      res.json({ user });
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ error: "Failed to login" });
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
-  });
-
-  app.get("/api/auth/me", async (req, res) => {
-    // Mock session - in production use proper session management
-    const userId = req.headers['x-user-id'] as string;
-    if (!userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    
-    const user = await storage.getUser(userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    
-    res.json({ user });
   });
 
   // Clients
