@@ -1,11 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClients, useStories, useActivityLog } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Area, AreaChart } from "recharts";
-import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { data: clients = [], isLoading: isLoadingClients } = useClients();
   const { data: stories = [], isLoading: isLoadingStories } = useStories();
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog();
@@ -39,7 +43,7 @@ export default function Dashboard() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Overview</h1>
-        <p className="text-muted-foreground">Welcome back, Alex. Here's what's happening today.</p>
+        <p className="text-muted-foreground">Welcome back, {user?.firstName || 'there'}. Here's what's happening today.</p>
       </div>
 
       {/* Hero Stats Grid */}
@@ -52,6 +56,7 @@ export default function Dashboard() {
           trendUp={true}
           color="text-green-600"
           bgColor="bg-green-100/50"
+          onClick={() => setLocation('/insights/revenue')}
         />
         <StatCard 
           title="Active Clients" 
@@ -61,6 +66,7 @@ export default function Dashboard() {
           trendUp={true}
           color="text-blue-600"
           bgColor="bg-blue-100/50"
+          onClick={() => setLocation('/insights/clients')}
         />
         <StatCard 
           title="Pending Stories" 
@@ -70,6 +76,7 @@ export default function Dashboard() {
           trendUp={false}
           color="text-orange-600"
           bgColor="bg-orange-100/50"
+          onClick={() => setLocation('/insights/stories')}
         />
         <StatCard 
           title="Completion Rate" 
@@ -79,6 +86,7 @@ export default function Dashboard() {
           trendUp={true}
           color="text-purple-600"
           bgColor="bg-purple-100/50"
+          onClick={() => setLocation('/insights/completion')}
         />
       </div>
 
@@ -203,7 +211,7 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{log.details}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                       <span className="text-xs text-muted-foreground">by Alex Chen</span>
+                       <span className="text-xs text-muted-foreground">by {user?.firstName || 'Team'} {user?.lastName || ''}</span>
                        <span className="text-[10px] text-muted-foreground/50">•</span>
                        <span className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</span>
                     </div>
@@ -219,20 +227,27 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ title, value, icon: Icon, trend, trendUp, color, bgColor }: any) {
+function StatCard({ title, value, icon: Icon, trend, trendUp, color, bgColor, onClick }: any) {
   return (
-    <Card className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300">
+    <Card 
+      className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
+      onClick={onClick}
+      data-testid={`stat-card-${title.toLowerCase().replace(/\s+/g, '-')}`}
+    >
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className={cn("p-3 rounded-xl transition-colors", bgColor)}>
             <Icon className={cn("h-6 w-6", color)} />
           </div>
-          <div className={cn(
-            "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
-            trendUp ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-          )}>
-            {trendUp ? <ArrowUpRight className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-            {trend}
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
+              trendUp ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+            )}>
+              {trendUp ? <ArrowUpRight className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+              {trend}
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
         <div className="mt-4 space-y-1">

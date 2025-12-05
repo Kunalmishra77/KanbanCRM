@@ -10,6 +10,7 @@ import GlobalKanban from "@/pages/GlobalKanban";
 import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
 import Login from "@/pages/Login";
+import { RevenueInsight, ClientsInsight, StoriesInsight, CompletionInsight } from "@/pages/Insights";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 
@@ -53,6 +54,18 @@ function Router() {
         {() => (
            <Layout><ClientDetail /></Layout>
         )}
+      </Route>
+      <Route path="/insights/revenue">
+        <ProtectedRoute component={RevenueInsight} />
+      </Route>
+      <Route path="/insights/clients">
+        <ProtectedRoute component={ClientsInsight} />
+      </Route>
+      <Route path="/insights/stories">
+        <ProtectedRoute component={StoriesInsight} />
+      </Route>
+      <Route path="/insights/completion">
+        <ProtectedRoute component={CompletionInsight} />
       </Route>
       
       <Route component={NotFound} />
