@@ -82,3 +82,84 @@ export async function generateTasksFromText(
   const result = await analyzeProposal(text, clientName);
   return result.suggestedTasks;
 }
+
+interface EmailGenerationInput {
+  storyTitle: string;
+  storyDescription: string | null;
+  storyStatus: string;
+  storyPriority: string;
+  progressPercent: number;
+  dueDate: string | null;
+  clientName: string;
+  recipientName: string | null;
+  recentComments: { authorName: string; body: string }[];
+  userNotes: string;
+  senderName: string;
+}
+
+interface GeneratedEmail {
+  subject: string;
+  body: string;
+}
+
+export async function generateStatusEmail(input: EmailGenerationInput): Promise<GeneratedEmail> {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+  const commentsContext = input.recentComments.length > 0
+    ? input.recentComments.map(c => `${c.authorName}: ${c.body}`).join('\n')
+    : 'No recent updates';
+
+  const prompt = `You are drafting a professional client update email for a project management system. Write a concise, friendly, and professional email based on the following context:
+
+PROJECT DETAILS:
+- Task: ${input.storyTitle}
+- Client Company: ${input.clientName}
+- Status: ${input.storyStatus}
+- Priority: ${input.storyPriority}
+- Progress: ${input.progressPercent}% complete
+- Due Date: ${input.dueDate || 'Not set'}
+
+TASK DESCRIPTION (summarize, don't copy verbatim):
+${input.storyDescription || 'No description provided'}
+
+RECENT TEAM UPDATES (summarize key points, don't copy verbatim):
+${commentsContext}
+
+USER'S ADDITIONAL NOTES TO INCLUDE:
+${input.userNotes || 'None'}
+
+INSTRUCTIONS:
+1. Write a professional, friendly email to the client contact (${input.recipientName || 'there'})
+2. Summarize the current status and progress naturally - don't just list percentages
+3. Highlight any important updates from the team comments
+4. Include the user's additional notes in a natural way
+5. Be concise - the email should be 3-5 short paragraphs max
+6. Don't copy the task description or comments word-for-word - summarize professionally
+7. End with an offer to answer questions
+
+Return ONLY valid JSON in this format:
+{
+  "subject": "Brief, clear subject line",
+  "body": "The email body with proper line breaks using \\n"
+}`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+    
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No valid JSON found in response");
+    }
+    
+    const parsed = JSON.parse(jsonMatch[0]) as GeneratedEmail;
+    return parsed;
+  } catch (error) {
+    console.error("Error generating email with Gemini:", error);
+    return {
+      subject: `Update on: ${input.storyTitle}`,
+      body: `Hi ${input.recipientName || 'there'},\n\nI wanted to give you a quick update on "${input.storyTitle}".\n\nWe are currently at ${input.progressPercent}% completion.\n\nPlease let me know if you have any questions.\n\nBest regards,\n${input.senderName}`
+    };
+  }
+}

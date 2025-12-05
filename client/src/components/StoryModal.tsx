@@ -54,6 +54,8 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   const [commentAttachment, setCommentAttachment] = useState<File | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
+  const [emailNotes, setEmailNotes] = useState("");
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
   const [showTimeLog, setShowTimeLog] = useState(false);
   const [timeLogHours, setTimeLogHours] = useState("");
@@ -109,61 +111,44 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
     });
   };
 
-  const handleGenerateDraft = () => {
-    setDraftSubject(`Update on: ${story.title}`);
-    const dueDate = story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'soon';
-    const recipientName = client?.contactName || 'there';
-    const progress = localProgress; // Use local progress which is updated immediately on slider change
+  const handleGenerateDraft = async () => {
+    setIsGeneratingEmail(true);
     
-    // Build priority context
-    const priorityText = story.priority === 'High' ? 'high priority' : 
-                         story.priority === 'Low' ? 'lower priority' : 'medium priority';
-    
-    // Build status context
-    const statusText = story.status === 'Done' ? 'completed' :
-                       story.status === 'In Progress' ? 'currently in progress' :
-                       story.status === 'Review' ? 'under review' : 'queued for work';
-    
-    // Build progress message based on actual percentage
-    let progressMessage = '';
-    if (progress === 0) {
-      progressMessage = 'We are just getting started on this task';
-    } else if (progress < 25) {
-      progressMessage = `We have made initial progress (${progress}% complete)`;
-    } else if (progress < 50) {
-      progressMessage = `We are making steady progress (${progress}% complete)`;
-    } else if (progress < 75) {
-      progressMessage = `We are more than halfway done (${progress}% complete)`;
-    } else if (progress < 100) {
-      progressMessage = `We are in the final stages (${progress}% complete)`;
-    } else {
-      progressMessage = 'This task has been completed (100%)';
+    try {
+      const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'The Team' : 'The Team';
+      
+      const response = await fetch(`/api/stories/${story.id}/generate-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userNotes: emailNotes,
+          progressPercent: localProgress,
+          senderName: userName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate email');
+      }
+      
+      const result = await response.json();
+      setDraftSubject(result.subject);
+      setDraftBody(result.body);
+      
+      toast({
+        title: "Email generated",
+        description: "AI has drafted your email. Feel free to edit it before sending."
+      });
+    } catch (error) {
+      console.error('Error generating email:', error);
+      toast({
+        title: "Generation failed",
+        description: "Could not generate email. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingEmail(false);
     }
-    
-    // Include description if available
-    const descriptionSection = story.description 
-      ? `\n\nTask Overview:\n${story.description}\n`
-      : '';
-    
-    // Include recent comments summary
-    let commentsSection = '';
-    if (comments && comments.length > 0) {
-      const recentComments = comments.slice(-3); // Last 3 comments
-      const commentsSummary = recentComments.map((c: any) => 
-        `- ${c.authorName}: "${c.body.substring(0, 100)}${c.body.length > 100 ? '...' : ''}"`
-      ).join('\n');
-      commentsSection = `\n\nRecent Updates:\n${commentsSummary}\n`;
-    }
-    
-    setDraftBody(`Hi ${recipientName},
-
-I wanted to give you a quick update on "${story.title}".
-
-This is a ${priorityText} task that is ${statusText}. ${progressMessage}. We expect to have this ready by ${dueDate}.${descriptionSection}${commentsSection}
-Let me know if you have any questions or need any additional information.
-
-Best regards,
-The Team`);
   };
 
   const handleDiscardDraft = () => {
@@ -605,39 +590,71 @@ The Team`);
                           <Mail className="h-4 w-4 text-primary" />
                           Draft Email to Client
                         </h3>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-primary gap-2 hover:bg-primary/10" 
-                          onClick={handleGenerateDraft}
-                          data-testid="button-generate-draft"
-                        >
-                          <Wand2 className="h-3 w-3" />
-                          Generate with AI
-                        </Button>
                       </div>
                       
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label>Subject</Label>
-                          <Input 
-                            value={draftSubject} 
-                            onChange={(e) => setDraftSubject(e.target.value)}
-                            placeholder="Subject line..." 
-                            className="bg-white/60"
-                            data-testid="input-email-subject"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Body</Label>
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider">
+                            Notes to Include (optional)
+                          </Label>
                           <Textarea 
-                            value={draftBody}
-                            onChange={(e) => setDraftBody(e.target.value)}
-                            placeholder="Email content..." 
-                            className="min-h-[200px] bg-white/60 font-mono text-sm"
-                            data-testid="input-email-body"
+                            value={emailNotes}
+                            onChange={(e) => setEmailNotes(e.target.value)}
+                            placeholder="Add any specific points you want to mention in the email... (e.g., 'We completed the design phase', 'Need client approval on mockups', 'Schedule a call for next week')"
+                            className="min-h-[80px] bg-white/60 text-sm"
+                            data-testid="input-email-notes"
                           />
+                          <p className="text-xs text-muted-foreground">
+                            The AI will use task details, progress, comments, and your notes to generate a professional email.
+                          </p>
                         </div>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full gap-2 border-primary/20 hover:bg-primary/10" 
+                          onClick={handleGenerateDraft}
+                          disabled={isGeneratingEmail}
+                          data-testid="button-generate-draft"
+                        >
+                          {isGeneratingEmail ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="h-4 w-4" />
+                              Generate with AI
+                            </>
+                          )}
+                        </Button>
+                        
+                        {(draftSubject || draftBody) && (
+                          <>
+                            <Separator />
+                            <div className="space-y-2">
+                              <Label>Subject</Label>
+                              <Input 
+                                value={draftSubject} 
+                                onChange={(e) => setDraftSubject(e.target.value)}
+                                placeholder="Subject line..." 
+                                className="bg-white/60"
+                                data-testid="input-email-subject"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Body</Label>
+                              <Textarea 
+                                value={draftBody}
+                                onChange={(e) => setDraftBody(e.target.value)}
+                                placeholder="Email content..." 
+                                className="min-h-[200px] bg-white/60 font-mono text-sm"
+                                data-testid="input-email-body"
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex justify-end gap-2 pt-2">

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupGoogleAuth, isAuthenticated } from "./googleAuth";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema } from "@shared/schema";
 import { ZodError } from "zod";
-import { analyzeProposal } from "./gemini";
+import { analyzeProposal, generateStatusEmail } from "./gemini";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -243,6 +243,52 @@ export async function registerRoutes(
       }
       console.error('Create comment error:', error);
       res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  // AI Email Draft Generation
+  app.post("/api/stories/:storyId/generate-email", async (req, res) => {
+    try {
+      const { storyId } = req.params;
+      const { userNotes, progressPercent, senderName } = req.body;
+      
+      // Get story details
+      const story = await storage.getStory(storyId);
+      if (!story) {
+        return res.status(404).json({ error: "Story not found" });
+      }
+      
+      // Get client details
+      const client = await storage.getClient(story.clientId);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+      
+      // Get recent comments
+      const allComments = await storage.getCommentsByStory(storyId);
+      const recentComments = allComments.slice(-5).map(c => ({
+        authorName: c.authorName || 'Team Member',
+        body: c.body
+      }));
+      
+      const emailResult = await generateStatusEmail({
+        storyTitle: story.title,
+        storyDescription: story.description,
+        storyStatus: story.status,
+        storyPriority: story.priority,
+        progressPercent: progressPercent ?? story.progressPercent ?? 0,
+        dueDate: story.dueDate ? new Date(story.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null,
+        clientName: client.name,
+        recipientName: client.contactName,
+        recentComments,
+        userNotes: userNotes || '',
+        senderName: senderName || 'The Team'
+      });
+      
+      res.json(emailResult);
+    } catch (error) {
+      console.error('Generate email error:', error);
+      res.status(500).json({ error: "Failed to generate email" });
     }
   });
 
