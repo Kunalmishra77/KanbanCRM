@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useComments, useCreateComment, useUpdateStory } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
@@ -58,6 +58,12 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   const [showTimeLog, setShowTimeLog] = useState(false);
   const [timeLogHours, setTimeLogHours] = useState("");
   const [timeLogNote, setTimeLogNote] = useState("");
+  const [localProgress, setLocalProgress] = useState<number>(story?.progressPercent || 0);
+
+  // Sync local progress when story prop changes (e.g., when modal opens with different story)
+  useEffect(() => {
+    setLocalProgress(story?.progressPercent || 0);
+  }, [story?.id, story?.progressPercent]);
 
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
@@ -107,7 +113,57 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
     setDraftSubject(`Update on: ${story.title}`);
     const dueDate = story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'soon';
     const recipientName = client?.contactName || 'there';
-    setDraftBody(`Hi ${recipientName},\n\nI wanted to give you a quick update on "${story.title}".\n\nWe are currently making good progress (about ${story.progressPercent || 0}% complete). We expect to have this ready by ${dueDate}.\n\nLet me know if you have any questions.\n\nBest,\nThe Team`);
+    const progress = localProgress; // Use local progress which is updated immediately on slider change
+    
+    // Build priority context
+    const priorityText = story.priority === 'High' ? 'high priority' : 
+                         story.priority === 'Low' ? 'lower priority' : 'medium priority';
+    
+    // Build status context
+    const statusText = story.status === 'Done' ? 'completed' :
+                       story.status === 'In Progress' ? 'currently in progress' :
+                       story.status === 'Review' ? 'under review' : 'queued for work';
+    
+    // Build progress message based on actual percentage
+    let progressMessage = '';
+    if (progress === 0) {
+      progressMessage = 'We are just getting started on this task';
+    } else if (progress < 25) {
+      progressMessage = `We have made initial progress (${progress}% complete)`;
+    } else if (progress < 50) {
+      progressMessage = `We are making steady progress (${progress}% complete)`;
+    } else if (progress < 75) {
+      progressMessage = `We are more than halfway done (${progress}% complete)`;
+    } else if (progress < 100) {
+      progressMessage = `We are in the final stages (${progress}% complete)`;
+    } else {
+      progressMessage = 'This task has been completed (100%)';
+    }
+    
+    // Include description if available
+    const descriptionSection = story.description 
+      ? `\n\nTask Overview:\n${story.description}\n`
+      : '';
+    
+    // Include recent comments summary
+    let commentsSection = '';
+    if (comments && comments.length > 0) {
+      const recentComments = comments.slice(-3); // Last 3 comments
+      const commentsSummary = recentComments.map((c: any) => 
+        `- ${c.authorName}: "${c.body.substring(0, 100)}${c.body.length > 100 ? '...' : ''}"`
+      ).join('\n');
+      commentsSection = `\n\nRecent Updates:\n${commentsSummary}\n`;
+    }
+    
+    setDraftBody(`Hi ${recipientName},
+
+I wanted to give you a quick update on "${story.title}".
+
+This is a ${priorityText} task that is ${statusText}. ${progressMessage}. We expect to have this ready by ${dueDate}.${descriptionSection}${commentsSection}
+Let me know if you have any questions or need any additional information.
+
+Best regards,
+The Team`);
   };
 
   const handleDiscardDraft = () => {
@@ -355,12 +411,12 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-muted-foreground text-xs uppercase tracking-wider">Progress</Label>
-                        <span className="text-sm font-medium">{story.progressPercent || 0}%</span>
+                        <span className="text-sm font-medium">{localProgress}%</span>
                       </div>
                       <div className="relative h-4 w-full bg-secondary rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-primary transition-all duration-500" 
-                          style={{ width: `${story.progressPercent || 0}%` }} 
+                          style={{ width: `${localProgress}%` }} 
                         />
                       </div>
                       <div className="flex items-center gap-3">
@@ -369,9 +425,10 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                           min="0" 
                           max="100" 
                           step="5"
-                          value={story.progressPercent || 0}
+                          value={localProgress}
                           onChange={(e) => {
                             const newProgress = parseInt(e.target.value);
+                            setLocalProgress(newProgress); // Update local state immediately
                             updateStory({
                               id: story.id,
                               data: { progressPercent: newProgress }
@@ -392,9 +449,10 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                               size="sm"
                               className={cn(
                                 "h-7 px-2 text-xs",
-                                (story.progressPercent || 0) === val && "bg-primary/10 text-primary"
+                                localProgress === val && "bg-primary/10 text-primary"
                               )}
                               onClick={() => {
+                                setLocalProgress(val); // Update local state immediately
                                 updateStory({
                                   id: story.id,
                                   data: { progressPercent: val }
