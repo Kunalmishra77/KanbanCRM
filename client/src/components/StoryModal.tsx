@@ -201,9 +201,10 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20">
-        <div className="flex h-full">
+        <div className="flex h-full overflow-hidden">
           {/* Left Sidebar: Meta & Status */}
-          <div className="w-72 bg-muted/30 border-r border-white/10 p-6 flex flex-col gap-6">
+          <ScrollArea className="w-72 bg-muted/30 border-r border-white/10">
+            <div className="p-6 flex flex-col gap-6">
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status</h4>
               <Badge variant="outline" className={cn(
@@ -254,7 +255,8 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                  ))}
                </div>
             </div>
-          </div>
+            </div>
+          </ScrollArea>
 
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-w-0">
