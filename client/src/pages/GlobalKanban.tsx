@@ -1,11 +1,11 @@
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
-import { useStories, useUpdateStory } from "@/lib/queries";
+import { useStories, useUpdateStory, useClients } from "@/lib/queries";
 
 type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
 
@@ -26,11 +26,17 @@ type Story = {
 
 export default function GlobalKanban() {
   const { data: stories = [], isLoading } = useStories();
+  const { data: clients = [] } = useClients();
   const { mutate: updateStory } = useUpdateStory();
   const { toast } = useToast();
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const selectedClient = useMemo(() => {
+    if (!selectedStory) return null;
+    return clients.find((c: any) => c.id === selectedStory.clientId) || null;
+  }, [selectedStory, clients]);
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
     updateStory({ 
@@ -88,6 +94,7 @@ export default function GlobalKanban() {
 
       <StoryModal 
         story={selectedStory} 
+        client={selectedClient}
         open={isDetailsOpen} 
         onOpenChange={setIsDetailsOpen} 
       />

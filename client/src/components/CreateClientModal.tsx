@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { useCreateClient } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { Loader2, FileUp, DollarSign, X, Sparkles, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, FileUp, DollarSign, X, Sparkles, CheckCircle2, Clock, User, Mail, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { aiAPI } from "@/lib/api";
 
@@ -49,6 +49,9 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
   const [industry, setIndustry] = useState("");
   const [stage, setStage] = useState("Warm");
   const [revenue, setRevenue] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [proposalFile, setProposalFile] = useState<File | null>(null);
   const [proposalText, setProposalText] = useState("");
   const [notes, setNotes] = useState("");
@@ -66,6 +69,9 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
     setIndustry("");
     setStage("Warm");
     setRevenue("");
+    setContactName("");
+    setContactEmail("");
+    setContactPhone("");
     setProposalFile(null);
     setProposalText("");
     setNotes("");
@@ -175,6 +181,9 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
       notes: notes.trim() || projectSummary || null,
       proposalFileName,
       proposalFileData,
+      contactName: contactName.trim() || null,
+      contactEmail: contactEmail.trim() || null,
+      contactPhone: contactPhone.trim() || null,
     }, {
       onSuccess: async (newClient: any) => {
         if (selectedTasks.length > 0 && newClient?.id) {
@@ -241,7 +250,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
         <ScrollArea className="max-h-[60vh]">
           <div className="p-6 space-y-5 bg-white/30">
             <div className="space-y-2">
-              <Label htmlFor="client-name">Client Name *</Label>
+              <Label htmlFor="client-name">Company Name *</Label>
               <Input 
                 id="client-name"
                 data-testid="input-client-name"
@@ -250,6 +259,58 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </div>
+
+            <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-4">
+              <Label className="flex items-center gap-2 text-blue-700 font-medium">
+                <User className="h-4 w-4" />
+                Client Contact Details
+              </Label>
+              
+              <div className="space-y-2">
+                <Label htmlFor="contact-name">Contact Name</Label>
+                <Input 
+                  id="contact-name"
+                  data-testid="input-contact-name"
+                  placeholder="e.g., John Smith"
+                  className="macos-input"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contact-email" className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    Email
+                  </Label>
+                  <Input 
+                    id="contact-email"
+                    data-testid="input-contact-email"
+                    type="email"
+                    placeholder="john@acme.com"
+                    className="macos-input"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-phone" className="flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    Phone
+                  </Label>
+                  <Input 
+                    id="contact-phone"
+                    data-testid="input-contact-phone"
+                    type="tel"
+                    placeholder="+1 (555) 123-4567"
+                    className="macos-input"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

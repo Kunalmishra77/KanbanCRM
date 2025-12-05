@@ -123,6 +123,7 @@ export default function ClientDetail() {
 
       <StoryModal 
         story={selectedStory} 
+        client={client}
         open={isModalOpen} 
         onOpenChange={setIsModalOpen} 
       />

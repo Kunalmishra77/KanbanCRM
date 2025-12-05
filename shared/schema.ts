@@ -43,6 +43,9 @@ export const clients = pgTable("clients", {
   notes: text("notes"),
   proposalFileName: text("proposal_file_name"),
   proposalFileData: text("proposal_file_data"),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -85,6 +88,9 @@ export const comments = pgTable("comments", {
   authorName: varchar("author_name", { length: 255 }),
   body: text("body").notNull(),
   isSystem: boolean("is_system").default(false).notNull(),
+  attachmentName: text("attachment_name"),
+  attachmentType: text("attachment_type"),
+  attachmentData: text("attachment_data"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

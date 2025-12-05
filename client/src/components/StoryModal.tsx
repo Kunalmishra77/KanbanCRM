@@ -8,11 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2 } from "lucide-react";
+import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,17 +31,27 @@ type StoryData = {
   tags?: string[] | null;
 };
 
+type ClientData = {
+  id: string;
+  name: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+};
+
 interface StoryModalProps {
   story: StoryData | null;
+  client?: ClientData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
+export function StoryModal({ story, client, open, onOpenChange }: StoryModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
   const [newComment, setNewComment] = useState("");
+  const [commentAttachment, setCommentAttachment] = useState<File | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
@@ -51,13 +61,28 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
 
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
+  const { mutate: updateStory } = useUpdateStory();
 
   if (!story) return null;
 
-  const handlePostComment = () => {
-    if (!newComment.trim()) return;
+  const handlePostComment = async () => {
+    if (!newComment.trim() && !commentAttachment) return;
     
     const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Anonymous';
+    
+    let attachmentData: string | null = null;
+    let attachmentName: string | null = null;
+    let attachmentType: string | null = null;
+    
+    if (commentAttachment) {
+      attachmentName = commentAttachment.name;
+      attachmentType = commentAttachment.type;
+      attachmentData = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(commentAttachment);
+      });
+    }
     
     createComment({
       storyId: story.id,
@@ -65,11 +90,15 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
         storyId: story.id,
         authorId: user?.id || 'system',
         authorName: userName,
-        body: newComment.trim(),
+        body: newComment.trim() || (attachmentName ? `Attached: ${attachmentName}` : ''),
+        attachmentName,
+        attachmentType,
+        attachmentData,
       }
     }, {
       onSuccess: () => {
         setNewComment("");
+        setCommentAttachment(null);
       }
     });
   };
@@ -77,7 +106,8 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
   const handleGenerateDraft = () => {
     setDraftSubject(`Update on: ${story.title}`);
     const dueDate = story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'soon';
-    setDraftBody(`Hi ${story.person || 'there'},\n\nI wanted to give you a quick update on "${story.title}".\n\nWe are currently making good progress (about ${story.progressPercent || 0}% complete). We expect to have this ready by ${dueDate}.\n\nLet me know if you have any questions.\n\nBest,\nThe Team`);
+    const recipientName = client?.contactName || 'there';
+    setDraftBody(`Hi ${recipientName},\n\nI wanted to give you a quick update on "${story.title}".\n\nWe are currently making good progress (about ${story.progressPercent || 0}% complete). We expect to have this ready by ${dueDate}.\n\nLet me know if you have any questions.\n\nBest,\nThe Team`);
   };
 
   const handleDiscardDraft = () => {
@@ -213,7 +243,10 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                   </div>
                 </div>
                 <DialogDescription className="mt-2 text-base">
-                  Client: <span className="font-medium text-primary">{story.person}</span>
+                  Client: <span className="font-medium text-primary">{client?.name || 'Unknown Client'}</span>
+                  {client?.contactName && (
+                    <span className="text-muted-foreground"> ({client.contactName})</span>
+                  )}
                 </DialogDescription>
               </DialogHeader>
 
@@ -319,15 +352,65 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                       </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <Label className="text-muted-foreground text-xs uppercase tracking-wider">Progress</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Progress</Label>
+                        <span className="text-sm font-medium">{story.progressPercent || 0}%</span>
+                      </div>
                       <div className="relative h-4 w-full bg-secondary rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-primary transition-all duration-500" 
                           style={{ width: `${story.progressPercent || 0}%` }} 
                         />
                       </div>
-                      <p className="text-right text-xs text-muted-foreground">{story.progressPercent || 0}% Complete</p>
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="100" 
+                          step="5"
+                          value={story.progressPercent || 0}
+                          onChange={(e) => {
+                            const newProgress = parseInt(e.target.value);
+                            updateStory({
+                              id: story.id,
+                              data: { progressPercent: newProgress }
+                            });
+                            toast({
+                              title: "Progress updated",
+                              description: `Progress set to ${newProgress}%`
+                            });
+                          }}
+                          className="flex-1 h-2 accent-primary cursor-pointer"
+                          data-testid="input-progress-slider"
+                        />
+                        <div className="flex gap-1">
+                          {[0, 25, 50, 75, 100].map((val) => (
+                            <Button
+                              key={val}
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-7 px-2 text-xs",
+                                (story.progressPercent || 0) === val && "bg-primary/10 text-primary"
+                              )}
+                              onClick={() => {
+                                updateStory({
+                                  id: story.id,
+                                  data: { progressPercent: val }
+                                });
+                                toast({
+                                  title: "Progress updated",
+                                  description: `Progress set to ${val}%`
+                                });
+                              }}
+                              data-testid={`button-progress-${val}`}
+                            >
+                              {val}%
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </TabsContent>
 
@@ -353,8 +436,34 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                                     {comment.createdAt ? format(new Date(comment.createdAt), 'MMM d, h:mm a') : ''}
                                   </p>
                                 </div>
-                                <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 text-sm border border-white/10 shadow-sm">
+                                <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 text-sm border border-white/10 shadow-sm space-y-2">
                                   {comment.body}
+                                  {comment.attachmentData && comment.attachmentName && (
+                                    <div className="mt-2 pt-2 border-t border-white/20">
+                                      {comment.attachmentType?.startsWith('image/') ? (
+                                        <div className="space-y-1">
+                                          <img 
+                                            src={comment.attachmentData} 
+                                            alt={comment.attachmentName}
+                                            className="max-w-full max-h-48 rounded-lg border border-white/20"
+                                          />
+                                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <Image className="h-3 w-3" />
+                                            {comment.attachmentName}
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <a 
+                                          href={comment.attachmentData} 
+                                          download={comment.attachmentName}
+                                          className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary text-sm"
+                                        >
+                                          <FileText className="h-4 w-4" />
+                                          {comment.attachmentName}
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -375,21 +484,57 @@ export function StoryModal({ story, open, onOpenChange }: StoryModalProps) {
                           className="bg-white/40 border-white/20 min-h-[80px] resize-none"
                           data-testid="input-comment"
                         />
-                        <div className="flex justify-end">
-                           <Button 
-                             size="sm" 
-                             className="gap-2" 
-                             onClick={handlePostComment}
-                             disabled={!newComment.trim() || isPostingComment}
-                             data-testid="button-post-comment"
-                           >
-                             {isPostingComment ? (
-                               <Loader2 className="h-3 w-3 animate-spin" />
-                             ) : (
-                               <Send className="h-3 w-3" />
-                             )}
-                             Post
-                           </Button>
+                        
+                        {commentAttachment && (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                            {commentAttachment.type.startsWith('image/') ? (
+                              <Image className="h-4 w-4 text-primary" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-primary" />
+                            )}
+                            <span className="text-sm flex-1 truncate">{commentAttachment.name}</span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6"
+                              onClick={() => setCommentAttachment(null)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center">
+                          <label className="cursor-pointer">
+                            <Input 
+                              type="file" 
+                              className="hidden"
+                              accept="image/*,.pdf,.doc,.docx,.txt"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setCommentAttachment(file);
+                              }}
+                              data-testid="input-comment-attachment"
+                            />
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-white/40">
+                              <Paperclip className="h-4 w-4" />
+                              Attach file
+                            </div>
+                          </label>
+                          <Button 
+                            size="sm" 
+                            className="gap-2" 
+                            onClick={handlePostComment}
+                            disabled={(!newComment.trim() && !commentAttachment) || isPostingComment}
+                            data-testid="button-post-comment"
+                          >
+                            {isPostingComment ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Send className="h-3 w-3" />
+                            )}
+                            Post
+                          </Button>
                         </div>
                       </div>
                     </div>
