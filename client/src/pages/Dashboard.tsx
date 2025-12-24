@@ -50,7 +50,7 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
           title="Total Revenue" 
-          value={`$${totalRevenue.toLocaleString()}`} 
+          value={`₹${totalRevenue.toLocaleString('en-IN')}`} 
           icon={TrendingUp} 
           trend="+12.5%"
           trendUp={true}
@@ -119,7 +119,7 @@ export default function Dashboard() {
                     fontSize={12} 
                     tickLine={false} 
                     axisLine={false} 
-                    tickFormatter={(value) => `$${value/1000}k`} 
+                    tickFormatter={(value) => `₹${value/1000}k`} 
                     dx={-10}
                   />
                   <Tooltip 

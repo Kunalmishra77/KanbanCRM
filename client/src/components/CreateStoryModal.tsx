@@ -4,14 +4,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
-import { Loader2, Calendar as CalendarIcon } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useState, useEffect } from "react";
+import { Loader2, Calendar as CalendarIcon, Check, ChevronsUpDown, User } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useClients, useCreateStory } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
+
+const ASSIGNEES_STORAGE_KEY = 'agentix-assignees';
+
+function getStoredAssignees(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(ASSIGNEES_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addAssignee(name: string) {
+  if (typeof window === 'undefined') return;
+  if (!name.trim()) return;
+  try {
+    const assignees = getStoredAssignees();
+    if (!assignees.includes(name.trim())) {
+      assignees.unshift(name.trim());
+      localStorage.setItem(ASSIGNEES_STORAGE_KEY, JSON.stringify(assignees.slice(0, 50)));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 type ClientData = {
   id: string;
@@ -34,11 +61,18 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("Medium");
   const [assignee, setAssignee] = useState("");
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState("");
+  const [storedAssignees, setStoredAssignees] = useState<string[]>([]);
   const [date, setDate] = useState<Date>();
+  const [dateOpen, setDateOpen] = useState(false);
 
   useEffect(() => {
-    if (open && defaultClientId) {
-      setClientId(defaultClientId);
+    if (open) {
+      setStoredAssignees(getStoredAssignees());
+      if (defaultClientId) {
+        setClientId(defaultClientId);
+      }
     }
   }, [open, defaultClientId]);
 
@@ -48,6 +82,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
     setDescription("");
     setPriority("Medium");
     setAssignee("");
+    setAssigneeSearch("");
     setDate(undefined);
   };
 
@@ -58,13 +93,19 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
 
     const creatorName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
 
+    const finalAssignee = assignee.trim() || creatorName || "Unassigned";
+    
+    if (assignee.trim()) {
+      addAssignee(assignee.trim());
+    }
+
     createStory({
       clientId,
       title: title.trim(),
       description: description.trim(),
       priority,
       status: "To Do",
-      person: assignee.trim() || creatorName || "Unassigned",
+      person: finalAssignee,
       assignedTo: null,
       estimatedEffortHours: 0,
       progressPercent: 0,
@@ -113,13 +154,74 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             </div>
             <div className="space-y-2">
               <Label>Assignee</Label>
-              <Input 
-                placeholder="Enter name..."
-                className="macos-input"
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-                data-testid="input-story-assignee"
-              />
+              <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={assigneeOpen}
+                    className="w-full justify-between macos-input border-input font-normal"
+                    data-testid="select-story-assignee"
+                  >
+                    <span className={cn(!assignee && "text-muted-foreground")}>
+                      {assignee || "Select or type name..."}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[250px] p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search or type new..."
+                      value={assigneeSearch}
+                      onValueChange={(value) => {
+                        setAssigneeSearch(value);
+                        setAssignee(value);
+                      }}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {assigneeSearch ? (
+                          <div 
+                            className="py-3 px-2 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                            onClick={() => {
+                              setAssignee(assigneeSearch);
+                              setAssigneeOpen(false);
+                            }}
+                          >
+                            <User className="inline-block h-4 w-4 mr-2" />
+                            Add "{assigneeSearch}"
+                          </div>
+                        ) : (
+                          "Type a name to add"
+                        )}
+                      </CommandEmpty>
+                      {storedAssignees.length > 0 && (
+                        <CommandGroup heading="Recent Assignees">
+                          {storedAssignees
+                            .filter(name => name.toLowerCase().includes(assigneeSearch.toLowerCase()))
+                            .slice(0, 8)
+                            .map((name) => (
+                              <CommandItem
+                                key={name}
+                                value={name}
+                                onSelect={() => {
+                                  setAssignee(name);
+                                  setAssigneeSearch(name);
+                                  setAssigneeOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", assignee === name ? "opacity-100" : "opacity-0")} />
+                                <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                                {name}
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -161,7 +263,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             </div>
             <div className="space-y-2">
               <Label>Due Date</Label>
-              <Popover>
+              <Popover open={dateOpen} onOpenChange={setDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant={"outline"}
@@ -172,15 +274,19 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                     data-testid="button-story-date"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                    {date ? format(date, "MMMM d, yyyy") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={setDate}
+                    onSelect={(newDate) => {
+                      setDate(newDate);
+                      setDateOpen(false);
+                    }}
                     initialFocus
+                    className="rounded-md border-0"
                   />
                 </PopoverContent>
               </Popover>

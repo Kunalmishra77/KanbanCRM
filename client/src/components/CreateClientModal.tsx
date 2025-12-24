@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { useCreateClient } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { Loader2, FileUp, DollarSign, X, Sparkles, CheckCircle2, Clock, User, Mail, Phone } from "lucide-react";
+import { Loader2, FileUp, IndianRupee, X, Sparkles, CheckCircle2, Clock, User, Mail, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { aiAPI } from "@/lib/api";
 
@@ -345,11 +345,11 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
 
             <div className="space-y-2">
               <Label htmlFor="revenue" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-green-600" />
+                <IndianRupee className="h-4 w-4 text-green-600" />
                 Expected Revenue
               </Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
                 <Input 
                   id="revenue"
                   data-testid="input-revenue"

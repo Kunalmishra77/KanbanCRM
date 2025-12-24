@@ -2,7 +2,7 @@ import { useRoute } from "wouter";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ArrowLeft, TrendingUp, DollarSign, Loader2 } from "lucide-react";
+import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -102,8 +102,8 @@ export default function ClientDetail() {
 
         <div className="flex gap-6 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <DollarSign className="h-4 w-4 text-primary" />
-            <span className="font-medium text-foreground">${Number(client.revenueTotal).toLocaleString()}</span> Revenue
+            <IndianRupee className="h-4 w-4 text-primary" />
+            <span className="font-medium text-foreground">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span> Revenue
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-4 w-4 text-primary" />

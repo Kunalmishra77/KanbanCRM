@@ -76,7 +76,7 @@ export default function Clients() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Revenue</span>
-                      <span className="font-semibold">${Number(client.revenueTotal).toLocaleString()}</span>
+                      <span className="font-semibold">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span>
                     </div>
                     
                     <div className="space-y-2">

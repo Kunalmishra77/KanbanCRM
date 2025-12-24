@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useClients, useStories } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Area, AreaChart, Line, LineChart, CartesianGrid, Legend } from "recharts";
-import { ArrowLeft, TrendingUp, Briefcase, Clock, CheckCircle2, Loader2, DollarSign, Calendar, User } from "lucide-react";
+import { ArrowLeft, TrendingUp, Briefcase, Clock, CheckCircle2, Loader2, IndianRupee, Calendar, User } from "lucide-react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -54,11 +54,11 @@ export function RevenueInsight() {
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-green-100/50">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <IndianRupee className="h-6 w-6 text-green-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold">₹{totalRevenue.toLocaleString('en-IN')}</p>
               </div>
             </div>
           </CardContent>
@@ -71,7 +71,7 @@ export function RevenueInsight() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Avg per Client</p>
-                <p className="text-2xl font-bold">${Math.round(totalRevenue / (clients.length || 1)).toLocaleString()}</p>
+                <p className="text-2xl font-bold">₹{Math.round(totalRevenue / (clients.length || 1)).toLocaleString('en-IN')}</p>
               </div>
             </div>
           </CardContent>
@@ -107,10 +107,10 @@ export function RevenueInsight() {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value/1000}k`} />
+                  <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value/1000}k`} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Revenue']}
                   />
                   <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -134,7 +134,7 @@ export function RevenueInsight() {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.9)' }}
-                    formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                    formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Revenue']}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -144,7 +144,7 @@ export function RevenueInsight() {
                 <div key={item.name} className="flex flex-col items-center gap-1">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="text-xs font-medium">{item.name}</span>
-                  <span className="text-xs text-muted-foreground">${item.value.toLocaleString()}</span>
+                  <span className="text-xs text-muted-foreground">₹{item.value.toLocaleString('en-IN')}</span>
                 </div>
               ))}
             </div>
@@ -174,7 +174,7 @@ export function RevenueInsight() {
                 )}>
                   {client.stage}
                 </Badge>
-                <p className="text-lg font-bold">${Number(client.revenueTotal || 0).toLocaleString()}</p>
+                <p className="text-lg font-bold">₹{Number(client.revenueTotal || 0).toLocaleString('en-IN')}</p>
               </div>
             ))}
           </div>
@@ -295,7 +295,7 @@ export function ClientsInsight() {
                       </div>
                       <Progress value={progress} className="h-2" />
                     </div>
-                    <p className="text-lg font-bold">${Number(client.revenueTotal || 0).toLocaleString()}</p>
+                    <p className="text-lg font-bold">₹{Number(client.revenueTotal || 0).toLocaleString('en-IN')}</p>
                   </div>
                 );
               })}
