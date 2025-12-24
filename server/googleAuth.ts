@@ -33,8 +33,18 @@ export async function setupGoogleAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Use the dev domain for Replit
-  const domain = process.env.REPLIT_DEV_DOMAIN || `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  // Detect production vs development domain for OAuth callback
+  let domain: string;
+  if (process.env.REPLIT_DEPLOYMENT === '1' && process.env.REPLIT_DOMAINS) {
+    // Production deployment - use the first domain from REPLIT_DOMAINS
+    domain = process.env.REPLIT_DOMAINS.split(',')[0];
+  } else if (process.env.REPLIT_DEV_DOMAIN) {
+    // Development environment
+    domain = process.env.REPLIT_DEV_DOMAIN;
+  } else {
+    // Fallback for older Replit environments
+    domain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  }
   const callbackURL = `https://${domain}/api/auth/google/callback`;
   
   console.log("Google OAuth callback URL:", callbackURL);
