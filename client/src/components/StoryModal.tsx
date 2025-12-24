@@ -8,11 +8,21 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText } from "lucide-react";
+import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment, useUpdateStory } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory, useDeleteStory } from "@/lib/queries";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -67,9 +77,12 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
     setLocalProgress(story?.progressPercent || 0);
   }, [story?.id, story?.progressPercent]);
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
+  const { mutate: deleteStory } = useDeleteStory();
 
   if (!story) return null;
 
@@ -199,6 +212,7 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20">
         <div className="flex h-full overflow-hidden">
@@ -282,6 +296,15 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                       data-testid="button-time-log"
                     >
                       <Clock className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="rounded-full h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      data-testid="button-delete-story"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -685,5 +708,31 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent className="macos-panel">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Story</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete "{story.title}"? This will also delete all comments associated with this story. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => {
+              deleteStory(story.id);
+              setShowDeleteConfirm(false);
+              onOpenChange(false);
+            }}
+            data-testid="button-confirm-delete-story"
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

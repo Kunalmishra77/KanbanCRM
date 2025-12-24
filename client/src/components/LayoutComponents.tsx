@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Bell, Plus } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { USERS } from "@/lib/mockData";
+import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -124,10 +125,7 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="rounded-full hover:bg-black/5 relative h-9 w-9">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500 border-2 border-white" />
-        </Button>
+        <NotificationsDropdown />
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

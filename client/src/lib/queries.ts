@@ -50,6 +50,25 @@ export function useUpdateClient() {
   });
 }
 
+export function useDeleteClient() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => clientsAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'stories' });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'comments' });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      toast({ title: "Client deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete client", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
 // Stories queries
 export function useStories(clientId?: string) {
   return useQuery({
@@ -92,6 +111,26 @@ export function useUpdateStory() {
     mutationFn: ({ id, data }: { id: string; data: any }) => storiesAPI.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+export function useDeleteStory() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => storiesAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'stories' });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'comments' });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast({ title: "Story deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete story", description: error.message, variant: "destructive" });
     },
   });
 }
