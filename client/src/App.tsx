@@ -11,6 +11,7 @@ import Clients from "@/pages/Clients";
 import ClientDetail from "@/pages/ClientDetail";
 import Login from "@/pages/Login";
 import { RevenueInsight, ClientsInsight, StoriesInsight, CompletionInsight } from "@/pages/Insights";
+import Settings from "@/pages/Settings";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 
@@ -66,6 +67,9 @@ function Router() {
       </Route>
       <Route path="/insights/completion">
         <ProtectedRoute component={CompletionInsight} />
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute component={Settings} />
       </Route>
       
       <Route component={NotFound} />
