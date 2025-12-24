@@ -97,7 +97,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClient(id: string): Promise<boolean> {
-    const result = await db.delete(clients).where(eq(clients.id, id));
+    const result = await db.delete(clients).where(eq(clients.id, id)).returning();
     return result.length > 0;
   }
 
@@ -130,7 +130,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteStory(id: string): Promise<boolean> {
-    const result = await db.delete(stories).where(eq(stories.id, id));
+    const result = await db.delete(stories).where(eq(stories.id, id)).returning();
     return result.length > 0;
   }
 
