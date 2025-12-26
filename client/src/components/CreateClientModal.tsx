@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { useCreateClient } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { Loader2, IndianRupee, User, Mail, Phone } from "lucide-react";
+import { Loader2, IndianRupee, User, Mail, Phone, Receipt, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const INDUSTRIES = [
@@ -229,6 +229,17 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
+            </div>
+
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-amber-600" />
+                <Label className="text-amber-700 font-medium">Invoices & Documents</Label>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-amber-700">
+                <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p>After creating this client, you can add invoices and documents by clicking on the client and going to the <strong>Invoices</strong> tab. Each invoice will track your revenue collection against the expected amount.</p>
+              </div>
             </div>
           </div>
         </ScrollArea>

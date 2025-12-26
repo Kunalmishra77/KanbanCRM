@@ -2,7 +2,7 @@ import { useClients, useDeleteClient } from "@/lib/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Briefcase, TrendingUp, MoreHorizontal, Loader2, Trash2 } from "lucide-react";
+import { Plus, Briefcase, TrendingUp, MoreHorizontal, Loader2, Trash2, Receipt } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -32,6 +32,7 @@ type ClientData = {
   industry: string;
   stage: string;
   averageProgress: string | number;
+  expectedRevenue: string | number;
   revenueTotal: string | number;
   createdAt: string;
   updatedAt: string;
@@ -97,9 +98,32 @@ export default function Clients() {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Revenue</span>
-                        <span className="font-semibold">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span>
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Receipt className="h-3 w-3" />
+                          Revenue
+                        </span>
+                        <div className="text-right">
+                          <span className="font-semibold">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span>
+                          {Number(client.expectedRevenue) > 0 && (
+                            <span className="text-xs text-muted-foreground"> / ₹{Number(client.expectedRevenue).toLocaleString('en-IN')}</span>
+                          )}
+                        </div>
                       </div>
+                      
+                      {Number(client.expectedRevenue) > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Revenue Collected</span>
+                            <span>{((Number(client.revenueTotal) / Number(client.expectedRevenue)) * 100).toFixed(0)}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-green-500 transition-all duration-500" 
+                              style={{ width: `${Math.min((Number(client.revenueTotal) / Number(client.expectedRevenue)) * 100, 100)}%` }} 
+                            />
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs text-muted-foreground">
