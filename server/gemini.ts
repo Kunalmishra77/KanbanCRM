@@ -19,7 +19,7 @@ export async function analyzeProposal(
   proposalText: string,
   clientName: string
 ): Promise<ExtractedProposalData> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const prompt = `You are analyzing a business proposal/contract for a CRM system. Extract the following information from the proposal text and return it as JSON:
 
@@ -103,7 +103,7 @@ interface GeneratedEmail {
 }
 
 export async function generateStatusEmail(input: EmailGenerationInput): Promise<GeneratedEmail> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   const commentsContext = input.recentComments.length > 0
     ? input.recentComments.map(c => `${c.authorName}: ${c.body}`).join('\n')
