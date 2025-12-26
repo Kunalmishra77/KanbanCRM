@@ -2,13 +2,21 @@ import { useRoute } from "wouter";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2 } from "lucide-react";
+import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2, FileText, Trash2, Pencil, Upload, X, Receipt } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
-import { useClient, useStories, useUpdateStory } from "@/lib/queries";
+import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from "@/lib/queries";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
 type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
 
@@ -27,17 +35,45 @@ type Story = {
   tags?: string[] | null;
 };
 
+type Invoice = {
+  id: string;
+  clientId: string;
+  label: string;
+  amount: string;
+  issuedOn: string;
+  status: string;
+  fileName?: string | null;
+  fileType?: string | null;
+  fileData?: string | null;
+  notes?: string | null;
+};
+
 export default function ClientDetail() {
   const [match, params] = useRoute("/clients/:id");
   const { toast } = useToast();
   
   const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
   const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useInvoices(params?.id || '');
   const { mutate: updateStory } = useUpdateStory();
+  const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();
+  const { mutate: updateInvoice, isPending: isUpdatingInvoice } = useUpdateInvoice();
+  const { mutate: deleteInvoice } = useDeleteInvoice();
   
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [invoiceForm, setInvoiceForm] = useState({
+    label: '',
+    amount: '',
+    issuedOn: format(new Date(), 'yyyy-MM-dd'),
+    notes: '',
+    fileName: '',
+    fileData: '',
+    fileType: '',
+  });
 
   if (isLoadingClient || isLoadingStories) {
     return (
@@ -67,9 +103,100 @@ export default function ClientDetail() {
     setIsModalOpen(true);
   };
 
+  const expectedRevenue = Number(client.expectedRevenue || 0);
+  const receivedRevenue = Number(client.revenueTotal || 0);
+  const revenueProgress = expectedRevenue > 0 ? (receivedRevenue / expectedRevenue) * 100 : 0;
+
+  const openAddInvoiceModal = () => {
+    setEditingInvoice(null);
+    setInvoiceForm({
+      label: '',
+      amount: '',
+      issuedOn: format(new Date(), 'yyyy-MM-dd'),
+      notes: '',
+      fileName: '',
+      fileData: '',
+      fileType: '',
+    });
+    setIsInvoiceModalOpen(true);
+  };
+
+  const openEditInvoiceModal = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setInvoiceForm({
+      label: invoice.label,
+      amount: invoice.amount,
+      issuedOn: format(new Date(invoice.issuedOn), 'yyyy-MM-dd'),
+      notes: invoice.notes || '',
+      fileName: invoice.fileName || '',
+      fileData: invoice.fileData || '',
+      fileType: invoice.fileType || '',
+    });
+    setIsInvoiceModalOpen(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB", variant: "destructive" });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setInvoiceForm(prev => ({
+        ...prev,
+        fileName: file.name,
+        fileType: file.type,
+        fileData: reader.result as string,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitInvoice = () => {
+    if (!invoiceForm.label.trim() || !invoiceForm.amount) {
+      toast({ title: "Please fill required fields", variant: "destructive" });
+      return;
+    }
+
+    const invoiceData = {
+      label: invoiceForm.label,
+      amount: invoiceForm.amount,
+      issuedOn: invoiceForm.issuedOn,
+      notes: invoiceForm.notes || null,
+      fileName: invoiceForm.fileName || null,
+      fileType: invoiceForm.fileType || null,
+      fileData: invoiceForm.fileData || null,
+    };
+
+    if (editingInvoice) {
+      updateInvoice({ id: editingInvoice.id, data: invoiceData }, {
+        onSuccess: () => setIsInvoiceModalOpen(false),
+      });
+    } else {
+      createInvoice({ clientId: params?.id || '', data: invoiceData }, {
+        onSuccess: () => setIsInvoiceModalOpen(false),
+      });
+    }
+  };
+
+  const handleDeleteInvoice = (invoiceId: string) => {
+    deleteInvoice(invoiceId);
+  };
+
+  const downloadInvoiceFile = (invoice: Invoice) => {
+    if (!invoice.fileData) return;
+    const link = document.createElement('a');
+    link.href = invoice.fileData;
+    link.download = invoice.fileName || 'invoice';
+    link.click();
+  };
+
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col gap-4 border-b border-white/10 pb-4">
         <div className="flex items-center gap-2">
           <Link href="/clients">
@@ -102,8 +229,12 @@ export default function ClientDetail() {
 
         <div className="flex gap-6 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
+            <IndianRupee className="h-4 w-4 text-green-500" />
+            <span className="font-medium text-foreground">₹{expectedRevenue.toLocaleString('en-IN')}</span> Expected
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
             <IndianRupee className="h-4 w-4 text-primary" />
-            <span className="font-medium text-foreground">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span> Revenue
+            <span className="font-medium text-foreground">₹{receivedRevenue.toLocaleString('en-IN')}</span> Received
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -112,14 +243,203 @@ export default function ClientDetail() {
         </div>
       </div>
 
-      {/* Kanban */}
-      <div className="flex-1 min-h-0">
-        <KanbanBoard 
-          stories={allStories} 
-          onStoryMove={handleStoryMove} 
-          onStoryClick={handleStoryClick}
-        />
-      </div>
+      <Tabs defaultValue="kanban" className="flex-1 min-h-0 flex flex-col">
+        <TabsList className="w-fit">
+          <TabsTrigger value="kanban" data-testid="tab-kanban">Kanban Board</TabsTrigger>
+          <TabsTrigger value="invoices" data-testid="tab-invoices">
+            Invoices ({invoices.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="kanban" className="flex-1 min-h-0 mt-4">
+          <KanbanBoard 
+            stories={allStories} 
+            onStoryMove={handleStoryMove} 
+            onStoryClick={handleStoryClick}
+          />
+        </TabsContent>
+
+        <TabsContent value="invoices" className="flex-1 min-h-0 mt-4 overflow-auto">
+          <div className="space-y-4">
+            <div className="macos-card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold">Revenue Tracking</h3>
+                  <p className="text-sm text-muted-foreground">
+                    ₹{receivedRevenue.toLocaleString('en-IN')} received of ₹{expectedRevenue.toLocaleString('en-IN')} expected
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold text-primary">{revenueProgress.toFixed(0)}%</span>
+                  <p className="text-xs text-muted-foreground">collected</p>
+                </div>
+              </div>
+              <Progress value={revenueProgress} className="h-2" />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Invoices</h3>
+              <Button onClick={openAddInvoiceModal} size="sm" className="gap-2" data-testid="button-add-invoice">
+                <Plus className="h-4 w-4" />
+                Add Invoice
+              </Button>
+            </div>
+
+            {isLoadingInvoices ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : invoices.length === 0 ? (
+              <div className="macos-card p-8 text-center">
+                <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">No invoices yet</p>
+                <p className="text-sm text-muted-foreground">Add invoices to track your revenue collection</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {invoices.map((invoice: Invoice) => (
+                  <div key={invoice.id} className="macos-card p-4 flex items-center justify-between" data-testid={`invoice-${invoice.id}`}>
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{invoice.label}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(invoice.issuedOn), 'MMM d, yyyy')}
+                          {invoice.notes && ` • ${invoice.notes}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-semibold text-lg">₹{parseFloat(invoice.amount).toLocaleString('en-IN')}</span>
+                      <div className="flex gap-1">
+                        {invoice.fileData && (
+                          <Button variant="ghost" size="sm" onClick={() => downloadInvoiceFile(invoice)} data-testid={`download-invoice-${invoice.id}`}>
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => openEditInvoiceModal(invoice)} data-testid={`edit-invoice-${invoice.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" data-testid={`delete-invoice-${invoice.id}`}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{invoice.label}"? This will also update the total received revenue for this client.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={isInvoiceModalOpen} onOpenChange={setIsInvoiceModalOpen}>
+        <DialogContent className="macos-panel sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingInvoice ? 'Edit Invoice' : 'Add Invoice'}</DialogTitle>
+            <DialogDescription>
+              {editingInvoice ? 'Update invoice details' : 'Add a new invoice to track revenue'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invoice-label">Invoice Label *</Label>
+              <Input
+                id="invoice-label"
+                placeholder="e.g., Invoice #1 - Phase 1"
+                value={invoiceForm.label}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, label: e.target.value }))}
+                data-testid="input-invoice-label"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invoice-amount">Amount (₹) *</Label>
+              <Input
+                id="invoice-amount"
+                type="number"
+                placeholder="40000"
+                value={invoiceForm.amount}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, amount: e.target.value }))}
+                data-testid="input-invoice-amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invoice-date">Issue Date</Label>
+              <Input
+                id="invoice-date"
+                type="date"
+                value={invoiceForm.issuedOn}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, issuedOn: e.target.value }))}
+                data-testid="input-invoice-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invoice-notes">Notes</Label>
+              <Textarea
+                id="invoice-notes"
+                placeholder="Optional notes about this invoice"
+                value={invoiceForm.notes}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, notes: e.target.value }))}
+                data-testid="input-invoice-notes"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Attachment</Label>
+              {invoiceForm.fileName ? (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span className="text-sm flex-1 truncate">{invoiceForm.fileName}</span>
+                  <Button variant="ghost" size="sm" onClick={() => setInvoiceForm(prev => ({ ...prev, fileName: '', fileData: '', fileType: '' }))}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                  <input
+                    type="file"
+                    id="invoice-file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    onChange={handleFileUpload}
+                  />
+                  <label htmlFor="invoice-file" className="cursor-pointer">
+                    <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Click to upload invoice file</p>
+                    <p className="text-xs text-muted-foreground">PDF, DOC, or image (max 5MB)</p>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInvoiceModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmitInvoice} disabled={isCreatingInvoice || isUpdatingInvoice} data-testid="button-save-invoice">
+              {(isCreatingInvoice || isUpdatingInvoice) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingInvoice ? 'Update' : 'Add'} Invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <StoryModal 
         story={selectedStory} 

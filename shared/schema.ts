@@ -39,6 +39,7 @@ export const clients = pgTable("clients", {
   industry: text("industry").notNull(),
   stage: text("stage").notNull().default('Warm'),
   averageProgress: numeric("average_progress").default('0').notNull(),
+  expectedRevenue: numeric("expected_revenue").default('0').notNull(),
   revenueTotal: numeric("revenue_total").default('0').notNull(),
   notes: text("notes"),
   proposalFileName: text("proposal_file_name"),
@@ -112,3 +113,25 @@ export const activityLog = pgTable("activity_log", {
 export const insertActivityLogSchema = createInsertSchema(activityLog).omit({ id: true, createdAt: true });
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLog.$inferSelect;
+
+// Invoices table
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
+  label: text("label").notNull(),
+  amount: numeric("amount").notNull(),
+  issuedOn: timestamp("issued_on").defaultNow().notNull(),
+  status: text("status").notNull().default('pending'),
+  fileName: text("file_name"),
+  fileType: text("file_type"),
+  fileData: text("file_data"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateInvoiceSchema = insertInvoiceSchema.partial();
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type UpdateInvoice = z.infer<typeof updateInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;

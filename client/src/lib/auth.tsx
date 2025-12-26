@@ -1,5 +1,6 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { setCurrentUserId } from "./api";
 
 type User = {
   id: string;
@@ -26,6 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    if (user?.id) {
+      setCurrentUserId(user.id);
+    } else if (user === null) {
+      setCurrentUserId(null);
+    }
+  }, [user]);
 
   const login = () => {
     window.location.href = "/api/login";

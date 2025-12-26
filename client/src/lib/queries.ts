@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -166,5 +166,69 @@ export function useActivityLog(limit = 10) {
   return useQuery({
     queryKey: ['activity', limit],
     queryFn: () => activityAPI.getAll(limit),
+  });
+}
+
+// Invoice queries
+export function useInvoices(clientId: string) {
+  return useQuery({
+    queryKey: ['invoices', clientId],
+    queryFn: () => invoicesAPI.getByClient(clientId),
+    enabled: !!clientId,
+  });
+}
+
+export function useCreateInvoice() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ clientId, data }: { clientId: string; data: any }) => 
+      invoicesAPI.create(clientId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      toast({ title: "Invoice added successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add invoice", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateInvoice() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => invoicesAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'invoices' });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      toast({ title: "Invoice updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update invoice", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useDeleteInvoice() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => invoicesAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'invoices' });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      toast({ title: "Invoice deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete invoice", description: error.message, variant: "destructive" });
+    },
   });
 }

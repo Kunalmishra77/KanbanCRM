@@ -1,18 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClients, useStories, useActivityLog } from "@/lib/queries";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Area, AreaChart } from "recharts";
-import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from "recharts";
+import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
+import { Progress } from "@/components/ui/progress";
+import type { Client, Story, ActivityLog } from "@shared/schema";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const { data: clients = [], isLoading: isLoadingClients } = useClients();
-  const { data: stories = [], isLoading: isLoadingStories } = useStories();
-  const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog();
+  const { data: clients = [], isLoading: isLoadingClients } = useClients() as { data: Client[], isLoading: boolean };
+  const { data: stories = [], isLoading: isLoadingStories } = useStories() as { data: Story[], isLoading: boolean };
+  const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog() as { data: ActivityLog[], isLoading: boolean };
 
   if (isLoadingClients || isLoadingStories || isLoadingActivity) {
     return (
@@ -22,15 +24,18 @@ export default function Dashboard() {
     );
   }
 
-  const totalRevenue = clients.reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0);
+  const totalExpected = clients.reduce((acc, c) => acc + Number(c.expectedRevenue || 0), 0);
+  const totalReceived = clients.reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0);
   const totalStories = stories.length;
   const activeClients = clients.length;
   const completedStories = stories.filter(s => s.status === 'Done').length;
   const completionRate = Math.round((completedStories / totalStories) * 100) || 0;
+  const collectionRate = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0;
 
   const revenueData = clients.map(c => ({
     name: c.name.split(' ')[0], 
-    revenue: Number(c.revenueTotal || 0),
+    expected: Number(c.expectedRevenue || 0),
+    received: Number(c.revenueTotal || 0),
   }));
 
   const statusDistribution = [
@@ -49,10 +54,10 @@ export default function Dashboard() {
       {/* Hero Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
-          title="Total Revenue" 
-          value={`₹${totalRevenue.toLocaleString('en-IN')}`} 
+          title="Expected Revenue" 
+          value={`₹${totalExpected.toLocaleString('en-IN')}`} 
           icon={TrendingUp} 
-          trend="+12.5%"
+          trend={`₹${totalReceived.toLocaleString('en-IN')} received`}
           trendUp={true}
           color="text-green-600"
           bgColor="bg-green-100/50"
@@ -91,19 +96,35 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-7">
-        {/* Revenue Chart - Main Focus */}
+        {/* Revenue Chart - Expected vs Received */}
         <Card className="col-span-7 lg:col-span-4 macos-card border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-semibold">Revenue by Client</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold">Expected vs Received Revenue</CardTitle>
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-green-500/70" />
+                  <span className="text-muted-foreground">Expected</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-primary" />
+                  <span className="text-muted-foreground">Received</span>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="pl-0">
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                    <linearGradient id="colorExpected" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.7}/>
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0.3}/>
+                    </linearGradient>
+                    <linearGradient id="colorReceived" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.9}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.5}/>
                     </linearGradient>
                   </defs>
                   <XAxis 
@@ -132,12 +153,21 @@ export default function Dashboard() {
                       boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
                       padding: '12px'
                     }}
+                    formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
                   />
                   <Bar 
-                    dataKey="revenue" 
-                    fill="url(#colorRevenue)" 
+                    dataKey="expected" 
+                    name="Expected"
+                    fill="url(#colorExpected)" 
                     radius={[6, 6, 0, 0]} 
-                    barSize={40} 
+                    barSize={20} 
+                  />
+                  <Bar 
+                    dataKey="received" 
+                    name="Received"
+                    fill="url(#colorReceived)" 
+                    radius={[6, 6, 0, 0]} 
+                    barSize={20} 
                   />
                 </BarChart>
               </ResponsiveContainer>

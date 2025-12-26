@@ -4,10 +4,11 @@ import {
   type Story, type InsertStory, type UpdateStory,
   type Comment, type InsertComment,
   type ActivityLog, type InsertActivityLog,
-  users, clients, stories, comments, activityLog
+  type Invoice, type InsertInvoice, type UpdateInvoice,
+  users, clients, stories, comments, activityLog, invoices
 } from "@shared/schema";
 import { db } from "../db/index";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -38,6 +39,14 @@ export interface IStorage {
   // Activity Log
   getActivityLog(limit?: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  
+  // Invoices
+  getInvoicesByClient(clientId: string): Promise<Invoice[]>;
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  updateInvoice(id: string, invoice: UpdateInvoice): Promise<Invoice | undefined>;
+  deleteInvoice(id: string): Promise<boolean>;
+  recalculateClientRevenue(clientId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -152,6 +161,51 @@ export class DatabaseStorage implements IStorage {
   async createActivityLog(insertLog: InsertActivityLog): Promise<ActivityLog> {
     const [log] = await db.insert(activityLog).values(insertLog).returning();
     return log;
+  }
+
+  // Invoices
+  async getInvoicesByClient(clientId: string): Promise<Invoice[]> {
+    return db.select().from(invoices).where(eq(invoices.clientId, clientId)).orderBy(desc(invoices.issuedOn));
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice;
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const [invoice] = await db.insert(invoices).values(insertInvoice).returning();
+    await this.recalculateClientRevenue(insertInvoice.clientId);
+    return invoice;
+  }
+
+  async updateInvoice(id: string, updateInvoice: UpdateInvoice): Promise<Invoice | undefined> {
+    const [invoice] = await db
+      .update(invoices)
+      .set({ ...updateInvoice, updatedAt: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    if (invoice) {
+      await this.recalculateClientRevenue(invoice.clientId);
+    }
+    return invoice;
+  }
+
+  async deleteInvoice(id: string): Promise<boolean> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    if (!invoice) return false;
+    
+    const result = await db.delete(invoices).where(eq(invoices.id, id)).returning();
+    if (result.length > 0) {
+      await this.recalculateClientRevenue(invoice.clientId);
+    }
+    return result.length > 0;
+  }
+
+  async recalculateClientRevenue(clientId: string): Promise<void> {
+    const clientInvoices = await this.getInvoicesByClient(clientId);
+    const totalReceived = clientInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    await db.update(clients).set({ revenueTotal: totalReceived.toString(), updatedAt: new Date() }).where(eq(clients.id, clientId));
   }
 }
 

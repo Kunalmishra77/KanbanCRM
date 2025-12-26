@@ -122,3 +122,19 @@ export const aiAPI = {
       body: JSON.stringify({ tasks }),
     }),
 };
+
+// Invoices API
+export const invoicesAPI = {
+  getByClient: (clientId: string) => fetchAPI(`/clients/${clientId}/invoices`),
+  create: (clientId: string, data: any) => fetchAPI(`/clients/${clientId}/invoices`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id: string, data: any) => fetchAPI(`/invoices/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => fetchAPI(`/invoices/${id}`, {
+    method: 'DELETE',
+  }),
+};

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupGoogleAuth, isAuthenticated } from "./googleAuth";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema } from "@shared/schema";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini";
 
@@ -374,6 +374,109 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Get activity error:', error);
       res.status(500).json({ error: "Failed to fetch activity log" });
+    }
+  });
+
+  // Invoices
+  app.get("/api/clients/:clientId/invoices", async (req, res) => {
+    try {
+      const invoicesList = await storage.getInvoicesByClient(req.params.clientId);
+      res.json(invoicesList);
+    } catch (error) {
+      console.error('Get invoices error:', error);
+      res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/invoices", async (req, res) => {
+    try {
+      const data = insertInvoiceSchema.parse({
+        ...req.body,
+        clientId: req.params.clientId,
+        issuedOn: req.body.issuedOn ? new Date(req.body.issuedOn) : new Date(),
+      });
+      const invoice = await storage.createInvoice(data);
+      
+      const userId = req.headers['x-user-id'] as string;
+      if (userId) {
+        const client = await storage.getClient(req.params.clientId);
+        await storage.createActivityLog({
+          entityType: 'invoice',
+          entityId: invoice.id,
+          action: 'created',
+          userId,
+          details: `Added invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) to ${client?.name || 'client'}`,
+        });
+      }
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create invoice error:', error);
+      res.status(500).json({ error: "Failed to create invoice" });
+    }
+  });
+
+  app.patch("/api/invoices/:id", async (req, res) => {
+    try {
+      const data = updateInvoiceSchema.parse({
+        ...req.body,
+        issuedOn: req.body.issuedOn ? new Date(req.body.issuedOn) : undefined,
+      });
+      const invoice = await storage.updateInvoice(req.params.id, data);
+      
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      const userId = req.headers['x-user-id'] as string;
+      if (userId) {
+        const client = await storage.getClient(invoice.clientId);
+        await storage.createActivityLog({
+          entityType: 'invoice',
+          entityId: invoice.id,
+          action: 'updated',
+          userId,
+          details: `Updated invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) for ${client?.name || 'client'}`,
+        });
+      }
+      
+      res.json(invoice);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Update invoice error:', error);
+      res.status(500).json({ error: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      const success = await storage.deleteInvoice(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      const userId = req.headers['x-user-id'] as string;
+      if (userId && invoice) {
+        const client = await storage.getClient(invoice.clientId);
+        await storage.createActivityLog({
+          entityType: 'invoice',
+          entityId: invoice.id,
+          action: 'deleted',
+          userId,
+          details: `Deleted invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) from ${client?.name || 'client'}`,
+        });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete invoice error:', error);
+      res.status(500).json({ error: "Failed to delete invoice" });
     }
   });
 

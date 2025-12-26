@@ -54,9 +54,10 @@ Preferred communication style: Simple, everyday language.
 
 **Data Models**
 - **Users**: Authentication, profile data, role-based access (admin/editor/viewer)
-- **Clients**: Company information, ownership, industry, stage tracking, revenue metrics
+- **Clients**: Company information, ownership, industry, stage tracking, expectedRevenue, revenueTotal (calculated from invoices)
 - **Stories**: Project tasks with Kanban status, priority, assignments, progress tracking
 - **Comments**: Threaded discussions on stories with author attribution
+- **Invoices**: Client invoices with label, amount, issuedOn date, file attachments (base64)
 - **Activity Log**: Audit trail of system actions and changes
 - **Sessions**: Server-side session storage using connect-pg-simple
 
@@ -68,7 +69,8 @@ Preferred communication style: Simple, everyday language.
 - Callback URL handling for Replit deployment environments
 
 **API Architecture**
-- RESTful endpoints organized by resource (clients, stories, comments, activity)
+- RESTful endpoints organized by resource (clients, stories, comments, activity, invoices)
+- Invoice endpoints: GET/POST /api/clients/:id/invoices, PATCH/DELETE /api/invoices/:id
 - Request validation using Zod schemas
 - Error handling with appropriate HTTP status codes
 - CORS configuration for cross-origin requests
