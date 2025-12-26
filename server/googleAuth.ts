@@ -5,6 +5,18 @@ import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
+// Allowlist of emails that are co-founders with admin access
+const CO_FOUNDER_EMAILS = [
+  'vitalsaigorrela@gmail.com',
+  'anantsanadhya@gmail.com',
+  'myai@ai-agentix.com',
+];
+
+export function isCoFounderEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return CO_FOUNDER_EMAILS.includes(email.toLowerCase());
+}
+
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
@@ -63,6 +75,11 @@ export async function setupGoogleAuth(app: Express) {
           const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
           const lastName = profile.name?.familyName || null;
           const profileImageUrl = profile.photos?.[0]?.value || null;
+          
+          // Determine user type and role based on email allowlist
+          const isCoFounder = isCoFounderEmail(email);
+          const userType = isCoFounder ? 'co-founder' : 'employee';
+          const role = isCoFounder ? 'admin' : 'editor';
 
           const user = await storage.upsertUser({
             id: profile.id,
@@ -70,6 +87,8 @@ export async function setupGoogleAuth(app: Express) {
             firstName,
             lastName,
             profileImageUrl,
+            userType,
+            role,
           });
 
           done(null, user);

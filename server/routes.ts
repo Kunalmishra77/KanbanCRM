@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupGoogleAuth, isAuthenticated } from "./googleAuth";
+import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini";
@@ -480,10 +480,10 @@ export async function registerRoutes(
     }
   });
 
-  // Users (for internal dashboard - co-founders only)
+  // Users (for internal dashboard - co-founders only, verified by email allowlist)
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.userType !== 'co-founder') {
+      if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can view team members" });
       }
       
@@ -497,7 +497,7 @@ export async function registerRoutes(
 
   app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.userType !== 'co-founder') {
+      if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can update user profiles" });
       }
       
@@ -518,10 +518,10 @@ export async function registerRoutes(
     }
   });
 
-  // Founder Investments
+  // Founder Investments (verified by email allowlist)
   app.get("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.userType !== 'co-founder') {
+      if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can view investments" });
       }
       
@@ -535,7 +535,7 @@ export async function registerRoutes(
 
   app.post("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.userType !== 'co-founder') {
+      if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can add investments" });
       }
       
@@ -557,7 +557,7 @@ export async function registerRoutes(
 
   app.patch("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.userType !== 'co-founder') {
+      if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can update investments" });
       }
       
@@ -583,7 +583,7 @@ export async function registerRoutes(
 
   app.delete("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (req.user?.userType !== 'co-founder') {
+      if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can delete investments" });
       }
       
