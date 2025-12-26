@@ -53,16 +53,34 @@ export default function Dashboard() {
 
       {/* Hero Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-          title="Expected Revenue" 
-          value={`₹${totalExpected.toLocaleString('en-IN')}`} 
-          icon={TrendingUp} 
-          trend={`₹${totalReceived.toLocaleString('en-IN')} received`}
-          trendUp={true}
-          color="text-green-600"
-          bgColor="bg-green-100/50"
+        <Card 
+          className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
           onClick={() => setLocation('/insights/revenue')}
-        />
+          data-testid="stat-card-revenue"
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-xl bg-green-100/50">
+                <IndianRupee className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                <TrendingUp className="h-3 w-3" />
+                {collectionRate}% collected
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Revenue</h3>
+                <div className="text-2xl font-bold tracking-tight text-foreground">₹{totalExpected.toLocaleString('en-IN')}</div>
+              </div>
+              <div className="h-px bg-border" />
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Received Revenue</h3>
+                <div className="text-xl font-semibold tracking-tight text-green-600">₹{totalReceived.toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <StatCard 
           title="Active Clients" 
           value={activeClients.toString()} 
