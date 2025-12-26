@@ -53,11 +53,12 @@ Preferred communication style: Simple, everyday language.
 - Database connection pooling via postgres.js client
 
 **Data Models**
-- **Users**: Authentication, profile data, role-based access (admin/editor/viewer)
+- **Users**: Authentication, profile data, role-based access (admin/editor/viewer), userType (co-founder/employee), shareholdingPercent
 - **Clients**: Company information, ownership, industry, stage tracking, expectedRevenue, revenueTotal (calculated from invoices)
 - **Stories**: Project tasks with Kanban status, priority, assignments, progress tracking
 - **Comments**: Threaded discussions on stories with author attribution
 - **Invoices**: Client invoices with label, amount, issuedOn date, file attachments (base64)
+- **Founder Investments**: Co-founder investment records with amount, date, description, and file attachments
 - **Activity Log**: Audit trail of system actions and changes
 - **Sessions**: Server-side session storage using connect-pg-simple
 
@@ -69,8 +70,9 @@ Preferred communication style: Simple, everyday language.
 - Callback URL handling for Replit deployment environments
 
 **API Architecture**
-- RESTful endpoints organized by resource (clients, stories, comments, activity, invoices)
+- RESTful endpoints organized by resource (clients, stories, comments, activity, invoices, users, founder-investments)
 - Invoice endpoints: GET/POST /api/clients/:id/invoices, PATCH/DELETE /api/invoices/:id
+- Internal dashboard endpoints (co-founder only): GET/PATCH /api/users, GET/POST/PATCH/DELETE /api/founder-investments
 - Request validation using Zod schemas
 - Error handling with appropriate HTTP status codes
 - CORS configuration for cross-origin requests
@@ -106,8 +108,10 @@ Preferred communication style: Simple, everyday language.
 
 **Authorization Model**
 - Three role levels: admin (full access), editor (read/write), viewer (read-only)
-- Role stored in user record and checked server-side
+- User types: co-founder (internal dashboard access), employee (standard access)
+- Role and userType stored in user record and checked server-side
 - Middleware protection for sensitive endpoints
+- Co-founder role check for internal dashboard endpoints (/api/users, /api/founder-investments)
 - Session-based authentication for API requests
 
 **Security Features**
