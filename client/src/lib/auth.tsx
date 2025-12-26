@@ -9,6 +9,8 @@ type User = {
   lastName?: string | null;
   profileImageUrl?: string | null;
   role: string;
+  userType?: string | null;
+  shareholdingPercent?: string | null;
 };
 
 interface AuthContextType {

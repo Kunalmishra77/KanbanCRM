@@ -138,3 +138,28 @@ export const invoicesAPI = {
     method: 'DELETE',
   }),
 };
+
+// Users API
+export const usersAPI = {
+  getAll: () => fetchAPI('/users'),
+  update: (id: string, data: any) => fetchAPI(`/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+};
+
+// Founder Investments API
+export const founderInvestmentsAPI = {
+  getAll: () => fetchAPI('/founder-investments'),
+  create: (data: any) => fetchAPI('/founder-investments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id: string, data: any) => fetchAPI(`/founder-investments/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => fetchAPI(`/founder-investments/${id}`, {
+    method: 'DELETE',
+  }),
+};

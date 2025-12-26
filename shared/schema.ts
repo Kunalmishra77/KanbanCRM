@@ -22,13 +22,17 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   profileImageUrl: text("profile_image_url"),
   role: text("role").notNull().default('editor'),
+  userType: text("user_type").notNull().default('employee'),
+  shareholdingPercent: numeric("shareholding_percent").default('0'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
+export const updateUserProfileSchema = createInsertSchema(users).pick({ userType: true, shareholdingPercent: true }).partial();
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
 export type User = typeof users.$inferSelect;
 
 // Clients table
@@ -135,3 +139,23 @@ export const updateInvoiceSchema = insertInvoiceSchema.partial();
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type UpdateInvoice = z.infer<typeof updateInvoiceSchema>;
 export type Invoice = typeof invoices.$inferSelect;
+
+// Founder Investments table (for tracking co-founder investments in the company)
+export const founderInvestments = pgTable("founder_investments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id).notNull(),
+  amount: numeric("amount").notNull(),
+  description: text("description"),
+  investedOn: timestamp("invested_on").defaultNow().notNull(),
+  fileName: text("file_name"),
+  fileType: text("file_type"),
+  fileData: text("file_data"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertFounderInvestmentSchema = createInsertSchema(founderInvestments).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateFounderInvestmentSchema = insertFounderInvestmentSchema.partial();
+export type InsertFounderInvestment = z.infer<typeof insertFounderInvestmentSchema>;
+export type UpdateFounderInvestment = z.infer<typeof updateFounderInvestmentSchema>;
+export type FounderInvestment = typeof founderInvestments.$inferSelect;

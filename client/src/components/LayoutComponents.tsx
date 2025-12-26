@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Plus } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Plus, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { USERS } from "@/lib/mockData";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
+import agentixLogo from "@/assets/agentix-logo.png";
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -25,6 +26,7 @@ export function Sidebar() {
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Users, label: "Clients", href: "/clients" },
     { icon: KanbanSquare, label: "Global Board", href: "/global-kanban" },
+    { icon: Building2, label: "Internal", href: "/internal" },
   ];
 
   return (
@@ -38,26 +40,37 @@ export function Sidebar() {
       <div className="h-14 flex items-center justify-between px-4 mb-2">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-orange-600 shadow-sm flex items-center justify-center">
-              <span className="text-white font-bold text-lg">A</span>
-            </div>
-            <span className="font-bold text-lg tracking-tight text-foreground">
-              Agentix
-            </span>
+            <img src={agentixLogo} alt="AGENTiX" className="h-8 w-auto" />
           </div>
         )}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            "h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5",
-            collapsed && "mx-auto"
-          )}
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        {collapsed && (
+          <div className="mx-auto">
+            <img src={agentixLogo} alt="AGENTiX" className="h-8 w-8 object-contain" />
+          </div>
+        )}
+        {!collapsed && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setCollapsed(!collapsed)}
+            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
       </div>
+      {collapsed && (
+        <div className="px-3 mb-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setCollapsed(!collapsed)}
+            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 mx-auto"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex-1 px-3 space-y-1">

@@ -12,6 +12,7 @@ import ClientDetail from "@/pages/ClientDetail";
 import Login from "@/pages/Login";
 import { RevenueInsight, ClientsInsight, StoriesInsight, CompletionInsight } from "@/pages/Insights";
 import Settings from "@/pages/Settings";
+import Internal from "@/pages/Internal";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 
@@ -70,6 +71,9 @@ function Router() {
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
+      </Route>
+      <Route path="/internal">
+        <ProtectedRoute component={Internal} />
       </Route>
       
       <Route component={NotFound} />

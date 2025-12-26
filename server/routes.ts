@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupGoogleAuth, isAuthenticated } from "./googleAuth";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema } from "@shared/schema";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini";
 
@@ -477,6 +477,125 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Delete invoice error:', error);
       res.status(500).json({ error: "Failed to delete invoice" });
+    }
+  });
+
+  // Users (for internal dashboard - co-founders only)
+  app.get("/api/users", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.userType !== 'co-founder') {
+        return res.status(403).json({ error: "Only co-founders can view team members" });
+      }
+      
+      const usersList = await storage.getAllUsers();
+      res.json(usersList);
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.userType !== 'co-founder') {
+        return res.status(403).json({ error: "Only co-founders can update user profiles" });
+      }
+      
+      const data = updateUserProfileSchema.parse(req.body);
+      const user = await storage.updateUserProfile(req.params.id, data);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Update user error:', error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Founder Investments
+  app.get("/api/founder-investments", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.userType !== 'co-founder') {
+        return res.status(403).json({ error: "Only co-founders can view investments" });
+      }
+      
+      const investments = await storage.getFounderInvestments();
+      res.json(investments);
+    } catch (error) {
+      console.error('Get investments error:', error);
+      res.status(500).json({ error: "Failed to fetch investments" });
+    }
+  });
+
+  app.post("/api/founder-investments", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.userType !== 'co-founder') {
+        return res.status(403).json({ error: "Only co-founders can add investments" });
+      }
+      
+      const data = insertFounderInvestmentSchema.parse({
+        ...req.body,
+        investedOn: req.body.investedOn ? new Date(req.body.investedOn) : new Date(),
+      });
+      const investment = await storage.createFounderInvestment(data);
+      
+      res.status(201).json(investment);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create investment error:', error);
+      res.status(500).json({ error: "Failed to create investment" });
+    }
+  });
+
+  app.patch("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.userType !== 'co-founder') {
+        return res.status(403).json({ error: "Only co-founders can update investments" });
+      }
+      
+      const data = updateFounderInvestmentSchema.parse({
+        ...req.body,
+        investedOn: req.body.investedOn ? new Date(req.body.investedOn) : undefined,
+      });
+      const investment = await storage.updateFounderInvestment(req.params.id, data);
+      
+      if (!investment) {
+        return res.status(404).json({ error: "Investment not found" });
+      }
+      
+      res.json(investment);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Update investment error:', error);
+      res.status(500).json({ error: "Failed to update investment" });
+    }
+  });
+
+  app.delete("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.user?.userType !== 'co-founder') {
+        return res.status(403).json({ error: "Only co-founders can delete investments" });
+      }
+      
+      const success = await storage.deleteFounderInvestment(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Investment not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete investment error:', error);
+      res.status(500).json({ error: "Failed to delete investment" });
     }
   });
 

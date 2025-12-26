@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -229,6 +229,86 @@ export function useDeleteInvoice() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete invoice", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+// Users queries (for internal dashboard)
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: usersAPI.getAll,
+  });
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => usersAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: "User updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update user", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+// Founder Investment queries
+export function useFounderInvestments() {
+  return useQuery({
+    queryKey: ['founder-investments'],
+    queryFn: founderInvestmentsAPI.getAll,
+  });
+}
+
+export function useCreateFounderInvestment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: founderInvestmentsAPI.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['founder-investments'] });
+      toast({ title: "Investment added successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add investment", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateFounderInvestment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => founderInvestmentsAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['founder-investments'] });
+      toast({ title: "Investment updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update investment", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useDeleteFounderInvestment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => founderInvestmentsAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['founder-investments'] });
+      toast({ title: "Investment deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete investment", description: error.message, variant: "destructive" });
     },
   });
 }

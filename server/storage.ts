@@ -1,11 +1,12 @@
 import { 
-  type User, type InsertUser, type UpsertUser,
+  type User, type InsertUser, type UpsertUser, type UpdateUserProfile,
   type Client, type InsertClient, type UpdateClient,
   type Story, type InsertStory, type UpdateStory,
   type Comment, type InsertComment,
   type ActivityLog, type InsertActivityLog,
   type Invoice, type InsertInvoice, type UpdateInvoice,
-  users, clients, stories, comments, activityLog, invoices
+  type FounderInvestment, type InsertFounderInvestment, type UpdateFounderInvestment,
+  users, clients, stories, comments, activityLog, invoices, founderInvestments
 } from "@shared/schema";
 import { db } from "../db/index";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -14,8 +15,10 @@ export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
   
   // Clients
   getClients(): Promise<Client[]>;
@@ -47,6 +50,14 @@ export interface IStorage {
   updateInvoice(id: string, invoice: UpdateInvoice): Promise<Invoice | undefined>;
   deleteInvoice(id: string): Promise<boolean>;
   recalculateClientRevenue(clientId: string): Promise<void>;
+  
+  // Founder Investments
+  getFounderInvestments(): Promise<FounderInvestment[]>;
+  getFounderInvestmentsByUser(userId: string): Promise<FounderInvestment[]>;
+  getFounderInvestment(id: string): Promise<FounderInvestment | undefined>;
+  createFounderInvestment(investment: InsertFounderInvestment): Promise<FounderInvestment>;
+  updateFounderInvestment(id: string, investment: UpdateFounderInvestment): Promise<FounderInvestment | undefined>;
+  deleteFounderInvestment(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -77,6 +88,19 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         },
       })
+      .returning();
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(users.firstName);
+  }
+
+  async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, id))
       .returning();
     return user;
   }
@@ -206,6 +230,39 @@ export class DatabaseStorage implements IStorage {
     const clientInvoices = await this.getInvoicesByClient(clientId);
     const totalReceived = clientInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
     await db.update(clients).set({ revenueTotal: totalReceived.toString(), updatedAt: new Date() }).where(eq(clients.id, clientId));
+  }
+
+  // Founder Investments
+  async getFounderInvestments(): Promise<FounderInvestment[]> {
+    return db.select().from(founderInvestments).orderBy(desc(founderInvestments.investedOn));
+  }
+
+  async getFounderInvestmentsByUser(userId: string): Promise<FounderInvestment[]> {
+    return db.select().from(founderInvestments).where(eq(founderInvestments.userId, userId)).orderBy(desc(founderInvestments.investedOn));
+  }
+
+  async getFounderInvestment(id: string): Promise<FounderInvestment | undefined> {
+    const [investment] = await db.select().from(founderInvestments).where(eq(founderInvestments.id, id));
+    return investment;
+  }
+
+  async createFounderInvestment(investment: InsertFounderInvestment): Promise<FounderInvestment> {
+    const [created] = await db.insert(founderInvestments).values(investment).returning();
+    return created;
+  }
+
+  async updateFounderInvestment(id: string, investment: UpdateFounderInvestment): Promise<FounderInvestment | undefined> {
+    const [updated] = await db
+      .update(founderInvestments)
+      .set({ ...investment, updatedAt: new Date() })
+      .where(eq(founderInvestments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteFounderInvestment(id: string): Promise<boolean> {
+    const result = await db.delete(founderInvestments).where(eq(founderInvestments.id, id)).returning();
+    return result.length > 0;
   }
 }
 
