@@ -172,10 +172,18 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
     toast({ title: "Draft discarded" });
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (!draftSubject.trim() || !draftBody.trim()) {
       toast({ title: "Please fill in subject and body", variant: "destructive" });
       return;
+    }
+    
+    const emailText = `Subject: ${draftSubject}\n\nTo: ${client?.contactName || 'Client'}${client?.contactEmail ? ` <${client.contactEmail}>` : ''}\n\n${draftBody}`;
+    
+    try {
+      await navigator.clipboard.writeText(emailText);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
     }
     
     createSentEmail({
@@ -190,8 +198,8 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
     }, {
       onSuccess: () => {
         toast({ 
-          title: "Email saved", 
-          description: `Email draft saved. Copy the content above and paste it in your email client to send to ${client?.contactName || 'client'}.`
+          title: "Email saved & copied", 
+          description: `Email copied to clipboard. Paste it in your email client to send to ${client?.contactName || 'client'}.`
         });
         setDraftSubject("");
         setDraftBody("");
