@@ -2,10 +2,10 @@ import { useClients, useDeleteClient } from "@/lib/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Briefcase, TrendingUp, MoreHorizontal, Loader2, Trash2, Receipt } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, Briefcase, TrendingUp, MoreHorizontal, Loader2, Trash2, Receipt, X } from "lucide-react";
+import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CreateClientModal } from "@/components/CreateClientModal";
 import {
   AlertDialog,
@@ -43,6 +43,18 @@ export default function Clients() {
   const { mutate: deleteClient } = useDeleteClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  
+  const stageFilter = useMemo(() => {
+    const params = new URLSearchParams(searchString);
+    return params.get('stage');
+  }, [searchString]);
+  
+  const filteredClients = useMemo(() => {
+    if (!stageFilter) return clients;
+    return clients.filter((c: ClientData) => c.stage === stageFilter);
+  }, [clients, stageFilter]);
 
   if (isLoading) {
     return (
@@ -56,21 +68,53 @@ export default function Clients() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your client relationships and projects.</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {stageFilter ? `${stageFilter} Clients` : 'Clients'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {stageFilter 
+              ? `Showing ${filteredClients.length} ${stageFilter.toLowerCase()} client${filteredClients.length !== 1 ? 's' : ''}.`
+              : 'Manage your client relationships and projects.'
+            }
+          </p>
         </div>
-        <Button 
-          className="gap-2 shadow-lg shadow-primary/20"
-          onClick={() => setIsCreateOpen(true)}
-          data-testid="button-new-client"
-        >
-          <Plus className="h-4 w-4" />
-          New Client
-        </Button>
+        <div className="flex items-center gap-3">
+          {stageFilter && (
+            <Button 
+              variant="outline"
+              className="gap-2"
+              onClick={() => setLocation('/clients')}
+              data-testid="button-clear-filter"
+            >
+              <X className="h-4 w-4" />
+              Clear Filter
+            </Button>
+          )}
+          <Button 
+            className="gap-2 shadow-lg shadow-primary/20"
+            onClick={() => setIsCreateOpen(true)}
+            data-testid="button-new-client"
+          >
+            <Plus className="h-4 w-4" />
+            New Client
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {clients.map((client: ClientData) => (
+        {filteredClients.length === 0 && stageFilter && (
+          <div className="col-span-full text-center py-12">
+            <p className="text-muted-foreground">No {stageFilter.toLowerCase()} clients found.</p>
+            <Button 
+              variant="link" 
+              onClick={() => setLocation('/clients')}
+              className="mt-2"
+            >
+              View all clients
+            </Button>
+          </div>
+        )}
+        {filteredClients.map((client: ClientData) => (
           <div key={client.id} className="relative group/card">
             <Link href={`/clients/${client.id}`}>
               <div className="block cursor-pointer outline-none">
@@ -85,6 +129,7 @@ export default function Clients() {
                           "border-0",
                           client.stage === 'Hot' ? "bg-red-500/10 text-red-600" :
                           client.stage === 'Warm' ? "bg-orange-500/10 text-orange-600" :
+                          client.stage === 'Dropped' ? "bg-gray-500/10 text-gray-600" :
                           "bg-blue-500/10 text-blue-600"
                         )}>
                           {client.stage}

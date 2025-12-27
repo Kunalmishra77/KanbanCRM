@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClients, useStories, useActivityLog } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from "recharts";
-import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt } from "lucide-react";
+import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -38,10 +38,14 @@ export default function Dashboard() {
     received: Number(c.revenueTotal || 0),
   }));
 
+  const activeClients_count = clients.filter(c => c.stage !== 'Dropped').length;
+  const droppedClients = clients.filter(c => c.stage === 'Dropped').length;
+  
   const statusDistribution = [
     { name: 'Hot', value: clients.filter(c => c.stage === 'Hot').length, color: 'hsl(var(--chart-1))' },
     { name: 'Warm', value: clients.filter(c => c.stage === 'Warm').length, color: '#fbbf24' },
-    { name: 'Cool', value: clients.filter(c => c.stage === 'Cool').length, color: '#94a3b8' },
+    { name: 'Cold', value: clients.filter(c => c.stage === 'Cold').length, color: '#94a3b8' },
+    { name: 'Dropped', value: droppedClients, color: '#6b7280' },
   ];
 
   return (
@@ -52,7 +56,7 @@ export default function Dashboard() {
       </div>
 
       {/* Hero Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         <Card 
           className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
           onClick={() => setLocation('/insights/revenue')}
@@ -110,6 +114,16 @@ export default function Dashboard() {
           color="text-purple-600"
           bgColor="bg-purple-100/50"
           onClick={() => setLocation('/insights/completion')}
+        />
+        <StatCard 
+          title="Dropped Clients" 
+          value={droppedClients.toString()} 
+          icon={UserMinus} 
+          trend="Lost"
+          trendUp={false}
+          color="text-gray-600"
+          bgColor="bg-gray-100/50"
+          onClick={() => setLocation('/clients?stage=Dropped')}
         />
       </div>
 

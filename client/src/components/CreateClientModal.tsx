@@ -26,7 +26,7 @@ const INDUSTRIES = [
   "Other"
 ];
 
-const STAGES = ["Hot", "Warm", "Cold"];
+const STAGES = ["Hot", "Warm", "Cold", "Dropped"];
 
 interface CreateClientModalProps {
   open: boolean;

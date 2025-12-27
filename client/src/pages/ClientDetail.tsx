@@ -210,6 +210,7 @@ export default function ClientDetail() {
             <Badge className={
                client.stage === 'Hot' ? "bg-red-500 hover:bg-red-600" :
                client.stage === 'Warm' ? "bg-orange-500 hover:bg-orange-600" :
+               client.stage === 'Dropped' ? "bg-gray-500 hover:bg-gray-600" :
                "bg-blue-500 hover:bg-blue-600"
             }>
               {client.stage}
