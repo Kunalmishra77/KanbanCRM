@@ -24,8 +24,8 @@ export async function registerRoutes(
     }
   });
 
-  // Clients
-  app.get("/api/clients", async (req, res) => {
+  // Clients (all protected with authentication)
+  app.get("/api/clients", isAuthenticated, async (req: any, res) => {
     try {
       const clientsList = await storage.getClients();
       res.json(clientsList);
@@ -35,7 +35,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/clients/:id", async (req, res) => {
+  app.get("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
       const client = await storage.getClient(req.params.id);
       if (!client) {
@@ -48,19 +48,18 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/clients", isAuthenticated, async (req: any, res) => {
     try {
       const data = insertClientSchema.parse(req.body);
       const client = await storage.createClient(data);
       
-      // Log activity
-      const userId = req.headers['x-user-id'] as string;
-      if (userId) {
+      // Log activity using server-side user from session
+      if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'client',
           entityId: client.id,
           action: 'created',
-          userId,
+          userId: req.user.id,
           details: `Created client: ${client.name}`,
         });
       }
@@ -75,7 +74,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/clients/:id", async (req, res) => {
+  app.patch("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
       const data = updateClientSchema.parse(req.body);
       const client = await storage.updateClient(req.params.id, data);
@@ -84,13 +83,12 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Client not found" });
       }
       
-      const userId = req.headers['x-user-id'] as string;
-      if (userId) {
+      if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'client',
           entityId: client.id,
           action: 'updated',
-          userId,
+          userId: req.user.id,
           details: `Updated client: ${client.name}`,
         });
       }
@@ -105,7 +103,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/clients/:id", async (req, res) => {
+  app.delete("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
       const success = await storage.deleteClient(req.params.id);
       if (!success) {
@@ -118,8 +116,8 @@ export async function registerRoutes(
     }
   });
 
-  // Stories
-  app.get("/api/stories", async (req, res) => {
+  // Stories (all protected with authentication)
+  app.get("/api/stories", isAuthenticated, async (req: any, res) => {
     try {
       const clientId = req.query.clientId as string | undefined;
       const storiesList = clientId 
@@ -132,7 +130,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stories/:id", async (req, res) => {
+  app.get("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
       const story = await storage.getStory(req.params.id);
       if (!story) {
@@ -145,7 +143,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories", async (req, res) => {
+  app.post("/api/stories", isAuthenticated, async (req: any, res) => {
     try {
       const body = {
         ...req.body,
@@ -154,13 +152,12 @@ export async function registerRoutes(
       const data = insertStorySchema.parse(body);
       const story = await storage.createStory(data);
       
-      const userId = req.headers['x-user-id'] as string;
-      if (userId) {
+      if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'story',
           entityId: story.id,
           action: 'created',
-          userId,
+          userId: req.user.id,
           details: `Created story: ${story.title}`,
         });
       }
@@ -175,7 +172,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/stories/:id", async (req, res) => {
+  app.patch("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
       const data = updateStorySchema.parse(req.body);
       const story = await storage.updateStory(req.params.id, data);
@@ -184,13 +181,12 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Story not found" });
       }
       
-      const userId = req.headers['x-user-id'] as string;
-      if (userId) {
+      if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'story',
           entityId: story.id,
           action: 'updated',
-          userId,
+          userId: req.user.id,
           details: `Updated story: ${story.title}`,
         });
       }
@@ -205,7 +201,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/stories/:id", async (req, res) => {
+  app.delete("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
       const success = await storage.deleteStory(req.params.id);
       if (!success) {
@@ -218,8 +214,8 @@ export async function registerRoutes(
     }
   });
 
-  // Comments
-  app.get("/api/stories/:storyId/comments", async (req, res) => {
+  // Comments (all protected with authentication)
+  app.get("/api/stories/:storyId/comments", isAuthenticated, async (req: any, res) => {
     try {
       const commentsList = await storage.getCommentsByStory(req.params.storyId);
       res.json(commentsList);
@@ -229,7 +225,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories/:storyId/comments", async (req, res) => {
+  app.post("/api/stories/:storyId/comments", isAuthenticated, async (req: any, res) => {
     try {
       const data = insertCommentSchema.parse({
         ...req.body,
@@ -246,8 +242,8 @@ export async function registerRoutes(
     }
   });
 
-  // AI Email Draft Generation
-  app.post("/api/stories/:storyId/generate-email", async (req, res) => {
+  // AI Email Draft Generation (protected)
+  app.post("/api/stories/:storyId/generate-email", isAuthenticated, async (req: any, res) => {
     try {
       const { storyId } = req.params;
       const { userNotes, progressPercent, senderName } = req.body;
@@ -292,8 +288,8 @@ export async function registerRoutes(
     }
   });
 
-  // AI Proposal Analysis
-  app.post("/api/analyze-proposal", async (req, res) => {
+  // AI Proposal Analysis (protected)
+  app.post("/api/analyze-proposal", isAuthenticated, async (req: any, res) => {
     try {
       const { proposalText, clientName } = req.body;
       
@@ -309,8 +305,8 @@ export async function registerRoutes(
     }
   });
 
-  // Create tasks from proposal analysis
-  app.post("/api/clients/:clientId/create-tasks-from-proposal", async (req, res) => {
+  // Create tasks from proposal analysis (protected)
+  app.post("/api/clients/:clientId/create-tasks-from-proposal", isAuthenticated, async (req: any, res) => {
     try {
       const { clientId } = req.params;
       const { tasks } = req.body;
@@ -365,8 +361,8 @@ export async function registerRoutes(
     }
   });
 
-  // Activity Log
-  app.get("/api/activity", async (req, res) => {
+  // Activity Log (protected)
+  app.get("/api/activity", isAuthenticated, async (req: any, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const logs = await storage.getActivityLog(limit);
@@ -377,8 +373,8 @@ export async function registerRoutes(
     }
   });
 
-  // Invoices
-  app.get("/api/clients/:clientId/invoices", async (req, res) => {
+  // Invoices (all protected with authentication)
+  app.get("/api/clients/:clientId/invoices", isAuthenticated, async (req: any, res) => {
     try {
       const invoicesList = await storage.getInvoicesByClient(req.params.clientId);
       res.json(invoicesList);
@@ -388,7 +384,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/clients/:clientId/invoices", async (req, res) => {
+  app.post("/api/clients/:clientId/invoices", isAuthenticated, async (req: any, res) => {
     try {
       const data = insertInvoiceSchema.parse({
         ...req.body,
@@ -397,14 +393,13 @@ export async function registerRoutes(
       });
       const invoice = await storage.createInvoice(data);
       
-      const userId = req.headers['x-user-id'] as string;
-      if (userId) {
+      if (req.user?.id) {
         const client = await storage.getClient(req.params.clientId);
         await storage.createActivityLog({
           entityType: 'invoice',
           entityId: invoice.id,
           action: 'created',
-          userId,
+          userId: req.user.id,
           details: `Added invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) to ${client?.name || 'client'}`,
         });
       }
@@ -419,7 +414,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/invoices/:id", async (req, res) => {
+  app.patch("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
       const data = updateInvoiceSchema.parse({
         ...req.body,
@@ -431,14 +426,13 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Invoice not found" });
       }
       
-      const userId = req.headers['x-user-id'] as string;
-      if (userId) {
+      if (req.user?.id) {
         const client = await storage.getClient(invoice.clientId);
         await storage.createActivityLog({
           entityType: 'invoice',
           entityId: invoice.id,
           action: 'updated',
-          userId,
+          userId: req.user.id,
           details: `Updated invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) for ${client?.name || 'client'}`,
         });
       }
@@ -453,7 +447,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/invoices/:id", async (req, res) => {
+  app.delete("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       const success = await storage.deleteInvoice(req.params.id);
@@ -461,14 +455,13 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Invoice not found" });
       }
       
-      const userId = req.headers['x-user-id'] as string;
-      if (userId && invoice) {
+      if (req.user?.id && invoice) {
         const client = await storage.getClient(invoice.clientId);
         await storage.createActivityLog({
           entityType: 'invoice',
           entityId: invoice.id,
           action: 'deleted',
-          userId,
+          userId: req.user.id,
           details: `Deleted invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) from ${client?.name || 'client'}`,
         });
       }

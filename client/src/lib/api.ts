@@ -1,39 +1,16 @@
 // API client utilities
 const API_BASE = '/api';
 
-// Store user ID for auth headers
-let currentUserId: string | null = null;
-
-export function setCurrentUserId(userId: string | null) {
-  currentUserId = userId;
-  if (userId) {
-    localStorage.setItem('agentix_user_id', userId);
-  } else {
-    localStorage.removeItem('agentix_user_id');
-  }
-}
-
-export function getCurrentUserId(): string | null {
-  if (!currentUserId) {
-    currentUserId = localStorage.getItem('agentix_user_id');
-  }
-  return currentUserId;
-}
-
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  const userId = getCurrentUserId();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
-  
-  if (userId) {
-    headers['x-user-id'] = userId;
-  }
 
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'include', // Important: include cookies for session auth
   });
 
   if (!response.ok) {

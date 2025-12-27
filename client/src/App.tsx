@@ -53,9 +53,7 @@ function Router() {
         <ProtectedRoute component={Clients} />
       </Route>
       <Route path="/clients/:id">
-        {() => (
-           <Layout><ClientDetail /></Layout>
-        )}
+        <ProtectedRoute component={ClientDetail} />
       </Route>
       <Route path="/insights/revenue">
         <ProtectedRoute component={RevenueInsight} />
