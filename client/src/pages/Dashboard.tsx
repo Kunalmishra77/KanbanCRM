@@ -38,7 +38,6 @@ export default function Dashboard() {
     received: Number(c.revenueTotal || 0),
   }));
 
-  const activeClients_count = clients.filter(c => c.stage !== 'Dropped').length;
   const droppedClients = clients.filter(c => c.stage === 'Dropped').length;
   
   const statusDistribution = [
