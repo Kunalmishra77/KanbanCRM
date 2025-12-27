@@ -37,15 +37,15 @@ export function Sidebar() {
       )}
     >
       {/* Logo Area */}
-      <div className="h-14 flex items-center justify-between px-4 mb-2">
+      <div className="h-16 flex items-center justify-between px-4 mb-2">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <img src={agentixLogo} alt="AGENTiX" className="h-8 w-auto" />
+            <img src={agentixLogo} alt="AGENTiX" className="h-12 w-auto" />
           </div>
         )}
         {collapsed && (
           <div className="mx-auto">
-            <img src={agentixLogo} alt="AGENTiX" className="h-8 w-8 object-contain" />
+            <img src={agentixLogo} alt="AGENTiX" className="h-10 w-10 object-contain" />
           </div>
         )}
         {!collapsed && (
