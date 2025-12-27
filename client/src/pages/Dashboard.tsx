@@ -27,7 +27,8 @@ export default function Dashboard() {
   const totalExpected = clients.reduce((acc, c) => acc + Number(c.expectedRevenue || 0), 0);
   const totalReceived = clients.reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0);
   const totalStories = stories.length;
-  const activeClients = clients.length;
+  const totalClients = clients.length;
+  const activeClients = clients.filter(c => c.stage !== 'Dropped').length;
   const completedStories = stories.filter(s => s.status === 'Done').length;
   const completionRate = Math.round((completedStories / totalStories) * 100) || 0;
   const collectionRate = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0;
@@ -84,16 +85,34 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <StatCard 
-          title="Active Clients" 
-          value={activeClients.toString()} 
-          icon={Briefcase} 
-          trend="+2 new"
-          trendUp={true}
-          color="text-blue-600"
-          bgColor="bg-blue-100/50"
-          onClick={() => setLocation('/insights/clients')}
-        />
+        <Card 
+          className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
+          onClick={() => setLocation('/clients')}
+          data-testid="stat-card-clients"
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-xl bg-blue-100/50">
+                <Briefcase className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                <ArrowUpRight className="h-3 w-3" />
+                +2 new
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Clients</h3>
+                <div className="text-2xl font-bold tracking-tight text-foreground">{totalClients}</div>
+              </div>
+              <div className="h-px bg-border" />
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Clients</h3>
+                <div className="text-xl font-semibold tracking-tight text-blue-600">{activeClients}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <StatCard 
           title="Pending Stories" 
           value={(totalStories - completedStories).toString()} 
