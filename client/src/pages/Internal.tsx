@@ -29,7 +29,10 @@ import {
   useFounderInvestments, 
   useCreateFounderInvestment, 
   useDeleteFounderInvestment,
-  useActivityLog 
+  useActivityLog,
+  useInternalDocuments,
+  useCreateInternalDocument,
+  useDeleteInternalDocument
 } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import { 
@@ -44,17 +47,24 @@ import {
   FileText,
   Calendar,
   Shield,
-  User as UserIcon
+  User as UserIcon,
+  FolderOpen,
+  Upload,
+  Link as LinkIcon,
+  Download,
+  ExternalLink
 } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { format } from "date-fns";
-import type { User, FounderInvestment, ActivityLog } from "@shared/schema";
+import type { User, FounderInvestment, ActivityLog, InternalDocument } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Internal() {
   const { user: currentUser } = useAuth();
   const { data: users = [], isLoading: isLoadingUsers } = useUsers() as { data: User[], isLoading: boolean };
   const { data: investments = [], isLoading: isLoadingInvestments } = useFounderInvestments() as { data: FounderInvestment[], isLoading: boolean };
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog(20) as { data: ActivityLog[], isLoading: boolean };
+  const { data: documents = [], isLoading: isLoadingDocuments } = useInternalDocuments() as { data: InternalDocument[], isLoading: boolean };
   
   const isCoFounder = currentUser?.userType === 'co-founder';
   
@@ -70,7 +80,7 @@ export default function Internal() {
     );
   }
   
-  if (isLoadingUsers || isLoadingInvestments || isLoadingActivity) {
+  if (isLoadingUsers || isLoadingInvestments || isLoadingActivity || isLoadingDocuments) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -162,6 +172,10 @@ export default function Internal() {
             <TrendingUp className="h-4 w-4 mr-2" />
             Activity
           </TabsTrigger>
+          <TabsTrigger value="documents" data-testid="tab-documents" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="space-y-6">
@@ -178,6 +192,10 @@ export default function Internal() {
 
         <TabsContent value="activity" className="space-y-6">
           <ActivitySection activityLog={activityLog} users={users} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-6">
+          <DocumentsSection documents={documents} users={users} />
         </TabsContent>
       </Tabs>
     </div>
@@ -708,5 +726,270 @@ function ActivitySection({ activityLog, users }: { activityLog: ActivityLog[], u
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function DocumentsSection({ documents, users }: { documents: InternalDocument[], users: User[] }) {
+  const createDocument = useCreateInternalDocument();
+  const deleteDocument = useDeleteInternalDocument();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newDocument, setNewDocument] = useState({
+    name: '',
+    description: '',
+    category: 'general',
+    fileUrl: '',
+    fileData: '',
+    fileName: '',
+    fileType: '',
+  });
+
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewDocument(prev => ({
+          ...prev,
+          fileData: reader.result as string,
+          fileName: file.name,
+          fileType: file.type,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!newDocument.name) return;
+    
+    createDocument.mutate({
+      name: newDocument.name,
+      description: newDocument.description || null,
+      category: newDocument.category,
+      fileUrl: newDocument.fileUrl || null,
+      fileData: newDocument.fileData || null,
+      fileName: newDocument.fileName || null,
+      fileType: newDocument.fileType || null,
+    }, {
+      onSuccess: () => {
+        setIsDialogOpen(false);
+        setNewDocument({
+          name: '',
+          description: '',
+          category: 'general',
+          fileUrl: '',
+          fileData: '',
+          fileName: '',
+          fileType: '',
+        });
+      },
+    });
+  };
+
+  const handleDownload = (doc: InternalDocument) => {
+    if (doc.fileData) {
+      const link = document.createElement('a');
+      link.href = doc.fileData;
+      link.download = doc.fileName || 'document';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (doc.fileUrl) {
+      window.open(doc.fileUrl, '_blank');
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'legal': return 'bg-red-100 text-red-700';
+      case 'financial': return 'bg-green-100 text-green-700';
+      case 'contracts': return 'bg-blue-100 text-blue-700';
+      case 'general': return 'bg-gray-100 text-gray-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Company Documents</h3>
+          <p className="text-sm text-muted-foreground">Shared internal documents for co-founders only.</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-document">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Document
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Internal Document</DialogTitle>
+              <DialogDescription>
+                Upload a document or add a link. Do not store sensitive information like passwords or PAN cards.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="doc-name">Document Name *</Label>
+                <Input
+                  id="doc-name"
+                  value={newDocument.name}
+                  onChange={(e) => setNewDocument(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Partnership Agreement"
+                  data-testid="input-document-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="doc-description">Description</Label>
+                <Textarea
+                  id="doc-description"
+                  value={newDocument.description}
+                  onChange={(e) => setNewDocument(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Brief description of this document..."
+                  data-testid="input-document-description"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="doc-category">Category</Label>
+                <Select
+                  value={newDocument.category}
+                  onValueChange={(v) => setNewDocument(prev => ({ ...prev, category: v }))}
+                >
+                  <SelectTrigger data-testid="select-document-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="legal">Legal</SelectItem>
+                    <SelectItem value="financial">Financial</SelectItem>
+                    <SelectItem value="contracts">Contracts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Document Source</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="doc-file" className="text-xs text-muted-foreground">Upload File</Label>
+                    <Input
+                      id="doc-file"
+                      type="file"
+                      onChange={handleFileUpload}
+                      className="text-sm"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
+                      data-testid="input-document-file"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="doc-url" className="text-xs text-muted-foreground">Or External Link</Label>
+                    <Input
+                      id="doc-url"
+                      value={newDocument.fileUrl}
+                      onChange={(e) => setNewDocument(prev => ({ ...prev, fileUrl: e.target.value }))}
+                      placeholder="https://..."
+                      data-testid="input-document-url"
+                    />
+                  </div>
+                </div>
+                {newDocument.fileName && (
+                  <p className="text-xs text-muted-foreground">File selected: {newDocument.fileName}</p>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={handleSubmit} 
+                disabled={!newDocument.name || createDocument.isPending}
+                data-testid="button-submit-document"
+              >
+                {createDocument.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                Add Document
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {documents.length === 0 ? (
+        <Card className="macos-card border-none">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FolderOpen className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <p className="text-muted-foreground">No documents uploaded yet.</p>
+            <p className="text-sm text-muted-foreground">Click "Add Document" to upload your first document.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {documents.map(doc => (
+            <Card key={doc.id} className="macos-card border-none" data-testid={`document-card-${doc.id}`}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">{doc.name}</h4>
+                      <Badge className={`text-[10px] ${getCategoryColor(doc.category)}`}>
+                        {doc.category}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => deleteDocument.mutate(doc.id)}
+                    data-testid={`button-delete-document-${doc.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                {doc.description && (
+                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{doc.description}</p>
+                )}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Uploaded by {getUserName(doc.uploadedById)}</span>
+                  <span>{format(new Date(doc.createdAt), 'MMM d, yyyy')}</span>
+                </div>
+                {(doc.fileData || doc.fileUrl) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3"
+                    onClick={() => handleDownload(doc)}
+                    data-testid={`button-download-document-${doc.id}`}
+                  >
+                    {doc.fileUrl ? (
+                      <>
+                        <ExternalLink className="h-3 w-3 mr-2" />
+                        Open Link
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-3 w-3 mr-2" />
+                        Download
+                      </>
+                    )}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -149,3 +149,19 @@ export const sentEmailsAPI = {
     body: JSON.stringify(data),
   }),
 };
+
+// Internal Documents API
+export const internalDocumentsAPI = {
+  getAll: () => fetchAPI('/internal-documents'),
+  create: (data: any) => fetchAPI('/internal-documents', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  update: (id: string, data: any) => fetchAPI(`/internal-documents/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  }),
+  delete: (id: string) => fetchAPI(`/internal-documents/${id}`, {
+    method: 'DELETE',
+  }),
+};

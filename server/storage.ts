@@ -7,7 +7,8 @@ import {
   type Invoice, type InsertInvoice, type UpdateInvoice,
   type FounderInvestment, type InsertFounderInvestment, type UpdateFounderInvestment,
   type SentEmail, type InsertSentEmail,
-  users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails
+  type InternalDocument, type InsertInternalDocument, type UpdateInternalDocument,
+  users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments
 } from "@shared/schema";
 import { db } from "../db/index";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -64,6 +65,13 @@ export interface IStorage {
   getSentEmailsByStory(storyId: string): Promise<SentEmail[]>;
   getSentEmailsByClient(clientId: string): Promise<SentEmail[]>;
   createSentEmail(email: InsertSentEmail): Promise<SentEmail>;
+  
+  // Internal Documents
+  getInternalDocuments(): Promise<InternalDocument[]>;
+  getInternalDocument(id: string): Promise<InternalDocument | undefined>;
+  createInternalDocument(doc: InsertInternalDocument): Promise<InternalDocument>;
+  updateInternalDocument(id: string, doc: UpdateInternalDocument): Promise<InternalDocument | undefined>;
+  deleteInternalDocument(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -283,6 +291,31 @@ export class DatabaseStorage implements IStorage {
   async createSentEmail(email: InsertSentEmail): Promise<SentEmail> {
     const [created] = await db.insert(sentEmails).values(email).returning();
     return created;
+  }
+
+  // Internal Documents
+  async getInternalDocuments(): Promise<InternalDocument[]> {
+    return db.select().from(internalDocuments).orderBy(desc(internalDocuments.createdAt));
+  }
+
+  async getInternalDocument(id: string): Promise<InternalDocument | undefined> {
+    const [doc] = await db.select().from(internalDocuments).where(eq(internalDocuments.id, id));
+    return doc;
+  }
+
+  async createInternalDocument(doc: InsertInternalDocument): Promise<InternalDocument> {
+    const [created] = await db.insert(internalDocuments).values(doc).returning();
+    return created;
+  }
+
+  async updateInternalDocument(id: string, doc: UpdateInternalDocument): Promise<InternalDocument | undefined> {
+    const [updated] = await db.update(internalDocuments).set({ ...doc, updatedAt: new Date() }).where(eq(internalDocuments.id, id)).returning();
+    return updated;
+  }
+
+  async deleteInternalDocument(id: string): Promise<boolean> {
+    const result = await db.delete(internalDocuments).where(eq(internalDocuments.id, id)).returning();
+    return result.length > 0;
   }
 }
 

@@ -160,6 +160,27 @@ export type InsertFounderInvestment = z.infer<typeof insertFounderInvestmentSche
 export type UpdateFounderInvestment = z.infer<typeof updateFounderInvestmentSchema>;
 export type FounderInvestment = typeof founderInvestments.$inferSelect;
 
+// Internal Documents table (for co-founders to store company documents)
+export const internalDocuments = pgTable("internal_documents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default('General'),
+  uploadedById: varchar("uploaded_by_id", { length: 255 }).references(() => users.id).notNull(),
+  fileName: text("file_name"),
+  fileType: text("file_type"),
+  fileData: text("file_data"),
+  externalLink: text("external_link"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertInternalDocumentSchema = createInsertSchema(internalDocuments).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateInternalDocumentSchema = insertInternalDocumentSchema.partial();
+export type InsertInternalDocument = z.infer<typeof insertInternalDocumentSchema>;
+export type UpdateInternalDocument = z.infer<typeof updateInternalDocumentSchema>;
+export type InternalDocument = typeof internalDocuments.$inferSelect;
+
 // Sent Emails table (to track emails generated/sent from stories)
 export const sentEmails = pgTable("sent_emails", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

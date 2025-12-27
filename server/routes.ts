@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema } from "@shared/schema";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini";
 
@@ -633,6 +633,83 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Delete investment error:', error);
       res.status(500).json({ error: "Failed to delete investment" });
+    }
+  });
+
+  // Internal Documents (co-founders only)
+  app.get("/api/internal-documents", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can view documents" });
+      }
+      
+      const documents = await storage.getInternalDocuments();
+      res.json(documents);
+    } catch (error) {
+      console.error('Get documents error:', error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  app.post("/api/internal-documents", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can add documents" });
+      }
+      
+      const data = insertInternalDocumentSchema.parse({
+        ...req.body,
+        uploadedById: req.user.id,
+      });
+      const document = await storage.createInternalDocument(data);
+      res.status(201).json(document);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create document error:', error);
+      res.status(500).json({ error: "Failed to create document" });
+    }
+  });
+
+  app.patch("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can update documents" });
+      }
+      
+      const data = updateInternalDocumentSchema.parse(req.body);
+      const document = await storage.updateInternalDocument(req.params.id, data);
+      
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      res.json(document);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Update document error:', error);
+      res.status(500).json({ error: "Failed to update document" });
+    }
+  });
+
+  app.delete("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can delete documents" });
+      }
+      
+      const success = await storage.deleteInternalDocument(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete document error:', error);
+      res.status(500).json({ error: "Failed to delete document" });
     }
   });
 

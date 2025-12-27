@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -330,6 +330,62 @@ export function useCreateSentEmail() {
       sentEmailsAPI.create(storyId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sent-emails', variables.storyId] });
+    },
+  });
+}
+
+// Internal Documents queries
+export function useInternalDocuments() {
+  return useQuery({
+    queryKey: ['internal-documents'],
+    queryFn: internalDocumentsAPI.getAll,
+  });
+}
+
+export function useCreateInternalDocument() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: internalDocumentsAPI.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internal-documents'] });
+      toast({ title: "Document added successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add document", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateInternalDocument() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => internalDocumentsAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internal-documents'] });
+      toast({ title: "Document updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update document", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useDeleteInternalDocument() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => internalDocumentsAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internal-documents'] });
+      toast({ title: "Document deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete document", description: error.message, variant: "destructive" });
     },
   });
 }
