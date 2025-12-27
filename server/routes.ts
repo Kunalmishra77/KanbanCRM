@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema } from "@shared/schema";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini";
 
@@ -285,6 +285,50 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Generate email error:', error);
       res.status(500).json({ error: "Failed to generate email" });
+    }
+  });
+
+  // Sent Emails - Store email when user clicks "Send" (protected)
+  app.get("/api/stories/:storyId/emails", isAuthenticated, async (req: any, res) => {
+    try {
+      const emails = await storage.getSentEmailsByStory(req.params.storyId);
+      res.json(emails);
+    } catch (error) {
+      console.error('Get emails error:', error);
+      res.status(500).json({ error: "Failed to fetch emails" });
+    }
+  });
+
+  app.post("/api/stories/:storyId/emails", isAuthenticated, async (req: any, res) => {
+    try {
+      const { storyId } = req.params;
+      
+      // Get story to get clientId
+      const story = await storage.getStory(storyId);
+      if (!story) {
+        return res.status(404).json({ error: "Story not found" });
+      }
+      
+      const client = await storage.getClient(story.clientId);
+      
+      const data = insertSentEmailSchema.parse({
+        ...req.body,
+        storyId,
+        clientId: story.clientId,
+        sentById: req.user.id,
+        recipientEmail: req.body.recipientEmail || client?.contactEmail,
+        recipientName: req.body.recipientName || client?.contactName,
+        sentAt: new Date(),
+      });
+      
+      const email = await storage.createSentEmail(data);
+      res.status(201).json(email);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create email error:', error);
+      res.status(500).json({ error: "Failed to save email" });
     }
   });
 

@@ -140,3 +140,12 @@ export const founderInvestmentsAPI = {
     method: 'DELETE',
   }),
 };
+
+// Sent Emails API
+export const sentEmailsAPI = {
+  getByStory: (storyId: string) => fetchAPI(`/stories/${storyId}/emails`),
+  create: (storyId: string, data: any) => fetchAPI(`/stories/${storyId}/emails`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+};

@@ -8,11 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText, Trash2 } from "lucide-react";
+import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText, Trash2, History } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment, useUpdateStory, useDeleteStory } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail } from "@/lib/queries";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,9 +80,11 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
+  const { data: sentEmails = [], isLoading: isLoadingSentEmails, refetch: refetchEmails } = useSentEmails(story?.id || '');
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: deleteStory } = useDeleteStory();
+  const { mutate: createSentEmail, isPending: isSendingEmail } = useCreateSentEmail();
 
   if (!story) return null;
 
@@ -175,12 +177,33 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
       toast({ title: "Please fill in subject and body", variant: "destructive" });
       return;
     }
-    toast({ 
-      title: "Email sent", 
-      description: `Email to ${story.person || 'client'} has been sent successfully.`
+    
+    createSentEmail({
+      storyId: story.id,
+      data: {
+        subject: draftSubject,
+        body: draftBody,
+        status: 'sent',
+        recipientEmail: client?.contactEmail || null,
+        recipientName: client?.contactName || null,
+      }
+    }, {
+      onSuccess: () => {
+        toast({ 
+          title: "Email saved", 
+          description: `Email draft saved. Copy the content above and paste it in your email client to send to ${client?.contactName || 'client'}.`
+        });
+        setDraftSubject("");
+        setDraftBody("");
+        refetchEmails();
+      },
+      onError: () => {
+        toast({ 
+          title: "Failed to save email", 
+          variant: "destructive" 
+        });
+      }
     });
-    setDraftSubject("");
-    setDraftBody("");
   };
 
   const handleLogTime = () => {
@@ -404,6 +427,13 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                     data-testid="tab-email"
                   >
                     Email Draft
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="emails" 
+                    className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
+                    data-testid="tab-emails"
+                  >
+                    Emails ({sentEmails.length})
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -693,13 +723,57 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                         <Button 
                           className="gap-2" 
                           onClick={handleSendEmail}
+                          disabled={isSendingEmail}
                           data-testid="button-send-email"
                         >
-                          <Send className="h-3 w-3" />
-                          Send Email
+                          {isSendingEmail ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Send className="h-3 w-3" />
+                          )}
+                          Save & Copy
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Note: This saves the email to your history. Copy the content and paste it in your email client to send.
+                      </p>
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="emails" className="mt-0 space-y-4 outline-none">
+                    {isLoadingSentEmails ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : sentEmails.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>No emails sent yet.</p>
+                        <p className="text-sm mt-1">Use the "Email Draft" tab to generate and save emails.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {sentEmails.map((email: any) => (
+                          <div key={email.id} className="p-4 rounded-xl border border-white/20 bg-white/30" data-testid={`email-${email.id}`}>
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4 text-primary" />
+                                <span className="font-medium text-sm">{email.subject}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {email.sentAt ? format(new Date(email.sentAt), 'MMM d, yyyy h:mm a') : ''}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mb-2">
+                              To: {email.recipientName || 'Client'} {email.recipientEmail && `<${email.recipientEmail}>`}
+                            </div>
+                            <div className="p-3 rounded-lg bg-white/40 text-sm whitespace-pre-wrap border border-white/10">
+                              {email.body}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </TabsContent>
                 </div>
               </ScrollArea>

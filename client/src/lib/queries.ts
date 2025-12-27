@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -309,6 +309,27 @@ export function useDeleteFounderInvestment() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete investment", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+// Sent Emails queries
+export function useSentEmails(storyId: string) {
+  return useQuery({
+    queryKey: ['sent-emails', storyId],
+    queryFn: () => sentEmailsAPI.getByStory(storyId),
+    enabled: !!storyId,
+  });
+}
+
+export function useCreateSentEmail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, data }: { storyId: string; data: any }) => 
+      sentEmailsAPI.create(storyId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sent-emails', variables.storyId] });
     },
   });
 }

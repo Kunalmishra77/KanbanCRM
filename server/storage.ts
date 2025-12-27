@@ -6,7 +6,8 @@ import {
   type ActivityLog, type InsertActivityLog,
   type Invoice, type InsertInvoice, type UpdateInvoice,
   type FounderInvestment, type InsertFounderInvestment, type UpdateFounderInvestment,
-  users, clients, stories, comments, activityLog, invoices, founderInvestments
+  type SentEmail, type InsertSentEmail,
+  users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails
 } from "@shared/schema";
 import { db } from "../db/index";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -58,6 +59,11 @@ export interface IStorage {
   createFounderInvestment(investment: InsertFounderInvestment): Promise<FounderInvestment>;
   updateFounderInvestment(id: string, investment: UpdateFounderInvestment): Promise<FounderInvestment | undefined>;
   deleteFounderInvestment(id: string): Promise<boolean>;
+  
+  // Sent Emails
+  getSentEmailsByStory(storyId: string): Promise<SentEmail[]>;
+  getSentEmailsByClient(clientId: string): Promise<SentEmail[]>;
+  createSentEmail(email: InsertSentEmail): Promise<SentEmail>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -263,6 +269,20 @@ export class DatabaseStorage implements IStorage {
   async deleteFounderInvestment(id: string): Promise<boolean> {
     const result = await db.delete(founderInvestments).where(eq(founderInvestments.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Sent Emails
+  async getSentEmailsByStory(storyId: string): Promise<SentEmail[]> {
+    return db.select().from(sentEmails).where(eq(sentEmails.storyId, storyId)).orderBy(desc(sentEmails.sentAt));
+  }
+
+  async getSentEmailsByClient(clientId: string): Promise<SentEmail[]> {
+    return db.select().from(sentEmails).where(eq(sentEmails.clientId, clientId)).orderBy(desc(sentEmails.sentAt));
+  }
+
+  async createSentEmail(email: InsertSentEmail): Promise<SentEmail> {
+    const [created] = await db.insert(sentEmails).values(email).returning();
+    return created;
   }
 }
 

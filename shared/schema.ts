@@ -159,3 +159,22 @@ export const updateFounderInvestmentSchema = insertFounderInvestmentSchema.parti
 export type InsertFounderInvestment = z.infer<typeof insertFounderInvestmentSchema>;
 export type UpdateFounderInvestment = z.infer<typeof updateFounderInvestmentSchema>;
 export type FounderInvestment = typeof founderInvestments.$inferSelect;
+
+// Sent Emails table (to track emails generated/sent from stories)
+export const sentEmails = pgTable("sent_emails", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  storyId: uuid("story_id").references(() => stories.id, { onDelete: 'cascade' }).notNull(),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
+  sentById: varchar("sent_by_id", { length: 255 }).references(() => users.id).notNull(),
+  recipientEmail: text("recipient_email"),
+  recipientName: text("recipient_name"),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull().default('drafted'),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSentEmailSchema = createInsertSchema(sentEmails).omit({ id: true, createdAt: true });
+export type InsertSentEmail = z.infer<typeof insertSentEmailSchema>;
+export type SentEmail = typeof sentEmails.$inferSelect;
