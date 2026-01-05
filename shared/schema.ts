@@ -97,7 +97,7 @@ export const comments = pgTable("comments", {
   attachmentType: text("attachment_type"),
   attachmentData: text("attachment_data"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [index("idx_comments_story_id").on(table.storyId)]);
 
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, createdAt: true });
 export type InsertComment = z.infer<typeof insertCommentSchema>;

@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { useCreateClient } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { Loader2, IndianRupee, User, Mail, Phone, Receipt, Info } from "lucide-react";
+import { Loader2, IndianRupee, User, Mail, Phone, Receipt, Info, FileUp, X, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const INDUSTRIES = [
@@ -42,7 +42,9 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [notes, setNotes] = useState("");
-  
+  const [proposalFile, setProposalFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const { mutate: createClient, isPending } = useCreateClient();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -56,6 +58,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
     setContactEmail("");
     setContactPhone("");
     setNotes("");
+    setProposalFile(null);
   };
 
   const handleSubmit = async () => {
@@ -63,32 +66,68 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
       return;
     }
 
-    const revenueValue = parseFloat(revenue.replace(/[^0-9.]/g, '')) || 0;
+    setIsUploading(true);
+    let proposalUrl: string | null = null;
+    let proposalFileName: string | null = null;
 
-    createClient({
-      name: name.trim(),
-      industry,
-      stage,
-      ownerId: user.id,
-      averageProgress: "0",
-      expectedRevenue: revenueValue.toString(),
-      revenueTotal: "0",
-      notes: notes.trim() || null,
-      proposalFileName: null,
-      proposalFileData: null,
-      contactName: contactName.trim() || null,
-      contactEmail: contactEmail.trim() || null,
-      contactPhone: contactPhone.trim() || null,
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "Client created",
-          description: "New client has been added successfully."
+    try {
+      // Upload proposal file to Supabase if provided
+      if (proposalFile) {
+        const formData = new FormData();
+        formData.append('file', proposalFile);
+        formData.append('bucket', 'proposals');
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
         });
-        resetForm();
-        onOpenChange(false);
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload proposal');
+        }
+
+        const { publicUrl, fileName } = await uploadResponse.json();
+        proposalUrl = publicUrl;
+        proposalFileName = fileName;
       }
-    });
+
+      const revenueValue = parseFloat(revenue.replace(/[^0-9.]/g, '')) || 0;
+
+      createClient({
+        name: name.trim(),
+        industry,
+        stage,
+        ownerId: user.id,
+        averageProgress: "0",
+        expectedRevenue: revenueValue.toString(),
+        revenueTotal: "0",
+        notes: notes.trim() || null,
+        proposalFileName: proposalFileName,
+        proposalFileData: proposalUrl,
+        contactName: contactName.trim() || null,
+        contactEmail: contactEmail.trim() || null,
+        contactPhone: contactPhone.trim() || null,
+      }, {
+        onSuccess: () => {
+          toast({
+            title: "Client created",
+            description: "New client has been added successfully."
+          });
+          resetForm();
+          onOpenChange(false);
+        }
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload proposal",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const isValid = name.trim() && industry;
@@ -102,12 +141,12 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
             <DialogDescription>Create a new client to manage their projects and invoices.</DialogDescription>
           </DialogHeader>
         </div>
-        
+
         <ScrollArea className="max-h-[60vh]">
           <div className="p-6 space-y-5 bg-white/30">
             <div className="space-y-2">
               <Label htmlFor="client-name">Company Name *</Label>
-              <Input 
+              <Input
                 id="client-name"
                 data-testid="input-client-name"
                 placeholder="e.g., Acme Corporation"
@@ -122,10 +161,10 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                 <User className="h-4 w-4" />
                 Client Contact Details
               </Label>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="contact-name">Contact Name</Label>
-                <Input 
+                <Input
                   id="contact-name"
                   data-testid="input-contact-name"
                   placeholder="e.g., John Smith"
@@ -141,7 +180,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                     <Mail className="h-3 w-3" />
                     Email
                   </Label>
-                  <Input 
+                  <Input
                     id="contact-email"
                     data-testid="input-contact-email"
                     type="email"
@@ -156,7 +195,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                     <Phone className="h-3 w-3" />
                     Phone
                   </Label>
-                  <Input 
+                  <Input
                     id="contact-phone"
                     data-testid="input-contact-phone"
                     type="tel"
@@ -206,7 +245,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
-                <Input 
+                <Input
                   id="revenue"
                   data-testid="input-revenue"
                   placeholder="0.00"
@@ -221,7 +260,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
 
             <div className="space-y-2">
               <Label htmlFor="notes">Additional Notes</Label>
-              <Textarea 
+              <Textarea
                 id="notes"
                 data-testid="input-notes"
                 placeholder="Add any notes about this client or project..."
@@ -229,6 +268,61 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
+            </div>
+
+            <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-3">
+              <Label className="flex items-center gap-2 text-purple-700 font-medium">
+                <FileUp className="h-4 w-4" />
+                Proposal Document
+              </Label>
+
+              {proposalFile ? (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-white/60 border border-purple-100">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{proposalFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(proposalFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => setProposalFile(null)}
+                    type="button"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input
+                    id="proposal-file"
+                    type="file"
+                    data-testid="input-proposal-file"
+                    className="macos-input cursor-pointer"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast({
+                            title: "File too large",
+                            description: "Maximum file size is 5MB",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        setProposalFile(file);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              <p className="text-xs text-purple-600">
+                Upload a proposal, quote, or contract document (PDF, DOC, XLS, PPT - max 5MB)
+              </p>
             </div>
 
             <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
@@ -245,8 +339,8 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
         </ScrollArea>
 
         <DialogFooter className="p-6 border-t border-black/5 bg-white/50">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => {
               resetForm();
               onOpenChange(false);
@@ -255,16 +349,16 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
-            disabled={!isValid || isPending}
+            disabled={!isValid || isPending || isUploading}
             className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
             data-testid="button-create-client"
           >
-            {isPending ? (
+            {(isPending || isUploading) ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
+                {isUploading ? "Uploading..." : "Creating..."}
               </>
             ) : (
               "Create Client"

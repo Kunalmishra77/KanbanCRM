@@ -6,5 +6,9 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-const client = postgres(process.env.DATABASE_URL);
+const client = postgres(process.env.DATABASE_URL, {
+  prepare: false, // Required for pgbouncer transaction mode
+  idle_timeout: 20,
+  max_lifetime: 60 * 30,
+});
 export const db = drizzle(client, { schema });

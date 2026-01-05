@@ -7,14 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -23,11 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  useUsers, 
-  useUpdateUser, 
-  useFounderInvestments, 
-  useCreateFounderInvestment, 
+import {
+  useUsers,
+  useUpdateUser,
+  useFounderInvestments,
+  useCreateFounderInvestment,
   useDeleteFounderInvestment,
   useActivityLog,
   useInternalDocuments,
@@ -35,11 +35,11 @@ import {
   useDeleteInternalDocument
 } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
-import { 
-  Users, 
-  IndianRupee, 
-  Plus, 
-  Loader2, 
+import {
+  Users,
+  IndianRupee,
+  Plus,
+  Loader2,
   PieChart,
   TrendingUp,
   Building2,
@@ -65,9 +65,9 @@ export default function Internal() {
   const { data: investments = [], isLoading: isLoadingInvestments } = useFounderInvestments() as { data: FounderInvestment[], isLoading: boolean };
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog(20) as { data: ActivityLog[], isLoading: boolean };
   const { data: documents = [], isLoading: isLoadingDocuments } = useInternalDocuments() as { data: InternalDocument[], isLoading: boolean };
-  
+
   const isCoFounder = currentUser?.userType === 'co-founder';
-  
+
   if (!isCoFounder) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
@@ -79,7 +79,7 @@ export default function Internal() {
       </div>
     );
   }
-  
+
   if (isLoadingUsers || isLoadingInvestments || isLoadingActivity || isLoadingDocuments) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
@@ -90,7 +90,7 @@ export default function Internal() {
 
   const coFounders = users.filter(u => u.userType === 'co-founder');
   const employees = users.filter(u => u.userType === 'employee');
-  
+
   const totalInvestment = investments.reduce((acc, inv) => acc + Number(inv.amount || 0), 0);
   const totalShareholding = coFounders.reduce((acc, u) => acc + Number(u.shareholdingPercent || 0), 0);
 
@@ -252,9 +252,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="w-full mt-3"
                       onClick={() => {
                         setEditingUser(user);
@@ -286,9 +286,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                       </div>
                       <div className="space-y-2">
                         <Label>Shareholding (%)</Label>
-                        <Input 
-                          type="number" 
-                          value={shareholding} 
+                        <Input
+                          type="number"
+                          value={shareholding}
                           onChange={e => setShareholding(e.target.value)}
                           min="0"
                           max="100"
@@ -339,9 +339,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                   </div>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="w-full mt-3"
                         onClick={() => {
                           setEditingUser(user);
@@ -373,9 +373,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                         </div>
                         <div className="space-y-2">
                           <Label>Shareholding (%)</Label>
-                          <Input 
-                            type="number" 
-                            value={shareholding} 
+                          <Input
+                            type="number"
+                            value={shareholding}
                             onChange={e => setShareholding(e.target.value)}
                             min="0"
                             max="100"
@@ -460,7 +460,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Co-founder</Label>
-                <Select value={newInvestment.userId} onValueChange={v => setNewInvestment({...newInvestment, userId: v})}>
+                <Select value={newInvestment.userId} onValueChange={v => setNewInvestment({ ...newInvestment, userId: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select co-founder" />
                   </SelectTrigger>
@@ -473,27 +473,27 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
               </div>
               <div className="space-y-2">
                 <Label>Amount (₹)</Label>
-                <Input 
-                  type="number" 
-                  value={newInvestment.amount} 
-                  onChange={e => setNewInvestment({...newInvestment, amount: e.target.value})}
+                <Input
+                  type="number"
+                  value={newInvestment.amount}
+                  onChange={e => setNewInvestment({ ...newInvestment, amount: e.target.value })}
                   placeholder="100000"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
-                <Input 
-                  value={newInvestment.description} 
-                  onChange={e => setNewInvestment({...newInvestment, description: e.target.value})}
+                <Input
+                  value={newInvestment.description}
+                  onChange={e => setNewInvestment({ ...newInvestment, description: e.target.value })}
                   placeholder="Seed funding round 1"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Date</Label>
-                <Input 
-                  type="date" 
-                  value={newInvestment.investedOn} 
-                  onChange={e => setNewInvestment({...newInvestment, investedOn: e.target.value})}
+                <Input
+                  type="date"
+                  value={newInvestment.investedOn}
+                  onChange={e => setNewInvestment({ ...newInvestment, investedOn: e.target.value })}
                 />
               </div>
             </div>
@@ -537,8 +537,8 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
           ) : (
             <div className="space-y-3">
               {investments.map(inv => (
-                <div 
-                  key={inv.id} 
+                <div
+                  key={inv.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
                   data-testid={`investment-row-${inv.id}`}
                 >
@@ -564,9 +564,9 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
                         <FileText className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => deleteInvestment.mutate(inv.id)}
                       data-testid={`delete-investment-${inv.id}`}
@@ -586,7 +586,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
 
 function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: User[], totalShareholding: number }) {
   const COLORS = ['hsl(var(--primary))', '#f97316', '#22c55e', '#8b5cf6', '#06b6d4', '#ec4899'];
-  
+
   const shareholdingData = [
     ...coFounders.map((user, index) => ({
       name: `${user.firstName} ${user.lastName}`,
@@ -626,7 +626,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => [`${value.toFixed(1)}%`, 'Share']}
                   />
                   <Legend />
@@ -645,8 +645,8 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
               <div key={user.id} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
+                    <div
+                      className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
                     />
                     <span className="font-medium">{user.firstName} {user.lastName}</span>
@@ -699,8 +699,8 @@ function ActivitySection({ activityLog, users }: { activityLog: ActivityLog[], u
         ) : (
           <div className="space-y-4">
             {activityLog.map(log => (
-              <div 
-                key={log.id} 
+              <div
+                key={log.id}
                 className="flex items-start gap-3 p-3 rounded-lg bg-muted/30"
                 data-testid={`activity-row-${log.id}`}
               >
@@ -733,11 +733,13 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
   const createDocument = useCreateInternalDocument();
   const deleteDocument = useDeleteInternalDocument();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [newDocument, setNewDocument] = useState({
-    name: '',
+    title: '',
     description: '',
     category: 'general',
-    fileUrl: '',
+    externalLink: '',
     fileData: '',
     fileName: '',
     fileType: '',
@@ -751,56 +753,87 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewDocument(prev => ({
-          ...prev,
-          fileData: reader.result as string,
-          fileName: file.name,
-          fileType: file.type,
-        }));
-      };
-      reader.readAsDataURL(file);
+      setDocFile(file);
+      setNewDocument(prev => ({
+        ...prev,
+        fileName: file.name,
+        fileType: file.type,
+      }));
     }
   };
 
-  const handleSubmit = () => {
-    if (!newDocument.name) return;
-    
-    createDocument.mutate({
-      name: newDocument.name,
-      description: newDocument.description || null,
-      category: newDocument.category,
-      fileUrl: newDocument.fileUrl || null,
-      fileData: newDocument.fileData || null,
-      fileName: newDocument.fileName || null,
-      fileType: newDocument.fileType || null,
-    }, {
-      onSuccess: () => {
-        setIsDialogOpen(false);
-        setNewDocument({
-          name: '',
-          description: '',
-          category: 'general',
-          fileUrl: '',
-          fileData: '',
-          fileName: '',
-          fileType: '',
+  const handleSubmit = async () => {
+    if (!newDocument.title) return;
+
+    setIsUploading(true);
+    let finalFileData = newDocument.fileData;
+
+    try {
+      if (docFile) {
+        const formData = new FormData();
+        formData.append('file', docFile);
+        formData.append('bucket', 'documents');
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
         });
-      },
-    });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const { publicUrl } = await uploadResponse.json();
+        finalFileData = publicUrl;
+      }
+
+      createDocument.mutate({
+        title: newDocument.title,
+        description: newDocument.description || null,
+        category: newDocument.category,
+        externalLink: newDocument.externalLink || null,
+        fileData: finalFileData || null,
+        fileName: newDocument.fileName || null,
+        fileType: newDocument.fileType || null,
+      }, {
+        onSuccess: () => {
+          setIsDialogOpen(false);
+          setDocFile(null);
+          setNewDocument({
+            title: '',
+            description: '',
+            category: 'general',
+            externalLink: '',
+            fileData: '',
+            fileName: '',
+            fileType: '',
+          });
+        },
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      // You might want to show a toast here
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDownload = (doc: InternalDocument) => {
     if (doc.fileData) {
-      const link = document.createElement('a');
-      link.href = doc.fileData;
-      link.download = doc.fileName || 'document';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else if (doc.fileUrl) {
-      window.open(doc.fileUrl, '_blank');
+      // Check if it's a URL (starts with http) or base64 (starts with data:)
+      if (doc.fileData.startsWith('http')) {
+        window.open(doc.fileData, '_blank');
+      } else {
+        const link = document.createElement('a');
+        link.href = doc.fileData;
+        link.download = doc.fileName || 'document';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } else if (doc.externalLink) {
+      window.open(doc.externalLink, '_blank');
     }
   };
 
@@ -837,11 +870,11 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="doc-name">Document Name *</Label>
+                <Label htmlFor="doc-name">Document Title *</Label>
                 <Input
                   id="doc-name"
-                  value={newDocument.name}
-                  onChange={(e) => setNewDocument(prev => ({ ...prev, name: e.target.value }))}
+                  value={newDocument.title}
+                  onChange={(e) => setNewDocument(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="e.g., Partnership Agreement"
                   data-testid="input-document-name"
                 />
@@ -891,8 +924,8 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                     <Label htmlFor="doc-url" className="text-xs text-muted-foreground">Or External Link</Label>
                     <Input
                       id="doc-url"
-                      value={newDocument.fileUrl}
-                      onChange={(e) => setNewDocument(prev => ({ ...prev, fileUrl: e.target.value }))}
+                      value={newDocument.externalLink}
+                      onChange={(e) => setNewDocument(prev => ({ ...prev, externalLink: e.target.value }))}
                       placeholder="https://..."
                       data-testid="input-document-url"
                     />
@@ -905,12 +938,12 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={!newDocument.name || createDocument.isPending}
+              <Button
+                onClick={handleSubmit}
+                disabled={!newDocument.title || createDocument.isPending || isUploading}
                 data-testid="button-submit-document"
               >
-                {createDocument.isPending ? (
+                {(createDocument.isPending || isUploading) ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
@@ -941,7 +974,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                       <FileText className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-sm">{doc.name}</h4>
+                      <h4 className="font-medium text-sm">{doc.title}</h4>
                       <Badge className={`text-[10px] ${getCategoryColor(doc.category)}`}>
                         {doc.category}
                       </Badge>
@@ -964,7 +997,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                   <span>Uploaded by {getUserName(doc.uploadedById)}</span>
                   <span>{format(new Date(doc.createdAt), 'MMM d, yyyy')}</span>
                 </div>
-                {(doc.fileData || doc.fileUrl) && (
+                {(doc.fileData || doc.externalLink) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -972,7 +1005,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                     onClick={() => handleDownload(doc)}
                     data-testid={`button-download-document-${doc.id}`}
                   >
-                    {doc.fileUrl ? (
+                    {doc.externalLink ? (
                       <>
                         <ExternalLink className="h-3 w-3 mr-2" />
                         Open Link

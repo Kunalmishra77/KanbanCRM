@@ -47,18 +47,24 @@ export async function setupGoogleAuth(app: Express) {
 
   // Detect production vs development domain for OAuth callback
   let domain: string;
+  let protocol = 'https';
+
   if (process.env.REPLIT_DEPLOYMENT === '1' && process.env.REPLIT_DOMAINS) {
     // Production deployment - use the first domain from REPLIT_DOMAINS
     domain = process.env.REPLIT_DOMAINS.split(',')[0];
   } else if (process.env.REPLIT_DEV_DOMAIN) {
-    // Development environment
+    // Replit development environment
     domain = process.env.REPLIT_DEV_DOMAIN;
-  } else {
+  } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
     // Fallback for older Replit environments
     domain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  } else {
+    // Local development
+    domain = `localhost:${process.env.PORT || 5000}`;
+    protocol = 'http';
   }
-  const callbackURL = `https://${domain}/api/auth/google/callback`;
-  
+  const callbackURL = `${protocol}://${domain}/api/auth/google/callback`;
+
   console.log("Google OAuth callback URL:", callbackURL);
 
   passport.use(
@@ -75,7 +81,7 @@ export async function setupGoogleAuth(app: Express) {
           const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
           const lastName = profile.name?.familyName || null;
           const profileImageUrl = profile.photos?.[0]?.value || null;
-          
+
           // Determine user type and role based on email allowlist
           const isCoFounder = isCoFounderEmail(email);
           const userType = isCoFounder ? 'co-founder' : 'employee';

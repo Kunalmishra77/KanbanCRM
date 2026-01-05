@@ -6,14 +6,66 @@ import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySc
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini";
 
+import multer from "multer";
+import { supabaseAdmin } from "./lib/supabase";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
-  // Setup Google OAuth
+  // Setup Google OAuth FIRST - this sets up session middleware
   await setupGoogleAuth(app);
-  
+
+  // Secure Upload Endpoint - MUST be after setupGoogleAuth for session/auth to work
+  app.post("/api/upload", upload.single("file"), async (req: any, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const { bucket } = req.body;
+    if (!bucket || !['invoices', 'documents', 'proposals', 'attachments'].includes(bucket)) {
+      return res.status(400).json({ error: "Invalid or missing bucket name" });
+    }
+
+    try {
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(bucket)
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabaseAdmin.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+      res.json({ publicUrl, fileName: req.file.originalname });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: "Failed to upload file to storage", details: error.message });
+    }
+  });
+
   // Auth routes - get current user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
@@ -52,7 +104,7 @@ export async function registerRoutes(
     try {
       const data = insertClientSchema.parse(req.body);
       const client = await storage.createClient(data);
-      
+
       // Log activity using server-side user from session
       if (req.user?.id) {
         await storage.createActivityLog({
@@ -63,7 +115,7 @@ export async function registerRoutes(
           details: `Created client: ${client.name}`,
         });
       }
-      
+
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -78,11 +130,11 @@ export async function registerRoutes(
     try {
       const data = updateClientSchema.parse(req.body);
       const client = await storage.updateClient(req.params.id, data);
-      
+
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
-      
+
       if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'client',
@@ -92,7 +144,7 @@ export async function registerRoutes(
           details: `Updated client: ${client.name}`,
         });
       }
-      
+
       res.json(client);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -120,7 +172,7 @@ export async function registerRoutes(
   app.get("/api/stories", isAuthenticated, async (req: any, res) => {
     try {
       const clientId = req.query.clientId as string | undefined;
-      const storiesList = clientId 
+      const storiesList = clientId
         ? await storage.getStoriesByClient(clientId)
         : await storage.getStories();
       res.json(storiesList);
@@ -151,7 +203,7 @@ export async function registerRoutes(
       };
       const data = insertStorySchema.parse(body);
       const story = await storage.createStory(data);
-      
+
       if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'story',
@@ -161,7 +213,7 @@ export async function registerRoutes(
           details: `Created story: ${story.title}`,
         });
       }
-      
+
       res.status(201).json(story);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -176,11 +228,11 @@ export async function registerRoutes(
     try {
       const data = updateStorySchema.parse(req.body);
       const story = await storage.updateStory(req.params.id, data);
-      
+
       if (!story) {
         return res.status(404).json({ error: "Story not found" });
       }
-      
+
       if (req.user?.id) {
         await storage.createActivityLog({
           entityType: 'story',
@@ -190,7 +242,7 @@ export async function registerRoutes(
           details: `Updated story: ${story.title}`,
         });
       }
-      
+
       res.json(story);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -247,26 +299,26 @@ export async function registerRoutes(
     try {
       const { storyId } = req.params;
       const { userNotes, progressPercent, senderName } = req.body;
-      
+
       // Get story details
       const story = await storage.getStory(storyId);
       if (!story) {
         return res.status(404).json({ error: "Story not found" });
       }
-      
+
       // Get client details
       const client = await storage.getClient(story.clientId);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
-      
+
       // Get recent comments
       const allComments = await storage.getCommentsByStory(storyId);
       const recentComments = allComments.slice(-5).map(c => ({
         authorName: c.authorName || 'Team Member',
         body: c.body
       }));
-      
+
       const emailResult = await generateStatusEmail({
         storyTitle: story.title,
         storyDescription: story.description,
@@ -280,7 +332,7 @@ export async function registerRoutes(
         userNotes: userNotes || '',
         senderName: senderName || 'The Team'
       });
-      
+
       res.json(emailResult);
     } catch (error) {
       console.error('Generate email error:', error);
@@ -302,15 +354,15 @@ export async function registerRoutes(
   app.post("/api/stories/:storyId/emails", isAuthenticated, async (req: any, res) => {
     try {
       const { storyId } = req.params;
-      
+
       // Get story to get clientId
       const story = await storage.getStory(storyId);
       if (!story) {
         return res.status(404).json({ error: "Story not found" });
       }
-      
+
       const client = await storage.getClient(story.clientId);
-      
+
       const data = insertSentEmailSchema.parse({
         ...req.body,
         storyId,
@@ -320,7 +372,7 @@ export async function registerRoutes(
         recipientName: req.body.recipientName || client?.contactName,
         sentAt: new Date(),
       });
-      
+
       const email = await storage.createSentEmail(data);
       res.status(201).json(email);
     } catch (error) {
@@ -336,11 +388,11 @@ export async function registerRoutes(
   app.post("/api/analyze-proposal", isAuthenticated, async (req: any, res) => {
     try {
       const { proposalText, clientName } = req.body;
-      
+
       if (!proposalText || !clientName) {
         return res.status(400).json({ error: "proposalText and clientName are required" });
       }
-      
+
       const analysis = await analyzeProposal(proposalText, clientName);
       res.json(analysis);
     } catch (error) {
@@ -354,14 +406,14 @@ export async function registerRoutes(
     try {
       const { clientId } = req.params;
       const { tasks } = req.body;
-      
+
       if (!Array.isArray(tasks) || tasks.length === 0) {
         return res.status(400).json({ error: "tasks array is required" });
       }
-      
+
       const createdStories = [];
       const errors = [];
-      
+
       for (const task of tasks) {
         try {
           const storyInput = {
@@ -377,7 +429,7 @@ export async function registerRoutes(
             progressPercent: 0,
             tags: [],
           };
-          
+
           const validatedData = insertStorySchema.parse(storyInput);
           const story = await storage.createStory(validatedData);
           createdStories.push(story);
@@ -386,15 +438,15 @@ export async function registerRoutes(
           errors.push({ title: task.title, error: String(taskError) });
         }
       }
-      
+
       if (createdStories.length === 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: "Failed to create any tasks",
-          details: errors 
+          details: errors
         });
       }
-      
-      res.status(201).json({ 
+
+      res.status(201).json({
         message: `Created ${createdStories.length} tasks from proposal`,
         stories: createdStories,
         errors: errors.length > 0 ? errors : undefined
@@ -436,7 +488,7 @@ export async function registerRoutes(
         issuedOn: req.body.issuedOn ? new Date(req.body.issuedOn) : new Date(),
       });
       const invoice = await storage.createInvoice(data);
-      
+
       if (req.user?.id) {
         const client = await storage.getClient(req.params.clientId);
         await storage.createActivityLog({
@@ -447,7 +499,7 @@ export async function registerRoutes(
           details: `Added invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) to ${client?.name || 'client'}`,
         });
       }
-      
+
       res.status(201).json(invoice);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -465,11 +517,11 @@ export async function registerRoutes(
         issuedOn: req.body.issuedOn ? new Date(req.body.issuedOn) : undefined,
       });
       const invoice = await storage.updateInvoice(req.params.id, data);
-      
+
       if (!invoice) {
         return res.status(404).json({ error: "Invoice not found" });
       }
-      
+
       if (req.user?.id) {
         const client = await storage.getClient(invoice.clientId);
         await storage.createActivityLog({
@@ -480,7 +532,7 @@ export async function registerRoutes(
           details: `Updated invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) for ${client?.name || 'client'}`,
         });
       }
-      
+
       res.json(invoice);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -498,7 +550,7 @@ export async function registerRoutes(
       if (!success) {
         return res.status(404).json({ error: "Invoice not found" });
       }
-      
+
       if (req.user?.id && invoice) {
         const client = await storage.getClient(invoice.clientId);
         await storage.createActivityLog({
@@ -509,7 +561,7 @@ export async function registerRoutes(
           details: `Deleted invoice "${invoice.label}" (₹${parseFloat(invoice.amount).toLocaleString('en-IN')}) from ${client?.name || 'client'}`,
         });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       console.error('Delete invoice error:', error);
@@ -523,7 +575,7 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can view team members" });
       }
-      
+
       const usersList = await storage.getAllUsers();
       res.json(usersList);
     } catch (error) {
@@ -537,14 +589,14 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can update user profiles" });
       }
-      
+
       const data = updateUserProfileSchema.parse(req.body);
       const user = await storage.updateUserProfile(req.params.id, data);
-      
+
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
-      
+
       res.json(user);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -561,7 +613,7 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can view investments" });
       }
-      
+
       const investments = await storage.getFounderInvestments();
       res.json(investments);
     } catch (error) {
@@ -575,13 +627,13 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can add investments" });
       }
-      
+
       const data = insertFounderInvestmentSchema.parse({
         ...req.body,
         investedOn: req.body.investedOn ? new Date(req.body.investedOn) : new Date(),
       });
       const investment = await storage.createFounderInvestment(data);
-      
+
       res.status(201).json(investment);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -597,17 +649,17 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can update investments" });
       }
-      
+
       const data = updateFounderInvestmentSchema.parse({
         ...req.body,
         investedOn: req.body.investedOn ? new Date(req.body.investedOn) : undefined,
       });
       const investment = await storage.updateFounderInvestment(req.params.id, data);
-      
+
       if (!investment) {
         return res.status(404).json({ error: "Investment not found" });
       }
-      
+
       res.json(investment);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -623,12 +675,12 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can delete investments" });
       }
-      
+
       const success = await storage.deleteFounderInvestment(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Investment not found" });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       console.error('Delete investment error:', error);
@@ -642,7 +694,7 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can view documents" });
       }
-      
+
       const documents = await storage.getInternalDocuments();
       res.json(documents);
     } catch (error) {
@@ -656,7 +708,7 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can add documents" });
       }
-      
+
       const data = insertInternalDocumentSchema.parse({
         ...req.body,
         uploadedById: req.user.id,
@@ -677,14 +729,14 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can update documents" });
       }
-      
+
       const data = updateInternalDocumentSchema.parse(req.body);
       const document = await storage.updateInternalDocument(req.params.id, data);
-      
+
       if (!document) {
         return res.status(404).json({ error: "Document not found" });
       }
-      
+
       res.json(document);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -700,12 +752,12 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can delete documents" });
       }
-      
+
       const success = await storage.deleteInternalDocument(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Document not found" });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       console.error('Delete document error:', error);

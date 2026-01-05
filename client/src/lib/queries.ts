@@ -92,10 +92,11 @@ export function useCreateStory() {
   return useMutation({
     mutationFn: storiesAPI.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stories'] });
-      queryClient.invalidateQueries({ predicate: (query) => 
-        query.queryKey[0] === 'stories' && query.queryKey[1] === 'client'
-      });
+      // Invalidate ALL story-related queries to ensure sync across all views
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'stories' });
+      // Also invalidate clients (for average progress) and activity log (for Dashboard)
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
       toast({ title: "Story created successfully" });
     },
     onError: (error: Error) => {
@@ -149,7 +150,7 @@ export function useCreateComment() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ storyId, data }: { storyId: string; data: any }) => 
+    mutationFn: ({ storyId, data }: { storyId: string; data: any }) =>
       commentsAPI.create(storyId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['comments', variables.storyId] });
@@ -183,7 +184,7 @@ export function useCreateInvoice() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: ({ clientId, data }: { clientId: string; data: any }) => 
+    mutationFn: ({ clientId, data }: { clientId: string; data: any }) =>
       invoicesAPI.create(clientId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
@@ -326,7 +327,7 @@ export function useCreateSentEmail() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ storyId, data }: { storyId: string; data: any }) => 
+    mutationFn: ({ storyId, data }: { storyId: string; data: any }) =>
       sentEmailsAPI.create(storyId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['sent-emails', variables.storyId] });

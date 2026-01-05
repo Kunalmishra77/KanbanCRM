@@ -51,7 +51,7 @@ type Invoice = {
 export default function ClientDetail() {
   const [match, params] = useRoute("/clients/:id");
   const { toast } = useToast();
-  
+
   const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
   const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
   const { data: invoices = [], isLoading: isLoadingInvoices } = useInvoices(params?.id || '');
@@ -59,12 +59,14 @@ export default function ClientDetail() {
   const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();
   const { mutate: updateInvoice, isPending: isUpdatingInvoice } = useUpdateInvoice();
   const { mutate: deleteInvoice } = useDeleteInvoice();
-  
+
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({
     label: '',
     amount: '',
@@ -88,9 +90,9 @@ export default function ClientDetail() {
   }
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
-    updateStory({ 
-      id: storyId, 
-      data: { status: newStatus } 
+    updateStory({
+      id: storyId,
+      data: { status: newStatus }
     });
     toast({
       title: "Status Updated",
@@ -109,6 +111,7 @@ export default function ClientDetail() {
 
   const openAddInvoiceModal = () => {
     setEditingInvoice(null);
+    setInvoiceFile(null);
     setInvoiceForm({
       label: '',
       amount: '',
@@ -123,6 +126,7 @@ export default function ClientDetail() {
 
   const openEditInvoiceModal = (invoice: Invoice) => {
     setEditingInvoice(invoice);
+    setInvoiceFile(null);
     setInvoiceForm({
       label: invoice.label,
       amount: invoice.amount,
@@ -144,42 +148,72 @@ export default function ClientDetail() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setInvoiceForm(prev => ({
-        ...prev,
-        fileName: file.name,
-        fileType: file.type,
-        fileData: reader.result as string,
-      }));
-    };
-    reader.readAsDataURL(file);
+    setInvoiceFile(file);
+    setInvoiceForm(prev => ({
+      ...prev,
+      fileName: file.name,
+      fileType: file.type,
+    }));
   };
 
-  const handleSubmitInvoice = () => {
+  const handleSubmitInvoice = async () => {
     if (!invoiceForm.label.trim() || !invoiceForm.amount) {
       toast({ title: "Please fill required fields", variant: "destructive" });
       return;
     }
 
-    const invoiceData = {
-      label: invoiceForm.label,
-      amount: invoiceForm.amount,
-      issuedOn: invoiceForm.issuedOn,
-      notes: invoiceForm.notes || null,
-      fileName: invoiceForm.fileName || null,
-      fileType: invoiceForm.fileType || null,
-      fileData: invoiceForm.fileData || null,
-    };
+    setIsUploading(true);
+    let finalFileData = invoiceForm.fileData;
 
-    if (editingInvoice) {
-      updateInvoice({ id: editingInvoice.id, data: invoiceData }, {
-        onSuccess: () => setIsInvoiceModalOpen(false),
+    try {
+      // Upload via backend API if there is a new file
+      if (invoiceFile) {
+        const formData = new FormData();
+        formData.append('file', invoiceFile);
+        formData.append('bucket', 'invoices');
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const { publicUrl } = await uploadResponse.json();
+        finalFileData = publicUrl;
+      }
+
+      const invoiceData = {
+        label: invoiceForm.label,
+        amount: invoiceForm.amount,
+        issuedOn: invoiceForm.issuedOn,
+        notes: invoiceForm.notes || null,
+        fileName: invoiceForm.fileName || null,
+        fileType: invoiceForm.fileType || null,
+        fileData: finalFileData || null,
+      };
+
+      if (editingInvoice) {
+        updateInvoice({ id: editingInvoice.id, data: invoiceData }, {
+          onSuccess: () => setIsInvoiceModalOpen(false),
+        });
+      } else {
+        createInvoice({ clientId: params?.id || '', data: invoiceData }, {
+          onSuccess: () => setIsInvoiceModalOpen(false),
+        });
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload file",
+        variant: "destructive"
       });
-    } else {
-      createInvoice({ clientId: params?.id || '', data: invoiceData }, {
-        onSuccess: () => setIsInvoiceModalOpen(false),
-      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -208,23 +242,23 @@ export default function ClientDetail() {
             <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
             <Badge variant="outline">{client.industry}</Badge>
             <Badge className={
-               client.stage === 'Hot' ? "bg-red-500 hover:bg-red-600" :
-               client.stage === 'Warm' ? "bg-orange-500 hover:bg-orange-600" :
-               client.stage === 'Dropped' ? "bg-gray-500 hover:bg-gray-600" :
-               "bg-blue-500 hover:bg-blue-600"
+              client.stage === 'Hot' ? "bg-red-500 hover:bg-red-600" :
+                client.stage === 'Warm' ? "bg-orange-500 hover:bg-orange-600" :
+                  client.stage === 'Dropped' ? "bg-gray-500 hover:bg-gray-600" :
+                    "bg-blue-500 hover:bg-blue-600"
             }>
               {client.stage}
             </Badge>
           </div>
           <div className="ml-auto flex gap-2">
-             <Button 
-               className="gap-2 shadow-lg shadow-primary/20"
-               onClick={() => setIsCreateStoryOpen(true)}
-               data-testid="button-add-story"
-             >
-               <Plus className="h-4 w-4" />
-               Add Story
-             </Button>
+            <Button
+              className="gap-2 shadow-lg shadow-primary/20"
+              onClick={() => setIsCreateStoryOpen(true)}
+              data-testid="button-add-story"
+            >
+              <Plus className="h-4 w-4" />
+              Add Story
+            </Button>
           </div>
         </div>
 
@@ -253,9 +287,9 @@ export default function ClientDetail() {
         </TabsList>
 
         <TabsContent value="kanban" className="flex-1 min-h-0 mt-4">
-          <KanbanBoard 
-            stories={allStories} 
-            onStoryMove={handleStoryMove} 
+          <KanbanBoard
+            stories={allStories}
+            onStoryMove={handleStoryMove}
             onStoryClick={handleStoryClick}
           />
         </TabsContent>
@@ -410,7 +444,10 @@ export default function ClientDetail() {
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
                   <FileText className="h-4 w-4 text-primary" />
                   <span className="text-sm flex-1 truncate">{invoiceForm.fileName}</span>
-                  <Button variant="ghost" size="sm" onClick={() => setInvoiceForm(prev => ({ ...prev, fileName: '', fileData: '', fileType: '' }))}>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setInvoiceForm(prev => ({ ...prev, fileName: '', fileData: '', fileType: '' }));
+                    setInvoiceFile(null);
+                  }}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -434,19 +471,19 @@ export default function ClientDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsInvoiceModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmitInvoice} disabled={isCreatingInvoice || isUpdatingInvoice} data-testid="button-save-invoice">
-              {(isCreatingInvoice || isUpdatingInvoice) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button onClick={handleSubmitInvoice} disabled={isCreatingInvoice || isUpdatingInvoice || isUploading} data-testid="button-save-invoice">
+              {(isCreatingInvoice || isUpdatingInvoice || isUploading) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editingInvoice ? 'Update' : 'Add'} Invoice
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <StoryModal 
-        story={selectedStory} 
+      <StoryModal
+        story={selectedStory}
         client={client}
-        open={isModalOpen} 
-        onOpenChange={setIsModalOpen} 
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
       />
 
       <CreateStoryModal
