@@ -55,12 +55,12 @@ Return ONLY valid JSON in this exact format, no markdown or explanation:
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
-    
+
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No valid JSON found in response");
     }
-    
+
     const parsed = JSON.parse(jsonMatch[0]) as ExtractedProposalData;
     return parsed;
   } catch (error) {
@@ -136,6 +136,10 @@ INSTRUCTIONS:
 5. Be concise - the email should be 3-5 short paragraphs max
 6. Don't copy the task description or comments word-for-word - summarize professionally
 7. End with an offer to answer questions
+8. Sign off with:
+   Best regards,
+   ${input.senderName}
+   AGENTiX
 
 Return ONLY valid JSON in this format:
 {
@@ -147,19 +151,19 @@ Return ONLY valid JSON in this format:
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
-    
+
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No valid JSON found in response");
     }
-    
+
     const parsed = JSON.parse(jsonMatch[0]) as GeneratedEmail;
     return parsed;
   } catch (error) {
     console.error("Error generating email with Gemini:", error);
     return {
       subject: `Update on: ${input.storyTitle}`,
-      body: `Hi ${input.recipientName || 'there'},\n\nI wanted to give you a quick update on "${input.storyTitle}".\n\nWe are currently at ${input.progressPercent}% completion.\n\nPlease let me know if you have any questions.\n\nBest regards,\n${input.senderName}`
+      body: `Hi ${input.recipientName || 'there'},\n\nI wanted to give you a quick update on "${input.storyTitle}".\n\nWe are currently at ${input.progressPercent}% completion.\n\nPlease let me know if you have any questions.\n\nBest regards,\n${input.senderName}\nAGENTiX`
     };
   }
 }

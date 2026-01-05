@@ -2,23 +2,29 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { KanbanStatus, Story } from "@/lib/mockData";
 import { StoryCard } from "./StoryCard";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface KanbanBoardProps {
   stories: Story[];
   onStoryMove: (storyId: string, newStatus: KanbanStatus) => void;
   onStoryClick: (story: Story) => void;
+  clients?: { id: string; name: string }[];
 }
 
 const COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Review', 'Done'];
 
-export function KanbanBoard({ stories, onStoryMove, onStoryClick }: KanbanBoardProps) {
+export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }: KanbanBoardProps) {
   const [optimisticStories, setOptimisticStories] = useState(stories);
+
+  // Create a client lookup map for fast access
+  const clientMap = useMemo(() => {
+    return new Map(clients.map(c => [c.id, c.name]));
+  }, [clients]);
 
   // Update local state when props change
   if (stories !== optimisticStories && JSON.stringify(stories) !== JSON.stringify(optimisticStories)) {
-     setOptimisticStories(stories);
+    setOptimisticStories(stories);
   }
 
   const onDragEnd = (result: DropResult) => {
@@ -33,12 +39,12 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick }: KanbanBoardP
     }
 
     const newStatus = destination.droppableId as KanbanStatus;
-    
+
     // Optimistic update
-    const updatedStories = optimisticStories.map(s => 
+    const updatedStories = optimisticStories.map(s =>
       s.id === draggableId ? { ...s, status: newStatus } : s
     );
-    
+
     setOptimisticStories(updatedStories);
     onStoryMove(draggableId, newStatus);
   };
@@ -48,7 +54,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick }: KanbanBoardP
       <div className="flex h-full gap-4 overflow-x-auto pb-4 snap-x">
         {COLUMNS.map((status) => {
           const columnStories = optimisticStories.filter(s => s.status === status);
-          
+
           return (
             <div key={status} className="min-w-[280px] w-[320px] flex flex-col h-full snap-center">
               <div className="flex items-center justify-between mb-3 px-2">
@@ -56,10 +62,10 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick }: KanbanBoardP
                   <span className={cn(
                     "w-2 h-2 rounded-full",
                     status === 'To Do' ? "bg-slate-400" :
-                    status === 'In Progress' ? "bg-blue-500" :
-                    status === 'Blocked' ? "bg-red-500" :
-                    status === 'Review' ? "bg-yellow-500" :
-                    "bg-green-500"
+                      status === 'In Progress' ? "bg-blue-500" :
+                        status === 'Blocked' ? "bg-red-500" :
+                          status === 'Review' ? "bg-yellow-500" :
+                            "bg-green-500"
                   )} />
                   {status}
                 </h3>
@@ -67,7 +73,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick }: KanbanBoardP
                   {columnStories.length}
                 </span>
               </div>
-              
+
               <Droppable droppableId={status}>
                 {(provided, snapshot) => (
                   <div
@@ -80,11 +86,12 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick }: KanbanBoardP
                   >
                     <ScrollArea className="h-full pr-2">
                       {columnStories.map((story, index) => (
-                        <StoryCard 
-                          key={story.id} 
-                          story={story} 
-                          index={index} 
+                        <StoryCard
+                          key={story.id}
+                          story={story}
+                          index={index}
                           onClick={onStoryClick}
+                          clientName={clientMap.get(story.clientId)}
                         />
                       ))}
                       {provided.placeholder}

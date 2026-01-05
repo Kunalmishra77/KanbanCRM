@@ -3,14 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import generatedImage from '@assets/generated_images/abstract_apple-style_wallpaper_with_soft_gradients.png';
+import agentixLogo from '../assets/agentix-full-logo.png';
 
 export default function Login() {
   const { login, isLoading } = useAuth();
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden font-sans selection:bg-primary/30 selection:text-primary-foreground">
-       {/* Background Wallpaper Layer */}
-       <div 
+      {/* Background Wallpaper Layer */}
+      <div
         className="fixed inset-0 z-0 opacity-40 pointer-events-none saturate-150 blur-sm scale-105"
         style={{
           backgroundImage: `url(${generatedImage})`,
@@ -21,10 +22,7 @@ export default function Login() {
 
       <div className="w-full max-w-md z-10 px-4">
         <div className="mb-8 text-center space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-orange-600 shadow-xl flex items-center justify-center mx-auto mb-6 ring-4 ring-white/20">
-            <span className="text-white font-bold text-3xl">A</span>
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-foreground drop-shadow-sm">Agentix</h1>
+          <img src={agentixLogo} alt="AGENTiX" className="h-32 mx-auto mb-4" />
           <p className="text-muted-foreground text-lg">Workspace for the modern era.</p>
         </div>
 
@@ -34,8 +32,8 @@ export default function Login() {
             <CardDescription>Sign in with your preferred account to continue</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
-            <Button 
-              className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all" 
+            <Button
+              className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
               disabled={isLoading}
               onClick={() => login()}
               data-testid="button-signin"
@@ -77,50 +75,50 @@ export default function Login() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <Button 
-                variant="outline" 
-                className="h-11 macos-input bg-white/60 hover:bg-white/80 font-normal border-black/5" 
+              <Button
+                variant="outline"
+                className="h-11 macos-input bg-white/60 hover:bg-white/80 font-normal border-black/5"
                 type="button"
                 onClick={() => login()}
                 disabled={isLoading}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                 </svg>
               </Button>
-              <Button 
-                variant="outline" 
-                className="h-11 macos-input bg-white/60 hover:bg-white/80 font-normal border-black/5" 
+              <Button
+                variant="outline"
+                className="h-11 macos-input bg-white/60 hover:bg-white/80 font-normal border-black/5"
                 type="button"
                 onClick={() => login()}
                 disabled={isLoading}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
               </Button>
-              <Button 
-                variant="outline" 
-                className="h-11 macos-input bg-white/60 hover:bg-white/80 font-normal border-black/5" 
+              <Button
+                variant="outline"
+                className="h-11 macos-input bg-white/60 hover:bg-white/80 font-normal border-black/5"
                 type="button"
                 onClick={() => login()}
                 disabled={isLoading}
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>
+                  <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
                 </svg>
               </Button>
             </div>
           </CardContent>
           <CardFooter className="justify-center border-t border-black/5 pt-4 pb-4">
-             <p className="text-sm text-muted-foreground text-center">
-               By signing in, you agree to our Terms of Service and Privacy Policy.
-             </p>
+            <p className="text-sm text-muted-foreground text-center">
+              By signing in, you agree to our Terms of Service and Privacy Policy.
+            </p>
           </CardFooter>
         </Card>
-        
+
         <div className="mt-8 text-center text-xs text-muted-foreground/60">
-          <p>© 2025 Agentix Inc. All rights reserved.</p>
+          <p>© 2025 AGENTiX Inc. All rights reserved.</p>
         </div>
       </div>
     </div>

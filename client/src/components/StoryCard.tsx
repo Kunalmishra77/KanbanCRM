@@ -11,11 +11,12 @@ interface StoryCardProps {
   story: Story;
   index: number;
   onClick: (story: Story) => void;
+  clientName?: string;
 }
 
-export function StoryCard({ story, index, onClick }: StoryCardProps) {
+export function StoryCard({ story, index, onClick, clientName }: StoryCardProps) {
   const assignee = USERS.find(u => u.id === story.assignedTo);
-  
+
   const priorityConfig = {
     Low: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Low" },
     Medium: { color: "bg-yellow-100 text-yellow-700 border-yellow-200", label: "Med" },
@@ -40,10 +41,19 @@ export function StoryCard({ story, index, onClick }: StoryCardProps) {
             snapshot.isDragging ? "shadow-xl ring-2 ring-primary/50" : ""
           )}>
             <CardContent className="p-4 space-y-3">
+              {/* Company Name - Primary Label */}
+              {clientName && (
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[11px] px-2 py-0.5 font-semibold hover:bg-primary/10">
+                    {clientName}
+                  </Badge>
+                </div>
+              )}
+
               {/* Header Tags */}
               <div className="flex justify-between items-start">
                 <div className="flex gap-2 flex-wrap">
-                   <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border font-medium shadow-none", priorityConfig.color)}>
+                  <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border font-medium shadow-none", priorityConfig.color)}>
                     {priorityConfig.label}
                   </Badge>
                   {story.tags.map(tag => (
@@ -70,7 +80,7 @@ export function StoryCard({ story, index, onClick }: StoryCardProps) {
                     <span>{format(new Date(story.dueDate), "MMM d")}</span>
                   </div>
                 </div>
-                
+
                 {assignee && (
                   <Avatar className="h-6 w-6 ring-2 ring-white shadow-sm">
                     <AvatarImage src={assignee.avatarUrl} />
