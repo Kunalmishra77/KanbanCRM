@@ -2,7 +2,7 @@ import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { KanbanStatus, Story } from "@/lib/mockData";
 import { StoryCard } from "./StoryCard";
 import { cn } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface KanbanBoardProps {
@@ -15,17 +15,33 @@ interface KanbanBoardProps {
 const COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Review', 'Done'];
 
 export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }: KanbanBoardProps) {
-  const [optimisticStories, setOptimisticStories] = useState(stories);
+  const [localStories, setLocalStories] = useState(stories);
+  const pendingMoves = useRef<Set<string>>(new Set());
 
   // Create a client lookup map for fast access
   const clientMap = useMemo(() => {
     return new Map(clients.map(c => [c.id, c.name]));
   }, [clients]);
 
-  // Update local state when props change
-  if (stories !== optimisticStories && JSON.stringify(stories) !== JSON.stringify(optimisticStories)) {
-    setOptimisticStories(stories);
-  }
+  // Sync with props, but preserve pending optimistic updates
+  useEffect(() => {
+    setLocalStories(prevLocal => {
+      return stories.map(story => {
+        // If this story has a pending move, keep our local version
+        if (pendingMoves.current.has(story.id)) {
+          const localVersion = prevLocal.find(s => s.id === story.id);
+          if (localVersion) {
+            // Check if server caught up
+            if (localVersion.status === story.status) {
+              pendingMoves.current.delete(story.id);
+            }
+            return localVersion;
+          }
+        }
+        return story;
+      });
+    });
+  }, [stories]);
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -40,12 +56,15 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
 
     const newStatus = destination.droppableId as KanbanStatus;
 
-    // Optimistic update
-    const updatedStories = optimisticStories.map(s =>
-      s.id === draggableId ? { ...s, status: newStatus } : s
+    // Mark as pending
+    pendingMoves.current.add(draggableId);
+
+    // Optimistic update - instant!
+    setLocalStories(prev =>
+      prev.map(s => s.id === draggableId ? { ...s, status: newStatus } : s)
     );
 
-    setOptimisticStories(updatedStories);
+    // Trigger API call
     onStoryMove(draggableId, newStatus);
   };
 
@@ -53,7 +72,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex h-full gap-4 overflow-x-auto pb-4 snap-x">
         {COLUMNS.map((status) => {
-          const columnStories = optimisticStories.filter(s => s.status === status);
+          const columnStories = localStories.filter((s: Story) => s.status === status);
 
           return (
             <div key={status} className="min-w-[280px] w-[320px] flex flex-col h-full snap-center">
@@ -80,12 +99,14 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
                     {...provided.droppableProps}
                     ref={provided.innerRef}
                     className={cn(
-                      "flex-1 rounded-xl p-2 transition-colors",
-                      snapshot.isDraggingOver ? "bg-primary/5" : "bg-white/20 dark:bg-black/20"
+                      "flex-1 rounded-xl p-2 min-h-[200px]",
+                      snapshot.isDraggingOver
+                        ? "bg-primary/5"
+                        : "bg-white/20 dark:bg-black/20"
                     )}
                   >
                     <ScrollArea className="h-full pr-2">
-                      {columnStories.map((story, index) => (
+                      {columnStories.map((story: Story, index: number) => (
                         <StoryCard
                           key={story.id}
                           story={story}

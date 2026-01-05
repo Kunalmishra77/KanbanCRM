@@ -32,13 +32,16 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
           {...provided.dragHandleProps}
           className={cn(
             "mb-3 group outline-none",
-            snapshot.isDragging ? "z-50 rotate-2 scale-105 opacity-90" : ""
+            snapshot.isDragging && "z-50 opacity-95"
           )}
+          style={provided.draggableProps.style}
           onClick={() => onClick(story)}
         >
           <Card className={cn(
-            "macos-card border-none cursor-pointer hover:shadow-md transition-all duration-200 group-active:cursor-grabbing",
-            snapshot.isDragging ? "shadow-xl ring-2 ring-primary/50" : ""
+            "macos-card border-none cursor-grab group-active:cursor-grabbing",
+            snapshot.isDragging
+              ? "shadow-xl ring-2 ring-primary/30 bg-white"
+              : "hover:shadow-md"
           )}>
             <CardContent className="p-4 space-y-3">
               {/* Company Name - Primary Label */}
