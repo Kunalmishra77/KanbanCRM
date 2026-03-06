@@ -4,6 +4,17 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
+console.log("Server: index.ts initialization started");
+console.log("Server Environment Check:", {
+  NODE_ENV: process.env.NODE_ENV,
+  VERCEL: !!process.env.VERCEL,
+  PORT: process.env.PORT,
+  DATABASE_URL: !!process.env.DATABASE_URL ? "PRESENT" : "MISSING",
+  SESSION_SECRET: !!process.env.SESSION_SECRET ? "PRESENT" : "MISSING",
+  GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID ? "PRESENT" : "MISSING",
+  GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET ? "PRESENT" : "MISSING"
+});
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -80,52 +91,59 @@ app.get("/api/health", (req, res) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  try {
+    console.log("Server: Registering routes...");
+    await registerRoutes(httpServer, app);
+    console.log("Server: Routes registered successfully.");
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    // CRITICAL: Log full error to Vercel Logs
-    console.error("VERCEL GLOBAL ERROR HANDLER:", {
-      message: err.message,
-      stack: err.stack,
-      status,
-      timestamp: new Date().toISOString()
+      // CRITICAL: Log full error to Vercel Logs
+      console.error("VERCEL GLOBAL ERROR HANDLER:", {
+        message: err.message,
+        stack: err.stack,
+        status,
+        timestamp: new Date().toISOString()
+      });
+
+      res.status(status).json({ message });
     });
 
-    res.status(status).json({ message });
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
-    // Only serve static files manually if NOT on Vercel
-    // Vercel handles static assets automatically from the dist/public folder
-    if (!process.env.VERCEL) {
-      serveStatic(app);
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (process.env.NODE_ENV === "production") {
+      // Only serve static files manually if NOT on Vercel
+      // Vercel handles static assets automatically from the dist/public folder
+      if (!process.env.VERCEL) {
+        serveStatic(app);
+      }
+    } else {
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
     }
-  } else {
-    const { setupVite } = await import("./vite");
-    await setupVite(httpServer, app);
-  }
 
-  // ONLY listen if not running in a serverless environment like Vercel
-  if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
-    const port = parseInt(process.env.PORT || "5000", 10);
-    httpServer.listen(
-      {
-        port,
-        host: "0.0.0.0",
-      },
-      () => {
-        log(`serving on port ${port}`);
-      },
-    );
+    // ONLY listen if not running in a serverless environment like Vercel
+    if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
+      const port = parseInt(process.env.PORT || "5000", 10);
+      httpServer.listen(
+        {
+          port,
+          host: "0.0.0.0",
+        },
+        () => {
+          log(`serving on port ${port}`);
+        },
+      );
+    }
+  } catch (err) {
+    console.error("Server: CRITICAL STARTUP ERROR (inner):", err);
+    throw err;
   }
 })().catch(err => {
-  console.error("Failed to start server:", err);
+  console.error("Server: CRITICAL STARTUP ERROR (outer):", err);
 });
 
 export default app;
