@@ -49,7 +49,10 @@ export async function setupGoogleAuth(app: Express) {
   let domain: string;
   let protocol = 'https';
 
-  if (process.env.REPLIT_DEPLOYMENT === '1' && process.env.REPLIT_DOMAINS) {
+  if (process.env.VERCEL_URL) {
+    // Vercel deployment
+    domain = process.env.VERCEL_URL;
+  } else if (process.env.REPLIT_DEPLOYMENT === '1' && process.env.REPLIT_DOMAINS) {
     // Production deployment - use the first domain from REPLIT_DOMAINS
     domain = process.env.REPLIT_DOMAINS.split(',')[0];
   } else if (process.env.REPLIT_DEV_DOMAIN) {
@@ -58,6 +61,9 @@ export async function setupGoogleAuth(app: Express) {
   } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
     // Fallback for older Replit environments
     domain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  } else if (process.env.VERCEL) {
+    // Vercel deployment without VERCEL_URL (shouldn't happen)
+    domain = 'kanbancrm-five.vercel.app';
   } else {
     // Local development
     domain = `localhost:${process.env.PORT || 5000}`;
@@ -65,13 +71,14 @@ export async function setupGoogleAuth(app: Express) {
   }
   const callbackURL = `${protocol}://${domain}/api/auth/google/callback`;
 
-  console.log("Google OAuth callback URL:", callbackURL);
+  console.log("Google OAuth initialized with callback URL:", callbackURL);
+  console.log("Using VERCEL_URL:", process.env.VERCEL_URL);
 
   passport.use(
     new GoogleStrategy(
       {
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        clientID: process.env.GOOGLE_CLIENT_ID || "",
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
         callbackURL,
         scope: ["profile", "email"],
       },
