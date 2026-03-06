@@ -9,7 +9,7 @@ import {
   type SentEmail, type InsertSentEmail,
   type InternalDocument, type InsertInternalDocument, type UpdateInternalDocument,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments
-} from "@shared/schema";
+} from "../shared/schema";
 import { db } from "../db/index";
 import { eq, desc, and, sql } from "drizzle-orm";
 
