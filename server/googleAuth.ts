@@ -19,15 +19,35 @@ export function isCoFounderEmail(email: string | null | undefined): boolean {
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  
+  // Use a secret fallback for debugging (though production should always have SESSION_SECRET)
+  const secret = process.env.SESSION_SECRET || "kanban-crm-fallback-secret-12345";
+  
+  if (!process.env.DATABASE_URL) {
+    console.error("CRITICAL: DATABASE_URL is missing! Session store will be in-memory only.");
+    // Fallback to memory store if DB is missing to prevent total crash
+    return session({
+      secret,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: sessionTtl,
+      },
+    });
+  }
+
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: true,
+    createTableIfMissing: false, // We already added this to complete_fix.sql
     ttl: sessionTtl,
     tableName: "sessions",
   });
+
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,

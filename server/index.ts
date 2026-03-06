@@ -61,6 +61,24 @@ app.use((req, res, next) => {
   next();
 });
 
+// Add a simple health check endpoint to debug environment variables safely
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    message: "Server is running",
+    environment: {
+      DATABASE_URL: !!process.env.DATABASE_URL,
+      GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
+      SESSION_SECRET: !!process.env.SESSION_SECRET,
+      VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      VERCEL: !!process.env.VERCEL,
+      NODE_ENV: process.env.NODE_ENV
+    }
+  });
+});
+
 (async () => {
   await registerRoutes(httpServer, app);
 
