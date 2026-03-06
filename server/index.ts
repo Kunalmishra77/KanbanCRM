@@ -94,7 +94,11 @@ app.get("/api/health", (req, res) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
+    // Only serve static files manually if NOT on Vercel
+    // Vercel handles static assets automatically from the dist/public folder
+    if (!process.env.VERCEL) {
+      serveStatic(app);
+    }
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);

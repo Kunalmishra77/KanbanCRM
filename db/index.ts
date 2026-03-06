@@ -2,16 +2,22 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@shared/schema';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is not set');
+// Export an empty db variable if DATABASE_URL is missing
+// to avoid top-level crashes during Vercel serverless function initialization
+let dbInstance: any = null;
+
+if (process.env.DATABASE_URL) {
+  console.log("Initializing database connection pool...");
+  const client = postgres(process.env.DATABASE_URL, {
+    prepare: false, // Required for pgbouncer transaction mode
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
+  });
+  dbInstance = drizzle(client, { schema });
+  console.log("Database connection pool initialized.");
+} else {
+  console.error("CRITICAL: DATABASE_URL environment variable is missing!");
 }
 
-console.log("Initializing database connection...");
+export const db = dbInstance;
 
-const client = postgres(process.env.DATABASE_URL, {
-  prepare: false, // Required for pgbouncer transaction mode
-  idle_timeout: 20,
-  max_lifetime: 60 * 30,
-});
-export const db = drizzle(client, { schema });
-console.log("Database connection established.");
