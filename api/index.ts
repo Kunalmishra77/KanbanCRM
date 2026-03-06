@@ -1,5 +1,5 @@
 console.log("Vercel API: Entry point loaded");
-import app, { initApp } from "../server/app";
+import app, { initApp } from "../server/app.js";
 
 // Vercel serverless function handler
 export default async (req: any, res: any) => {

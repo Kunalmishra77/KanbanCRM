@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import app, { initApp } from "./app";
-import { serveStatic } from "./static";
+import app, { initApp } from "./app.js";
+import { serveStatic } from "./static.js";
 
 console.log("Server: index.ts loaded");
 
@@ -17,7 +17,7 @@ console.log("Server: index.ts loaded");
     } else {
       // In Dev, we need to setup Vite
       // This is dynamic to avoid loading Vite in production
-      const { setupVite } = await import("./vite");
+      const { setupVite } = await import("./vite.js");
       const { createServer } = await import("http");
       const httpServer = createServer(app);
       await setupVite(httpServer, app);

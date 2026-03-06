@@ -9,8 +9,8 @@ import {
   type SentEmail, type InsertSentEmail,
   type InternalDocument, type InsertInternalDocument, type UpdateInternalDocument,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments
-} from "../shared/schema";
-import { db } from "../db/index";
+} from "../shared/schema.js";
+import { db } from "../db/index.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {

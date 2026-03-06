@@ -1,13 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema } from "../shared/schema";
+import { storage } from "./storage.js";
+import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth.js";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema } from "../shared/schema.js";
 import { ZodError } from "zod";
-import { analyzeProposal, generateStatusEmail } from "./gemini";
+import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
 import multer from "multer";
-import { supabaseAdmin } from "./lib/supabase";
+import { supabaseAdmin } from "./lib/supabase.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
