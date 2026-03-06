@@ -69,6 +69,20 @@ USING (bucket_id IN ('invoices', 'documents', 'proposals', 'attachments'))
 WITH CHECK (bucket_id IN ('invoices', 'documents', 'proposals', 'attachments'));
 
 -- ============================================
+-- STEP 5: Create Sessions Table for connect-pg-simple
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS "sessions" (
+  "sid" varchar NOT NULL COLLATE "default",
+  "sess" json NOT NULL,
+  "expire" timestamp(6) NOT NULL,
+  CONSTRAINT "sessions_pkey" PRIMARY KEY ("sid")
+) WITH (OIDS=FALSE);
+
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "sessions" ("expire");
+
+-- ============================================
 -- VERIFICATION: Check the storage buckets exist
 -- ============================================
 SELECT id, name, public FROM storage.buckets WHERE id IN ('invoices', 'documents', 'proposals', 'attachments');
+SELECT * FROM information_schema.tables WHERE table_name = 'sessions';
