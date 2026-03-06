@@ -145,14 +145,33 @@ export async function setupGoogleAuth(app: Express) {
     }
   });
 
-  app.get("/api/login", passport.authenticate("google"));
+  app.get("/api/login", (req, res, next) => {
+    // Dynamically determine the callback URL based on the current request host
+    const host = req.get("host");
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const callbackURL = `${protocol}://${host}/api/auth/google/callback`;
+
+    console.log("Initiating login with dynamic callback:", callbackURL);
+
+    passport.authenticate("google", { 
+      scope: ["profile", "email"],
+      callbackURL 
+    })(req, res, next);
+  });
 
   app.get(
     "/api/auth/google/callback",
-    passport.authenticate("google", {
-      failureRedirect: "/auth",
-      successRedirect: "/",
-    })
+    (req, res, next) => {
+      const host = req.get("host");
+      const protocol = req.headers["x-forwarded-proto"] || "http";
+      const callbackURL = `${protocol}://${host}/api/auth/google/callback`;
+
+      passport.authenticate("google", {
+        failureRedirect: "/auth",
+        successRedirect: "/",
+        callbackURL
+      })(req, res, next);
+    }
   );
 
   app.get("/api/logout", (req, res) => {
