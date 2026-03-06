@@ -17,82 +17,72 @@ export function isCoFounderEmail(email: string | null | undefined): boolean {
   return CO_FOUNDER_EMAILS.includes(email.toLowerCase());
 }
 
+/**
+ * Returns the stable callback URL based on the environment.
+ */
+function getCallbackURL() {
+  // Use VERCEL env var or production mode to determine the URL
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    return "https://kanbancrm-five.vercel.app/api/auth/google/callback";
+  }
+  // Default to local development
+  return `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`;
+}
+
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const secret = process.env.SESSION_SECRET;
   
-  // Use a secret fallback for debugging (though production should always have SESSION_SECRET)
-  const secret = process.env.SESSION_SECRET || "kanban-crm-fallback-secret-12345";
-  
-  if (!process.env.DATABASE_URL) {
-    console.error("CRITICAL: DATABASE_URL is missing! Session store will be in-memory only.");
-    // Fallback to memory store if DB is missing to prevent total crash
-    return session({
-      secret,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: sessionTtl,
-      },
-    });
+  if (!secret) {
+    console.error("CRITICAL AUTH ERROR: SESSION_SECRET is missing from environment variables!");
   }
 
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false, // We already added this to complete_fix.sql
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
-
-  return session({
-    secret,
-    store: sessionStore,
+  const sessionOptions: session.SessionOptions = {
+    secret: secret || "kanban-crm-temporary-fallback-secret-12345",
     resave: false,
     saveUninitialized: false,
+    name: 'kanban.sid', // Explicit session name
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // Secure cookies are required for production/Vercel to work with proxies
+      secure: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
       maxAge: sessionTtl,
+      sameSite: 'lax',
     },
-  });
+  };
+
+  if (process.env.DATABASE_URL) {
+    console.log("Auth: Initializing PostgreSQL session store...");
+    const pgStore = connectPg(session);
+    sessionOptions.store = new pgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false, // Handled by complete_fix.sql
+      ttl: sessionTtl / 1000,
+      tableName: "sessions",
+    });
+  } else {
+    console.warn("Auth: DATABASE_URL missing, sessions will be stored in memory (NOT recommended for production).");
+  }
+
+  return session(sessionOptions);
 }
 
 export async function setupGoogleAuth(app: Express) {
+  // Essential for Vercel/proxies to trust the 'x-forwarded-proto' header for secure cookies
   app.set("trust proxy", 1);
+  
+  // Apply session middleware
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Detect production vs development domain for OAuth callback
-  let domain: string;
-  let protocol = 'https';
-
-  if (process.env.VERCEL_URL) {
-    // Vercel deployment
-    domain = process.env.VERCEL_URL;
-  } else if (process.env.REPLIT_DEPLOYMENT === '1' && process.env.REPLIT_DOMAINS) {
-    // Production deployment - use the first domain from REPLIT_DOMAINS
-    domain = process.env.REPLIT_DOMAINS.split(',')[0];
-  } else if (process.env.REPLIT_DEV_DOMAIN) {
-    // Replit development environment
-    domain = process.env.REPLIT_DEV_DOMAIN;
-  } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    // Fallback for older Replit environments
-    domain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-  } else if (process.env.VERCEL) {
-    // Vercel deployment without VERCEL_URL (shouldn't happen)
-    domain = 'kanbancrm-five.vercel.app';
-  } else {
-    // Local development
-    domain = `localhost:${process.env.PORT || 5000}`;
-    protocol = 'http';
+  // Check for required Google credentials
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.error("CRITICAL AUTH ERROR: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing!");
   }
-  const callbackURL = `${protocol}://${domain}/api/auth/google/callback`;
 
-  console.log("Google OAuth initialized with callback URL:", callbackURL);
-  console.log("Using VERCEL_URL:", process.env.VERCEL_URL);
+  const callbackURL = getCallbackURL();
+  console.log(`Auth: Google Strategy configured with Callback: ${callbackURL}`);
 
   passport.use(
     new GoogleStrategy(
@@ -100,11 +90,13 @@ export async function setupGoogleAuth(app: Express) {
         clientID: process.env.GOOGLE_CLIENT_ID || "",
         clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
         callbackURL,
-        scope: ["profile", "email"],
+        proxy: true, // Crucial for Vercel's internal proxy handling
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value || null;
+          console.log(`Auth: Google Profile received for email: ${email} (ID: ${profile.id})`);
+
           const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
           const lastName = profile.name?.familyName || null;
           const profileImageUrl = profile.photos?.[0]?.value || null;
@@ -114,6 +106,7 @@ export async function setupGoogleAuth(app: Express) {
           const userType = isCoFounder ? 'co-founder' : 'employee';
           const role = isCoFounder ? 'admin' : 'editor';
 
+          console.log(`Auth: Starting upsertUser for ID: ${profile.id}...`);
           const user = await storage.upsertUser({
             id: profile.id,
             email,
@@ -123,9 +116,11 @@ export async function setupGoogleAuth(app: Express) {
             userType,
             role,
           });
+          console.log(`Auth: upsertUser successful for user ID: ${user.id}`);
 
           done(null, user);
         } catch (error) {
+          console.error("Auth: Exception in Google Strategy verify callback:", error);
           done(error as Error);
         }
       }
@@ -133,52 +128,74 @@ export async function setupGoogleAuth(app: Express) {
   );
 
   passport.serializeUser((user: any, done) => {
+    console.log(`Auth: Serializing user session for ID: ${user.id}`);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: string, done) => {
     try {
+      // console.log(`Auth: Deserializing user session for ID: ${id}`);
       const user = await storage.getUser(id);
+      if (!user) {
+        console.warn(`Auth: Deserialization warning - user not found in storage for ID: ${id}`);
+      }
       done(null, user || null);
     } catch (error) {
+      console.error(`Auth: Deserialization error for ID: ${id}:`, error);
       done(error);
     }
   });
 
+  // Login Route
   app.get("/api/login", (req, res, next) => {
-    // Dynamically determine the callback URL based on the current request host
-    const host = req.get("host");
-    const protocol = req.headers["x-forwarded-proto"] || "http";
-    const callbackURL = `${protocol}://${host}/api/auth/google/callback`;
-
-    console.log("Initiating login with dynamic callback:", callbackURL);
-
+    console.log("Auth: User initiated login via /api/login");
     passport.authenticate("google", { 
       scope: ["profile", "email"],
-      callbackURL 
+      prompt: "select_account" // Force account selection to avoid auto-login loops
     })(req, res, next);
   });
 
+  // Callback Route
   app.get(
     "/api/auth/google/callback",
     (req, res, next) => {
-      const host = req.get("host");
-      const protocol = req.headers["x-forwarded-proto"] || "http";
-      const callbackURL = `${protocol}://${host}/api/auth/google/callback`;
-
+      console.log("Auth: Handling Google callback at /api/auth/google/callback");
+      
       passport.authenticate("google", {
         failureRedirect: "/auth",
-        successRedirect: "/",
-        callbackURL
+      }, (err, user, info) => {
+        if (err) {
+          console.error("Auth: Passport authentication error details:", err);
+          return next(err);
+        }
+        
+        if (!user) {
+          console.warn("Auth: Authentication failed - no user returned from Google:", info);
+          return res.redirect("/auth");
+        }
+        
+        console.log(`Auth: Passport authenticated user ${user.id}. Establishing session...`);
+        req.logIn(user, (loginErr) => {
+          if (loginErr) {
+            console.error("Auth: Error saving session (req.logIn):", loginErr);
+            return next(loginErr);
+          }
+          
+          console.log(`Auth: Session established for user ${user.id}. Redirecting to app root.`);
+          res.redirect("/");
+        });
       })(req, res, next);
     }
   );
 
+  // Logout Route
   app.get("/api/logout", (req, res) => {
+    const userId = (req.user as any)?.id;
     req.logout((err) => {
       if (err) {
-        console.error("Logout error:", err);
+        console.error("Auth: Logout error:", err);
       }
+      console.log(`Auth: User ${userId} logged out.`);
       res.redirect("/auth");
     });
   });
@@ -188,5 +205,6 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   if (req.isAuthenticated()) {
     return next();
   }
-  res.status(401).json({ message: "Unauthorized" });
+  // console.warn(`Auth: Unauthorized access attempt to ${req.path}`);
+  res.status(401).json({ message: "Unauthorized. Please log in." });
 };
