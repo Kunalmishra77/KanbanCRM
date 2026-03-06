@@ -86,7 +86,14 @@ app.get("/api/health", (req, res) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Express Error:", err);
+    // CRITICAL: Log full error to Vercel Logs
+    console.error("VERCEL GLOBAL ERROR HANDLER:", {
+      message: err.message,
+      stack: err.stack,
+      status,
+      timestamp: new Date().toISOString()
+    });
+
     res.status(status).json({ message });
   });
 

@@ -21,11 +21,12 @@ export function isCoFounderEmail(email: string | null | undefined): boolean {
  * Returns the stable callback URL based on the environment.
  */
 function getCallbackURL() {
-  // Use VERCEL env var or production mode to determine the URL
-  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  if (isVercel || isProd) {
     return "https://kanbancrm-five.vercel.app/api/auth/google/callback";
   }
-  // Default to local development
   return `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`;
 }
 
@@ -34,17 +35,18 @@ export function getSession() {
   const secret = process.env.SESSION_SECRET;
   
   if (!secret) {
-    console.error("CRITICAL AUTH ERROR: SESSION_SECRET is missing from environment variables!");
+    console.error("CRITICAL AUTH ERROR: SESSION_SECRET is missing! Login will likely fail or be insecure.");
+  } else {
+    console.log("Auth: SESSION_SECRET is present.");
   }
 
   const sessionOptions: session.SessionOptions = {
     secret: secret || "kanban-crm-temporary-fallback-secret-12345",
     resave: false,
     saveUninitialized: false,
-    name: 'kanban.sid', // Explicit session name
+    name: 'kanban.sid',
     cookie: {
       httpOnly: true,
-      // Secure cookies are required for production/Vercel to work with proxies
       secure: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
       maxAge: sessionTtl,
       sameSite: 'lax',
@@ -52,37 +54,50 @@ export function getSession() {
   };
 
   if (process.env.DATABASE_URL) {
-    console.log("Auth: Initializing PostgreSQL session store...");
+    console.log("Auth: Initializing PostgreSQL session store with connect-pg-simple...");
     const pgStore = connectPg(session);
-    sessionOptions.store = new pgStore({
+    const store = new pgStore({
       conString: process.env.DATABASE_URL,
-      createTableIfMissing: false, // Handled by complete_fix.sql
+      createTableIfMissing: false, 
       ttl: sessionTtl / 1000,
       tableName: "sessions",
     });
+
+    store.on('error', (err) => {
+      console.error("Auth: Session store error:", err);
+    });
+
+    sessionOptions.store = store;
   } else {
-    console.warn("Auth: DATABASE_URL missing, sessions will be stored in memory (NOT recommended for production).");
+    console.warn("Auth: DATABASE_URL missing! Sessions will be stored in-memory (not for production).");
   }
 
   return session(sessionOptions);
 }
 
 export async function setupGoogleAuth(app: Express) {
-  // Essential for Vercel/proxies to trust the 'x-forwarded-proto' header for secure cookies
+  console.log("Auth: Starting Google OAuth setup...");
+
+  // Validate critical env vars
+  const requiredEnv = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'DATABASE_URL', 'SESSION_SECRET'];
+  requiredEnv.forEach(env => {
+    if (!process.env[env]) {
+      console.error(`Auth Diagnostic: Missing ${env} environment variable!`);
+    } else {
+      console.log(`Auth Diagnostic: ${env} is configured.`);
+    }
+  });
+
+  // Essential for Vercel/proxies
   app.set("trust proxy", 1);
+  console.log("Auth: 'trust proxy' enabled.");
   
-  // Apply session middleware
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Check for required Google credentials
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    console.error("CRITICAL AUTH ERROR: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing!");
-  }
-
   const callbackURL = getCallbackURL();
-  console.log(`Auth: Google Strategy configured with Callback: ${callbackURL}`);
+  console.log(`Auth: Google Strategy using Callback URL: ${callbackURL}`);
 
   passport.use(
     new GoogleStrategy(
@@ -90,23 +105,22 @@ export async function setupGoogleAuth(app: Express) {
         clientID: process.env.GOOGLE_CLIENT_ID || "",
         clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
         callbackURL,
-        proxy: true, // Crucial for Vercel's internal proxy handling
+        proxy: true,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value || null;
-          console.log(`Auth: Google Profile received for email: ${email} (ID: ${profile.id})`);
+          console.log(`Auth: Google callback hit. Profile Email: ${email}, ID: ${profile.id}`);
 
           const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
           const lastName = profile.name?.familyName || null;
           const profileImageUrl = profile.photos?.[0]?.value || null;
 
-          // Determine user type and role based on email allowlist
           const isCoFounder = isCoFounderEmail(email);
           const userType = isCoFounder ? 'co-founder' : 'employee';
           const role = isCoFounder ? 'admin' : 'editor';
 
-          console.log(`Auth: Starting upsertUser for ID: ${profile.id}...`);
+          console.log(`Auth: Pre-upsertUser for ID: ${profile.id}`);
           const user = await storage.upsertUser({
             id: profile.id,
             email,
@@ -116,7 +130,7 @@ export async function setupGoogleAuth(app: Express) {
             userType,
             role,
           });
-          console.log(`Auth: upsertUser successful for user ID: ${user.id}`);
+          console.log(`Auth: Post-upsertUser success for user: ${user.email} (ID: ${user.id})`);
 
           done(null, user);
         } catch (error) {
@@ -128,38 +142,35 @@ export async function setupGoogleAuth(app: Express) {
   );
 
   passport.serializeUser((user: any, done) => {
-    console.log(`Auth: Serializing user session for ID: ${user.id}`);
+    console.log(`Auth: Serializing user ID: ${user.id}`);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: string, done) => {
     try {
-      // console.log(`Auth: Deserializing user session for ID: ${id}`);
       const user = await storage.getUser(id);
       if (!user) {
-        console.warn(`Auth: Deserialization warning - user not found in storage for ID: ${id}`);
+        console.warn(`Auth: Deserialization failed - no user found for ID: ${id}`);
       }
       done(null, user || null);
     } catch (error) {
-      console.error(`Auth: Deserialization error for ID: ${id}:`, error);
+      console.error(`Auth: Error during deserialization for ID: ${id}:`, error);
       done(error);
     }
   });
 
-  // Login Route
   app.get("/api/login", (req, res, next) => {
-    console.log("Auth: User initiated login via /api/login");
+    console.log("Auth: /api/login hit. Redirecting to Google...");
     passport.authenticate("google", { 
       scope: ["profile", "email"],
-      prompt: "select_account" // Force account selection to avoid auto-login loops
+      prompt: "select_account"
     })(req, res, next);
   });
 
-  // Callback Route
   app.get(
     "/api/auth/google/callback",
     (req, res, next) => {
-      console.log("Auth: Handling Google callback at /api/auth/google/callback");
+      console.log("Auth: /api/auth/google/callback route hit.");
       
       passport.authenticate("google", {
         failureRedirect: "/auth",
@@ -170,32 +181,31 @@ export async function setupGoogleAuth(app: Express) {
         }
         
         if (!user) {
-          console.warn("Auth: Authentication failed - no user returned from Google:", info);
+          console.warn("Auth: Authentication failed - Google returned no user:", info);
           return res.redirect("/auth");
         }
         
-        console.log(`Auth: Passport authenticated user ${user.id}. Establishing session...`);
+        console.log(`Auth: Passport validated user ${user.id}. Establishing session...`);
         req.logIn(user, (loginErr) => {
           if (loginErr) {
-            console.error("Auth: Error saving session (req.logIn):", loginErr);
+            console.error("Auth: req.logIn session save error:", loginErr);
             return next(loginErr);
           }
           
-          console.log(`Auth: Session established for user ${user.id}. Redirecting to app root.`);
+          console.log(`Auth: Session saved for user ${user.id}. Redirecting to home.`);
           res.redirect("/");
         });
       })(req, res, next);
     }
   );
 
-  // Logout Route
   app.get("/api/logout", (req, res) => {
     const userId = (req.user as any)?.id;
     req.logout((err) => {
       if (err) {
         console.error("Auth: Logout error:", err);
       }
-      console.log(`Auth: User ${userId} logged out.`);
+      console.log(`Auth: User ${userId} logged out successfully.`);
       res.redirect("/auth");
     });
   });
