@@ -2,19 +2,20 @@ import { useRoute } from "wouter";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2, FileText, Trash2, Pencil, Upload, X, Receipt } from "lucide-react";
+import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2, FileText, Trash2, Pencil, Upload, X, Receipt, Phone, Video, Mail, MessageSquare, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
-import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from "@/lib/queries";
+import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useCommunications, useCreateCommunication, useDeleteCommunication } from "@/lib/queries";
+import { useIsOwner } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { format } from "date-fns";
+import { format, differenceInDays, isPast } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
@@ -49,16 +50,20 @@ type Invoice = {
 };
 
 export default function ClientDetail() {
-  const [match, params] = useRoute("/clients/:id");
+  const [, params] = useRoute("/clients/:id");
   const { toast } = useToast();
+  const isOwner = useIsOwner();
 
   const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
   const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
   const { data: invoices = [], isLoading: isLoadingInvoices } = useInvoices(params?.id || '');
+  const { data: communications = [], isLoading: isLoadingComms } = useCommunications(params?.id || '');
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();
   const { mutate: updateInvoice, isPending: isUpdatingInvoice } = useUpdateInvoice();
   const { mutate: deleteInvoice } = useDeleteInvoice();
+  const { mutate: createCommunication, isPending: isCreatingComm } = useCreateCommunication();
+  const { mutate: deleteCommunication } = useDeleteCommunication();
 
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -76,6 +81,44 @@ export default function ClientDetail() {
     fileData: '',
     fileType: '',
   });
+
+  // Communications state
+  const [isCommModalOpen, setIsCommModalOpen] = useState(false);
+  const [commForm, setCommForm] = useState({
+    type: 'call',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    summary: '',
+  });
+
+  const getContractEndDateBadge = () => {
+    if (!client?.contractEndDate) return null;
+    const endDate = new Date(client.contractEndDate);
+    const today = new Date();
+    const daysUntil = differenceInDays(endDate, today);
+    const past = isPast(endDate);
+
+    if (past) {
+      return (
+        <Badge className="bg-red-500/10 text-red-600 border border-red-200 gap-1 font-normal">
+          <AlertTriangle className="h-3 w-3" />
+          Contract ended: {format(endDate, 'MMM dd, yyyy')}
+        </Badge>
+      );
+    }
+    if (daysUntil <= 30) {
+      return (
+        <Badge className="bg-orange-500/10 text-orange-600 border border-orange-200 gap-1 font-normal">
+          <AlertTriangle className="h-3 w-3" />
+          Contract ends: {format(endDate, 'MMM dd, yyyy')}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="gap-1 font-normal">
+        Contract ends: {format(endDate, 'MMM dd, yyyy')}
+      </Badge>
+    );
+  };
 
   if (isLoadingClient || isLoadingStories) {
     return (
@@ -249,6 +292,7 @@ export default function ClientDetail() {
             }>
               {client.stage}
             </Badge>
+            {getContractEndDateBadge()}
           </div>
           <div className="ml-auto flex gap-2">
             <Button
@@ -263,14 +307,18 @@ export default function ClientDetail() {
         </div>
 
         <div className="flex gap-6 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <IndianRupee className="h-4 w-4 text-green-500" />
-            <span className="font-medium text-foreground">₹{expectedRevenue.toLocaleString('en-IN')}</span> Expected
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <IndianRupee className="h-4 w-4 text-primary" />
-            <span className="font-medium text-foreground">₹{receivedRevenue.toLocaleString('en-IN')}</span> Received
-          </div>
+          {isOwner && (
+            <>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <IndianRupee className="h-4 w-4 text-green-500" />
+                <span className="font-medium text-foreground">₹{expectedRevenue.toLocaleString('en-IN')}</span> Expected
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <IndianRupee className="h-4 w-4 text-primary" />
+                <span className="font-medium text-foreground">₹{receivedRevenue.toLocaleString('en-IN')}</span> Received
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-4 w-4 text-primary" />
             <span className="font-medium text-foreground">{Number(client.averageProgress).toFixed(0)}%</span> Avg Progress
@@ -281,8 +329,13 @@ export default function ClientDetail() {
       <Tabs defaultValue="kanban" className="flex-1 min-h-0 flex flex-col">
         <TabsList className="w-fit">
           <TabsTrigger value="kanban" data-testid="tab-kanban">Kanban Board</TabsTrigger>
-          <TabsTrigger value="invoices" data-testid="tab-invoices">
-            Invoices ({invoices.length})
+          {isOwner && (
+            <TabsTrigger value="invoices" data-testid="tab-invoices">
+              Invoices ({invoices.length})
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="communications" data-testid="tab-communications">
+            Communications ({communications.length})
           </TabsTrigger>
         </TabsList>
 
@@ -292,6 +345,114 @@ export default function ClientDetail() {
             onStoryMove={handleStoryMove}
             onStoryClick={handleStoryClick}
           />
+        </TabsContent>
+
+        <TabsContent value="communications" className="flex-1 min-h-0 mt-4 overflow-auto">
+          {(() => {
+            const COMM_TYPES = [
+              { value: 'call', label: 'Phone Call', icon: Phone },
+              { value: 'meeting', label: 'Meeting', icon: Video },
+              { value: 'email', label: 'Email', icon: Mail },
+              { value: 'note', label: 'Note', icon: FileText },
+              { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+            ];
+
+            const getCommIcon = (type: string) => {
+              const found = COMM_TYPES.find(t => t.value === type);
+              const Icon = found?.icon || FileText;
+              return <Icon className="h-4 w-4" />;
+            };
+
+            const getCommLabel = (type: string) => {
+              return COMM_TYPES.find(t => t.value === type)?.label || type;
+            };
+
+            const sortedComms = [...communications].sort((a: any, b: any) =>
+              new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()
+            );
+
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Communication Logs</h3>
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      setCommForm({ type: 'call', date: format(new Date(), 'yyyy-MM-dd'), summary: '' });
+                      setIsCommModalOpen(true);
+                    }}
+                    data-testid="button-log-communication"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Log Communication
+                  </Button>
+                </div>
+
+                {isLoadingComms ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : sortedComms.length === 0 ? (
+                  <div className="macos-card p-8 text-center">
+                    <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">No communication logs yet</p>
+                    <p className="text-sm text-muted-foreground">Log calls, meetings, emails and more.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {sortedComms.map((comm: any) => (
+                      <div key={comm.id} className="macos-card p-4 flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0 mt-0.5">
+                            {getCommIcon(comm.type)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">{getCommLabel(comm.type)}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {comm.date ? format(new Date(comm.date), 'MMM d, yyyy') : ''}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{comm.summary}</p>
+                            {comm.loggedBy && (
+                              <p className="text-xs text-muted-foreground mt-1">Logged by {comm.loggedBy}</p>
+                            )}
+                          </div>
+                        </div>
+                        {isOwner && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive flex-shrink-0">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="macos-panel">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Log</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this communication log? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => deleteCommunication(comm.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="invoices" className="flex-1 min-h-0 mt-4 overflow-auto">
@@ -347,6 +508,9 @@ export default function ClientDetail() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
+                      {invoice.status !== 'paid' && new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Overdue</span>
+                      )}
                       <span className="font-semibold text-lg">₹{parseFloat(invoice.amount).toLocaleString('en-IN')}</span>
                       <div className="flex gap-1">
                         {invoice.fileData && (
@@ -474,6 +638,71 @@ export default function ClientDetail() {
             <Button onClick={handleSubmitInvoice} disabled={isCreatingInvoice || isUpdatingInvoice || isUploading} data-testid="button-save-invoice">
               {(isCreatingInvoice || isUpdatingInvoice || isUploading) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editingInvoice ? 'Update' : 'Add'} Invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Log Communication Modal */}
+      <Dialog open={isCommModalOpen} onOpenChange={setIsCommModalOpen}>
+        <DialogContent className="macos-panel sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log Communication</DialogTitle>
+            <DialogDescription>Record a call, meeting, email or note with this client.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="comm-type">Type</Label>
+              <select
+                id="comm-type"
+                className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                value={commForm.type}
+                onChange={(e) => setCommForm(p => ({ ...p, type: e.target.value }))}
+              >
+                <option value="call">Phone Call</option>
+                <option value="meeting">Meeting</option>
+                <option value="email">Email</option>
+                <option value="note">Note</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="comm-date">Date</Label>
+              <Input
+                id="comm-date"
+                type="date"
+                value={commForm.date}
+                onChange={(e) => setCommForm(p => ({ ...p, date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="comm-summary">Summary *</Label>
+              <Textarea
+                id="comm-summary"
+                placeholder="What was discussed or noted?"
+                value={commForm.summary}
+                rows={4}
+                onChange={(e) => setCommForm(p => ({ ...p, summary: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCommModalOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!commForm.summary.trim()) {
+                  toast({ title: "Summary is required", variant: "destructive" });
+                  return;
+                }
+                createCommunication(
+                  { clientId: params?.id || '', data: { type: commForm.type, date: commForm.date, summary: commForm.summary.trim() } },
+                  { onSuccess: () => setIsCommModalOpen(false) }
+                );
+              }}
+              disabled={isCreatingComm}
+            >
+              {isCreatingComm && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Log
             </Button>
           </DialogFooter>
         </DialogContent>

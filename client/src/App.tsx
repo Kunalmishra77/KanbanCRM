@@ -13,6 +13,8 @@ import Login from "@/pages/Login";
 import { RevenueInsight, ClientsInsight, StoriesInsight, CompletionInsight } from "@/pages/Insights";
 import Settings from "@/pages/Settings";
 import Internal from "@/pages/Internal";
+import Leads from "@/pages/Leads";
+import Announcements from "@/pages/Announcements";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 
@@ -73,7 +75,13 @@ function Router() {
       <Route path="/internal">
         <ProtectedRoute component={Internal} />
       </Route>
-      
+      <Route path="/leads">
+        <ProtectedRoute component={Leads} />
+      </Route>
+      <Route path="/announcements">
+        <ProtectedRoute component={Announcements} />
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

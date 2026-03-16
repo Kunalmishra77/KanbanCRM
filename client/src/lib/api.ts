@@ -165,3 +165,33 @@ export const internalDocumentsAPI = {
     method: 'DELETE',
   }),
 };
+
+// Leads API
+export const leadsAPI = {
+  getAll: () => fetchAPI('/leads'),
+  getOne: (id: string) => fetchAPI(`/leads/${id}`),
+  create: (data: any) => fetchAPI('/leads', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: any) => fetchAPI(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => fetchAPI(`/leads/${id}`, { method: 'DELETE' }),
+};
+
+// Revenue Targets API
+export const revenueTargetsAPI = {
+  getAll: () => fetchAPI('/revenue-targets'),
+  upsert: (data: any) => fetchAPI('/revenue-targets', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// Client Communications API
+export const communicationsAPI = {
+  getByClient: (clientId: string) => fetchAPI(`/clients/${clientId}/communications`),
+  create: (clientId: string, data: any) => fetchAPI(`/clients/${clientId}/communications`, { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id: string) => fetchAPI(`/communications/${id}`, { method: 'DELETE' }),
+};
+
+// Announcements API
+export const announcementsAPI = {
+  getAll: () => fetchAPI('/announcements'),
+  create: (data: any) => fetchAPI('/announcements', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: any) => fetchAPI(`/announcements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => fetchAPI(`/announcements/${id}`, { method: 'DELETE' }),
+};

@@ -1,4 +1,4 @@
-import { 
+import {
   type User, type InsertUser, type UpsertUser, type UpdateUserProfile,
   type Client, type InsertClient, type UpdateClient,
   type Story, type InsertStory, type UpdateStory,
@@ -8,7 +8,12 @@ import {
   type FounderInvestment, type InsertFounderInvestment, type UpdateFounderInvestment,
   type SentEmail, type InsertSentEmail,
   type InternalDocument, type InsertInternalDocument, type UpdateInternalDocument,
-  users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments
+  type Lead, type InsertLead, type UpdateLead,
+  type RevenueTarget, type InsertRevenueTarget,
+  type ClientCommunication, type InsertClientCommunication,
+  type Announcement, type InsertAnnouncement, type UpdateAnnouncement,
+  users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
+  leads, revenueTargets, clientCommunications, announcements
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -72,6 +77,29 @@ export interface IStorage {
   createInternalDocument(doc: InsertInternalDocument): Promise<InternalDocument>;
   updateInternalDocument(id: string, doc: UpdateInternalDocument): Promise<InternalDocument | undefined>;
   deleteInternalDocument(id: string): Promise<boolean>;
+
+  // Leads
+  getLeads(): Promise<Lead[]>;
+  getLead(id: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, lead: UpdateLead): Promise<Lead | undefined>;
+  deleteLead(id: string): Promise<boolean>;
+
+  // Revenue Targets
+  getRevenueTargets(): Promise<RevenueTarget[]>;
+  getRevenueTarget(period: string): Promise<RevenueTarget | undefined>;
+  upsertRevenueTarget(target: InsertRevenueTarget): Promise<RevenueTarget>;
+
+  // Client Communications
+  getCommunicationsByClient(clientId: string): Promise<ClientCommunication[]>;
+  createClientCommunication(comm: InsertClientCommunication): Promise<ClientCommunication>;
+  deleteClientCommunication(id: string): Promise<boolean>;
+
+  // Announcements
+  getAnnouncements(): Promise<Announcement[]>;
+  createAnnouncement(ann: InsertAnnouncement): Promise<Announcement>;
+  updateAnnouncement(id: string, ann: UpdateAnnouncement): Promise<Announcement | undefined>;
+  deleteAnnouncement(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -315,6 +343,104 @@ export class DatabaseStorage implements IStorage {
 
   async deleteInternalDocument(id: string): Promise<boolean> {
     const result = await db.delete(internalDocuments).where(eq(internalDocuments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Leads
+  async getLeads(): Promise<Lead[]> {
+    return db.select().from(leads).orderBy(desc(leads.updatedAt));
+  }
+
+  async getLead(id: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.id, id));
+    return lead;
+  }
+
+  async createLead(lead: InsertLead): Promise<Lead> {
+    const [created] = await db.insert(leads).values(lead).returning();
+    return created;
+  }
+
+  async updateLead(id: string, lead: UpdateLead): Promise<Lead | undefined> {
+    const [updated] = await db
+      .update(leads)
+      .set({ ...lead, updatedAt: new Date() })
+      .where(eq(leads.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLead(id: string): Promise<boolean> {
+    const result = await db.delete(leads).where(eq(leads.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Revenue Targets
+  async getRevenueTargets(): Promise<RevenueTarget[]> {
+    return db.select().from(revenueTargets).orderBy(desc(revenueTargets.period));
+  }
+
+  async getRevenueTarget(period: string): Promise<RevenueTarget | undefined> {
+    const [target] = await db.select().from(revenueTargets).where(eq(revenueTargets.period, period));
+    return target;
+  }
+
+  async upsertRevenueTarget(target: InsertRevenueTarget): Promise<RevenueTarget> {
+    const [upserted] = await db
+      .insert(revenueTargets)
+      .values(target)
+      .onConflictDoUpdate({
+        target: revenueTargets.period,
+        set: {
+          targetAmount: target.targetAmount,
+          notes: target.notes,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  // Client Communications
+  async getCommunicationsByClient(clientId: string): Promise<ClientCommunication[]> {
+    return db
+      .select()
+      .from(clientCommunications)
+      .where(eq(clientCommunications.clientId, clientId))
+      .orderBy(desc(clientCommunications.date));
+  }
+
+  async createClientCommunication(comm: InsertClientCommunication): Promise<ClientCommunication> {
+    const [created] = await db.insert(clientCommunications).values(comm).returning();
+    return created;
+  }
+
+  async deleteClientCommunication(id: string): Promise<boolean> {
+    const result = await db.delete(clientCommunications).where(eq(clientCommunications.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Announcements
+  async getAnnouncements(): Promise<Announcement[]> {
+    return db.select().from(announcements).orderBy(desc(announcements.createdAt));
+  }
+
+  async createAnnouncement(ann: InsertAnnouncement): Promise<Announcement> {
+    const [created] = await db.insert(announcements).values(ann).returning();
+    return created;
+  }
+
+  async updateAnnouncement(id: string, ann: UpdateAnnouncement): Promise<Announcement | undefined> {
+    const [updated] = await db
+      .update(announcements)
+      .set(ann)
+      .where(eq(announcements.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAnnouncement(id: string): Promise<boolean> {
+    const result = await db.delete(announcements).where(eq(announcements.id, id)).returning();
     return result.length > 0;
   }
 }

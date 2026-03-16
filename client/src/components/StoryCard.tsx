@@ -2,7 +2,7 @@ import { Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Paperclip, Clock } from "lucide-react";
+import { Calendar, Paperclip, Clock, AlertTriangle } from "lucide-react";
 import { Story, USERS } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -16,6 +16,8 @@ interface StoryCardProps {
 
 export function StoryCard({ story, index, onClick, clientName }: StoryCardProps) {
   const assignee = USERS.find(u => u.id === story.assignedTo);
+
+  const isOverdue = story.dueDate && story.status !== 'Done' && new Date(story.dueDate) < new Date();
 
   const priorityConfig = {
     Low: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Low" },
@@ -38,20 +40,28 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
           onClick={() => onClick(story)}
         >
           <Card className={cn(
-            "macos-card border-none cursor-grab group-active:cursor-grabbing",
+            "macos-card cursor-grab group-active:cursor-grabbing",
             snapshot.isDragging
-              ? "shadow-xl ring-2 ring-primary/30 bg-white"
-              : "hover:shadow-md"
+              ? "shadow-xl ring-2 ring-primary/30 bg-white border-none"
+              : isOverdue
+                ? "border border-red-300 bg-red-50/30 hover:shadow-md"
+                : "border-none hover:shadow-md"
           )}>
             <CardContent className="p-4 space-y-3">
-              {/* Company Name - Primary Label */}
-              {clientName && (
-                <div className="flex items-center gap-2">
+              {/* Company Name + Overdue badge row */}
+              <div className="flex items-center justify-between gap-2">
+                {clientName && (
                   <Badge className="bg-primary/10 text-primary border-primary/20 text-[11px] px-2 py-0.5 font-semibold hover:bg-primary/10">
                     {clientName}
                   </Badge>
-                </div>
-              )}
+                )}
+                {isOverdue && (
+                  <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px] px-1.5 py-0 h-5 font-semibold ml-auto">
+                    <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                    Overdue
+                  </Badge>
+                )}
+              </div>
 
               {/* Header Tags */}
               <div className="flex justify-between items-start">
@@ -75,13 +85,15 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
               {/* Footer Meta */}
               <div className="flex items-center justify-between pt-2 border-t border-black/[0.03]">
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className={cn(
-                    "flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors",
-                    new Date(story.dueDate) < new Date() ? "bg-red-50 text-red-600" : "bg-transparent"
-                  )}>
-                    <Clock className="h-3 w-3" />
-                    <span>{format(new Date(story.dueDate), "MMM d")}</span>
-                  </div>
+                  {story.dueDate && (
+                    <div className={cn(
+                      "flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors",
+                      isOverdue ? "bg-red-50 text-red-600 font-medium" : "bg-transparent"
+                    )}>
+                      <Clock className="h-3 w-3" />
+                      <span>{format(new Date(story.dueDate), "MMM d")}</span>
+                    </div>
+                  )}
                 </div>
 
                 {assignee && (

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Plus, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Plus, Building2, Target, Megaphone } from "lucide-react";
+import { useIsOwner } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,15 +20,19 @@ import agentixLogo from "@/assets/agentix-logo.png";
 
 export function Sidebar() {
   const [location] = useLocation();
-  // Sidebar state
   const [collapsed, setCollapsed] = useState(false);
+  const isOwner = useIsOwner();
 
-  const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-    { icon: Users, label: "Clients", href: "/clients" },
-    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban" },
-    { icon: Building2, label: "Internal", href: "/internal" },
+  const allNavItems = [
+    { icon: LayoutDashboard, label: "Dashboard", href: "/", ownerOnly: false },
+    { icon: Users, label: "Clients", href: "/clients", ownerOnly: false },
+    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", ownerOnly: false },
+    { icon: Target, label: "Leads", href: "/leads", ownerOnly: false },
+    { icon: Megaphone, label: "Announcements", href: "/announcements", ownerOnly: false },
+    { icon: Building2, label: "Internal", href: "/internal", ownerOnly: true },
   ];
+
+  const navItems = allNavItems.filter(item => !item.ownerOnly || isOwner);
 
   return (
     <aside 

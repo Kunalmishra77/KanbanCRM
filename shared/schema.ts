@@ -51,6 +51,7 @@ export const clients = pgTable("clients", {
   contactName: text("contact_name"),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
+  contractEndDate: timestamp("contract_end_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -70,6 +71,7 @@ export const stories = pgTable("stories", {
   assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id),
   priority: text("priority").notNull().default('Medium'),
   estimatedEffortHours: integer("estimated_effort_hours").default(0).notNull(),
+  actualHoursSpent: numeric("actual_hours_spent").default('0'),
   dueDate: timestamp("due_date").notNull(),
   status: text("status").notNull().default('To Do'),
   progressPercent: integer("progress_percent").default(0).notNull(),
@@ -199,3 +201,73 @@ export const sentEmails = pgTable("sent_emails", {
 export const insertSentEmailSchema = createInsertSchema(sentEmails).omit({ id: true, createdAt: true });
 export type InsertSentEmail = z.infer<typeof insertSentEmailSchema>;
 export type SentEmail = typeof sentEmails.$inferSelect;
+
+// Leads table (sales pipeline before becoming a client)
+export const leads = pgTable("leads", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  industry: text("industry"),
+  stage: text("stage").notNull().default('New'),
+  estimatedValue: numeric("estimated_value").default('0'),
+  notes: text("notes"),
+  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id).notNull(),
+  assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateLeadSchema = insertLeadSchema.partial();
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type UpdateLead = z.infer<typeof updateLeadSchema>;
+export type Lead = typeof leads.$inferSelect;
+
+// Revenue Targets table (monthly targets set by owner)
+export const revenueTargets = pgTable("revenue_targets", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  period: text("period").notNull(), // YYYY-MM
+  targetAmount: numeric("target_amount").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertRevenueTargetSchema = createInsertSchema(revenueTargets).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateRevenueTargetSchema = insertRevenueTargetSchema.partial();
+export type InsertRevenueTarget = z.infer<typeof insertRevenueTargetSchema>;
+export type UpdateRevenueTarget = z.infer<typeof updateRevenueTargetSchema>;
+export type RevenueTarget = typeof revenueTargets.$inferSelect;
+
+// Client Communications table (call/meeting/email log)
+export const clientCommunications = pgTable("client_communications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
+  type: text("type").notNull().default('call'), // call | meeting | email | note | whatsapp
+  date: timestamp("date").defaultNow().notNull(),
+  summary: text("summary").notNull(),
+  loggedById: varchar("logged_by_id", { length: 255 }).references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertClientCommunicationSchema = createInsertSchema(clientCommunications).omit({ id: true, createdAt: true });
+export const updateClientCommunicationSchema = insertClientCommunicationSchema.partial();
+export type InsertClientCommunication = z.infer<typeof insertClientCommunicationSchema>;
+export type ClientCommunication = typeof clientCommunications.$inferSelect;
+
+// Announcements table (owner posts notices visible to all)
+export const announcements = pgTable("announcements", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  postedById: varchar("posted_by_id", { length: 255 }).references(() => users.id).notNull(),
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAnnouncementSchema = createInsertSchema(announcements).omit({ id: true, createdAt: true });
+export const updateAnnouncementSchema = insertAnnouncementSchema.partial();
+export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+export type Announcement = typeof announcements.$inferSelect;

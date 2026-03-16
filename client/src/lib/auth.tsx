@@ -57,3 +57,9 @@ export function useAuth() {
   }
   return context;
 }
+
+// Returns true if the logged-in user is the owner / co-founder
+export function useIsOwner() {
+  const { user } = useAuth();
+  return user?.userType === 'co-founder';
+}

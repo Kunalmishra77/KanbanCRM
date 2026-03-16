@@ -246,10 +246,12 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
       toast({ title: "Please enter valid hours", variant: "destructive" });
       return;
     }
-    toast({
-      title: "Time logged",
-      description: `${hours}h logged for "${story.title}"`
+    const currentActual = parseFloat((story as any).actualHoursSpent || '0') || 0;
+    updateStory({
+      id: story.id,
+      data: { actualHoursSpent: String(currentActual + hours) }
     });
+    toast({ title: "Time logged", description: `${hours}h added to "${story.title}"` });
     setTimeLogHours("");
     setTimeLogNote("");
     setShowTimeLog(false);

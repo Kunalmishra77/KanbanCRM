@@ -4,20 +4,33 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useClients, useStories } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Area, AreaChart, Line, LineChart, CartesianGrid, Legend } from "recharts";
-import { ArrowLeft, TrendingUp, Briefcase, Clock, CheckCircle2, Loader2, IndianRupee, Calendar, User } from "lucide-react";
+import { ArrowLeft, TrendingUp, Briefcase, Clock, CheckCircle2, Loader2, IndianRupee, Calendar, User, Lock, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Client, Story } from "@shared/schema";
+import { useIsOwner } from "@/lib/auth";
 
 export function RevenueInsight() {
   const [, setLocation] = useLocation();
   const { data: clients = [], isLoading } = useClients();
+  const isOwner = useIsOwner();
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-4 text-center">
+        <Lock className="h-12 w-12 text-muted-foreground" />
+        <h2 className="text-xl font-semibold">Access Restricted</h2>
+        <p className="text-muted-foreground">Revenue data is only visible to the owner.</p>
+        <Button variant="outline" onClick={() => setLocation('/')}>Go to Dashboard</Button>
       </div>
     );
   }
@@ -37,16 +50,42 @@ export function RevenueInsight() {
     { name: 'Cool', value: clients.filter(c => c.stage === 'Cool').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: '#94a3b8' },
   ];
 
+  const exportCSV = () => {
+    const rows = [
+      ['Client', 'Industry', 'Stage', 'Expected Revenue (₹)', 'Received Revenue (₹)', 'Collection %'],
+      ...clients.map(c => [
+        c.name,
+        c.industry,
+        c.stage,
+        Number(c.expectedRevenue || 0),
+        Number(c.revenueTotal || 0),
+        Number(c.expectedRevenue) > 0 ? ((Number(c.revenueTotal) / Number(c.expectedRevenue)) * 100).toFixed(1) + '%' : '0%'
+      ])
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `revenue-report-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => setLocation('/')} data-testid="button-back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Revenue Breakdown</h1>
           <p className="text-muted-foreground">Detailed view of your revenue across all clients</p>
         </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV}>
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">

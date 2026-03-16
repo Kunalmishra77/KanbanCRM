@@ -10,6 +10,7 @@ const CO_FOUNDER_EMAILS = [
   'vitalsaigorrela@gmail.com',
   'anantsanadhya@gmail.com',
   'myai@ai-agentix.com',
+  'aiagentix2025@gmail.com',
 ];
 
 export function isCoFounderEmail(email: string | null | undefined): boolean {

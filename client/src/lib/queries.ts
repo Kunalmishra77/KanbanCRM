@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI, leadsAPI, revenueTargetsAPI, communicationsAPI, announcementsAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -372,6 +372,107 @@ export function useUpdateInternalDocument() {
     onError: (error: Error) => {
       toast({ title: "Failed to update document", description: error.message, variant: "destructive" });
     },
+  });
+}
+
+// Leads queries
+export function useLeads() {
+  return useQuery({ queryKey: ['leads'], queryFn: leadsAPI.getAll });
+}
+export function useCreateLead() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: leadsAPI.create,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leads'] }); toast({ title: "Lead created" }); },
+    onError: (e: Error) => toast({ title: "Failed to create lead", description: e.message, variant: "destructive" }),
+  });
+}
+export function useUpdateLead() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => leadsAPI.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leads'] }); toast({ title: "Lead updated" }); },
+    onError: (e: Error) => toast({ title: "Failed to update lead", description: e.message, variant: "destructive" }),
+  });
+}
+export function useDeleteLead() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: leadsAPI.delete,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['leads'] }); toast({ title: "Lead deleted" }); },
+    onError: (e: Error) => toast({ title: "Failed to delete lead", description: e.message, variant: "destructive" }),
+  });
+}
+
+// Revenue Targets queries
+export function useRevenueTargets() {
+  return useQuery({ queryKey: ['revenue-targets'], queryFn: revenueTargetsAPI.getAll });
+}
+export function useUpsertRevenueTarget() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: revenueTargetsAPI.upsert,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['revenue-targets'] }); toast({ title: "Target saved" }); },
+    onError: (e: Error) => toast({ title: "Failed to save target", description: e.message, variant: "destructive" }),
+  });
+}
+
+// Client Communications queries
+export function useCommunications(clientId: string) {
+  return useQuery({ queryKey: ['communications', clientId], queryFn: () => communicationsAPI.getByClient(clientId), enabled: !!clientId });
+}
+export function useCreateCommunication() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ clientId, data }: { clientId: string; data: any }) => communicationsAPI.create(clientId, data),
+    onSuccess: (_, v) => { queryClient.invalidateQueries({ queryKey: ['communications', v.clientId] }); toast({ title: "Log added" }); },
+    onError: (e: Error) => toast({ title: "Failed to add log", description: e.message, variant: "destructive" }),
+  });
+}
+export function useDeleteCommunication() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: communicationsAPI.delete,
+    onSuccess: () => { queryClient.invalidateQueries({ predicate: q => q.queryKey[0] === 'communications' }); toast({ title: "Log deleted" }); },
+    onError: (e: Error) => toast({ title: "Failed to delete log", description: e.message, variant: "destructive" }),
+  });
+}
+
+// Announcements queries
+export function useAnnouncements() {
+  return useQuery({ queryKey: ['announcements'], queryFn: announcementsAPI.getAll });
+}
+export function useCreateAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: announcementsAPI.create,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['announcements'] }); toast({ title: "Announcement posted" }); },
+    onError: (e: Error) => toast({ title: "Failed to post", description: e.message, variant: "destructive" }),
+  });
+}
+export function useUpdateAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => announcementsAPI.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['announcements'] }); toast({ title: "Announcement updated" }); },
+    onError: (e: Error) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
+  });
+}
+export function useDeleteAnnouncement() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: announcementsAPI.delete,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['announcements'] }); toast({ title: "Announcement deleted" }); },
+    onError: (e: Error) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
   });
 }
 

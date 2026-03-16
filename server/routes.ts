@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth.js";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema } from "../shared/schema.js";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema } from "../shared/schema.js";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
@@ -762,6 +762,223 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Delete document error:', error);
       res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+
+  // Leads (read: all authenticated; write: co-founders only)
+  app.get("/api/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      const leadsList = await storage.getLeads();
+      res.json(leadsList);
+    } catch (error) {
+      console.error('Get leads error:', error);
+      res.status(500).json({ error: "Failed to fetch leads" });
+    }
+  });
+
+  app.get("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error('Get lead error:', error);
+      res.status(500).json({ error: "Failed to fetch lead" });
+    }
+  });
+
+  app.post("/api/leads", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can create leads" });
+      }
+      const data = insertLeadSchema.parse(req.body);
+      const lead = await storage.createLead(data);
+      res.status(201).json(lead);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create lead error:', error);
+      res.status(500).json({ error: "Failed to create lead" });
+    }
+  });
+
+  app.patch("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can update leads" });
+      }
+      const data = updateLeadSchema.parse(req.body);
+      const lead = await storage.updateLead(req.params.id, data);
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Update lead error:', error);
+      res.status(500).json({ error: "Failed to update lead" });
+    }
+  });
+
+  app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can delete leads" });
+      }
+      const success = await storage.deleteLead(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete lead error:', error);
+      res.status(500).json({ error: "Failed to delete lead" });
+    }
+  });
+
+  // Revenue Targets (co-founders only)
+  app.get("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can view revenue targets" });
+      }
+      const targets = await storage.getRevenueTargets();
+      res.json(targets);
+    } catch (error) {
+      console.error('Get revenue targets error:', error);
+      res.status(500).json({ error: "Failed to fetch revenue targets" });
+    }
+  });
+
+  app.post("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can set revenue targets" });
+      }
+      const data = insertRevenueTargetSchema.parse(req.body);
+      const target = await storage.upsertRevenueTarget(data);
+      res.status(201).json(target);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Upsert revenue target error:', error);
+      res.status(500).json({ error: "Failed to save revenue target" });
+    }
+  });
+
+  // Client Communications (all authenticated)
+  app.get("/api/clients/:clientId/communications", isAuthenticated, async (req: any, res) => {
+    try {
+      const comms = await storage.getCommunicationsByClient(req.params.clientId);
+      res.json(comms);
+    } catch (error) {
+      console.error('Get communications error:', error);
+      res.status(500).json({ error: "Failed to fetch communications" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/communications", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = insertClientCommunicationSchema.parse({
+        ...req.body,
+        clientId: req.params.clientId,
+        loggedById: req.user.id,
+      });
+      const comm = await storage.createClientCommunication(data);
+      res.status(201).json(comm);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create communication error:', error);
+      res.status(500).json({ error: "Failed to create communication" });
+    }
+  });
+
+  app.delete("/api/communications/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const success = await storage.deleteClientCommunication(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Communication not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete communication error:', error);
+      res.status(500).json({ error: "Failed to delete communication" });
+    }
+  });
+
+  // Announcements (read: all authenticated; write: co-founders only)
+  app.get("/api/announcements", isAuthenticated, async (req: any, res) => {
+    try {
+      const announcementsList = await storage.getAnnouncements();
+      res.json(announcementsList);
+    } catch (error) {
+      console.error('Get announcements error:', error);
+      res.status(500).json({ error: "Failed to fetch announcements" });
+    }
+  });
+
+  app.post("/api/announcements", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can post announcements" });
+      }
+      const data = insertAnnouncementSchema.parse({
+        ...req.body,
+        postedById: req.user.id,
+      });
+      const announcement = await storage.createAnnouncement(data);
+      res.status(201).json(announcement);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create announcement error:', error);
+      res.status(500).json({ error: "Failed to create announcement" });
+    }
+  });
+
+  app.patch("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can update announcements" });
+      }
+      const data = updateAnnouncementSchema.parse(req.body);
+      const announcement = await storage.updateAnnouncement(req.params.id, data);
+      if (!announcement) {
+        return res.status(404).json({ error: "Announcement not found" });
+      }
+      res.json(announcement);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Update announcement error:', error);
+      res.status(500).json({ error: "Failed to update announcement" });
+    }
+  });
+
+  app.delete("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounderEmail(req.user?.email)) {
+        return res.status(403).json({ error: "Only co-founders can delete announcements" });
+      }
+      const success = await storage.deleteAnnouncement(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Announcement not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete announcement error:', error);
+      res.status(500).json({ error: "Failed to delete announcement" });
     }
   });
 

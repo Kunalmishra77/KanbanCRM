@@ -1,5 +1,5 @@
-import { useClients, useDeleteClient } from "@/lib/queries";
-import { useAuth } from "@/lib/auth";
+import { useClients, useDeleteClient, useStories } from "@/lib/queries";
+import { useAuth, useIsOwner } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,30 @@ type ClientData = {
   proposalFileData?: string | null;
 };
 
+function getHealthScore(client: ClientData, stories: any[]): { score: number; label: string; color: string } {
+  const clientStories = stories.filter(s => s.clientId === client.id);
+  const done = clientStories.filter(s => s.status === 'Done').length;
+  const total = clientStories.length;
+  const progressScore = total > 0 ? (done / total) * 40 : 20;
+
+  const expected = Number(client.expectedRevenue || 0);
+  const received = Number(client.revenueTotal || 0);
+  const revenueScore = expected > 0 ? Math.min((received / expected) * 40, 40) : 20;
+
+  const stageScore = client.stage === 'Hot' ? 20 : client.stage === 'Warm' ? 15 : client.stage === 'Cold' ? 8 : 0;
+
+  const total_score = Math.round(progressScore + revenueScore + stageScore);
+  if (client.stage === 'Dropped') return { score: 0, label: 'Inactive', color: 'bg-gray-100 text-gray-500' };
+  if (total_score >= 65) return { score: total_score, label: 'Healthy', color: 'bg-green-100 text-green-700' };
+  if (total_score >= 35) return { score: total_score, label: 'At Risk', color: 'bg-yellow-100 text-yellow-700' };
+  return { score: total_score, label: 'Critical', color: 'bg-red-100 text-red-700' };
+}
+
 export default function Clients() {
   const { data: clients = [], isLoading } = useClients();
+  const { data: stories = [] } = useStories();
   const { mutate: deleteClient } = useDeleteClient();
-  const { user } = useAuth();
-  const canEdit = user?.email === 'aiagentix2025@gmail.com';
+  const isOwner = useIsOwner();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
@@ -100,14 +119,16 @@ export default function Clients() {
               Clear Filter
             </Button>
           )}
-          <Button 
-            className="gap-2 shadow-lg shadow-primary/20"
-            onClick={() => setIsCreateOpen(true)}
-            data-testid="button-new-client"
-          >
-            <Plus className="h-4 w-4" />
-            New Client
-          </Button>
+          {isOwner && (
+            <Button
+              className="gap-2 shadow-lg shadow-primary/20"
+              onClick={() => setIsCreateOpen(true)}
+              data-testid="button-new-client"
+            >
+              <Plus className="h-4 w-4" />
+              New Client
+            </Button>
+          )}
         </div>
       </div>
 
@@ -124,7 +145,9 @@ export default function Clients() {
             </Button>
           </div>
         )}
-        {filteredClients.map((client: ClientData) => (
+        {filteredClients.map((client: ClientData) => {
+          const health = getHealthScore(client, stories);
+          return (
           <div key={client.id} className="relative group/card">
             <Link href={`/clients/${client.id}`}>
               <div className="block cursor-pointer outline-none">
@@ -135,6 +158,9 @@ export default function Clients() {
                         <Briefcase className="h-6 w-6 text-primary" />
                       </div>
                       <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={cn("border-0 text-[10px] px-2", health.color)}>
+                          {health.label}
+                        </Badge>
                         <Badge variant="outline" className={cn(
                           "border-0",
                           client.stage === 'Hot' ? "bg-red-500/10 text-red-600" :
@@ -152,43 +178,45 @@ export default function Clients() {
                   
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground flex items-center gap-1">
-                          <Receipt className="h-3 w-3" />
-                          Revenue
-                        </span>
-                        <div className="text-right">
-                          <span className="font-semibold">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span>
+                      {isOwner && (
+                        <>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Receipt className="h-3 w-3" />
+                              Revenue
+                            </span>
+                            <div className="text-right">
+                              <span className="font-semibold">₹{Number(client.revenueTotal).toLocaleString('en-IN')}</span>
+                              {Number(client.expectedRevenue) > 0 && (
+                                <span className="text-xs text-muted-foreground"> / ₹{Number(client.expectedRevenue).toLocaleString('en-IN')}</span>
+                              )}
+                            </div>
+                          </div>
                           {Number(client.expectedRevenue) > 0 && (
-                            <span className="text-xs text-muted-foreground"> / ₹{Number(client.expectedRevenue).toLocaleString('en-IN')}</span>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Revenue Collected</span>
+                                <span>{((Number(client.revenueTotal) / Number(client.expectedRevenue)) * 100).toFixed(0)}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 transition-all duration-500"
+                                  style={{ width: `${Math.min((Number(client.revenueTotal) / Number(client.expectedRevenue)) * 100, 100)}%` }}
+                                />
+                              </div>
+                            </div>
                           )}
-                        </div>
-                      </div>
-                      
-                      {Number(client.expectedRevenue) > 0 && (
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Revenue Collected</span>
-                            <span>{((Number(client.revenueTotal) / Number(client.expectedRevenue)) * 100).toFixed(0)}%</span>
-                          </div>
-                          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-green-500 transition-all duration-500" 
-                              style={{ width: `${Math.min((Number(client.revenueTotal) / Number(client.expectedRevenue)) * 100, 100)}%` }} 
-                            />
-                          </div>
-                        </div>
+                        </>
                       )}
-                      
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>Project Progress</span>
                           <span>{Number(client.averageProgress).toFixed(0)}%</span>
                         </div>
                         <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary transition-all duration-500 group-hover/card:brightness-110" 
-                            style={{ width: `${Number(client.averageProgress)}%` }} 
+                          <div
+                            className="h-full bg-primary transition-all duration-500 group-hover/card:brightness-110"
+                            style={{ width: `${Number(client.averageProgress)}%` }}
                           />
                         </div>
                       </div>
@@ -210,7 +238,7 @@ export default function Clients() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="macos-panel">
-                {canEdit && (
+                {isOwner && (
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={(e) => {
@@ -223,21 +251,24 @@ export default function Clients() {
                     Edit Client
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setClientToDelete(client.id);
-                  }}
-                  data-testid={`button-delete-client-${client.id}`}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Client
-                </DropdownMenuItem>
+                {isOwner && (
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setClientToDelete(client.id);
+                    }}
+                    data-testid={`button-delete-client-${client.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Client
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
