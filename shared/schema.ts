@@ -270,4 +270,5 @@ export const announcements = pgTable("announcements", {
 export const insertAnnouncementSchema = createInsertSchema(announcements).omit({ id: true, createdAt: true });
 export const updateAnnouncementSchema = insertAnnouncementSchema.partial();
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+export type UpdateAnnouncement = z.infer<typeof updateAnnouncementSchema>;
 export type Announcement = typeof announcements.$inferSelect;
