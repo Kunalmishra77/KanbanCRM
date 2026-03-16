@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
+import { useIsOwner } from "@/lib/auth";
 import {
   Popover,
   PopoverContent,
@@ -43,6 +44,7 @@ export default function GlobalKanban() {
   const { data: users = [] } = useUsers();
   const { mutate: updateStory } = useUpdateStory();
   const { toast } = useToast();
+  const isOwner = useIsOwner();
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -191,13 +193,15 @@ export default function GlobalKanban() {
               </div>
             </PopoverContent>
           </Popover>
-          <Button
-            className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
-            onClick={() => setIsCreateOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Add Story
-          </Button>
+          {isOwner && (
+            <Button
+              className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
+              onClick={() => setIsCreateOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add Story
+            </Button>
+          )}
         </div>
       </div>
 

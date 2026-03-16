@@ -209,7 +209,7 @@ export default function Leads() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 opacity-0 group-hover/card:opacity-100 transition-opacity flex-shrink-0"
+                              className="h-6 w-6 flex-shrink-0"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <MoreHorizontal className="h-3.5 w-3.5" />

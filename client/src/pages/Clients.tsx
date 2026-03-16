@@ -225,20 +225,20 @@ export default function Clients() {
                 </Card>
               </div>
             </Link>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover/card:opacity-100 transition-opacity bg-white/80 hover:bg-white shadow-sm"
-                  onClick={(e) => e.stopPropagation()}
-                  data-testid={`button-client-menu-${client.id}`}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="macos-panel">
-                {isOwner && (
+            {isOwner && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-3 right-3 h-8 w-8 bg-white/80 hover:bg-white shadow-sm"
+                    onClick={(e) => e.stopPropagation()}
+                    data-testid={`button-client-menu-${client.id}`}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="macos-panel">
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={(e) => {
@@ -250,8 +250,6 @@ export default function Clients() {
                     <Pencil className="h-4 w-4 mr-2" />
                     Edit Client
                   </DropdownMenuItem>
-                )}
-                {isOwner && (
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive cursor-pointer"
                     onClick={(e) => {
@@ -263,9 +261,9 @@ export default function Clients() {
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Client
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
           );
         })}
