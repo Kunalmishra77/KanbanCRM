@@ -1,12 +1,14 @@
 import { useClients, useDeleteClient } from "@/lib/queries";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Briefcase, TrendingUp, MoreHorizontal, Loader2, Trash2, Receipt, X } from "lucide-react";
+import { Plus, Briefcase, MoreHorizontal, Loader2, Trash2, Receipt, X, Pencil } from "lucide-react";
 import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
 import { CreateClientModal } from "@/components/CreateClientModal";
+import { EditClientModal } from "@/components/EditClientModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +18,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -36,13 +37,22 @@ type ClientData = {
   revenueTotal: string | number;
   createdAt: string;
   updatedAt: string;
+  notes?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  proposalFileName?: string | null;
+  proposalFileData?: string | null;
 };
 
 export default function Clients() {
   const { data: clients = [], isLoading } = useClients();
   const { mutate: deleteClient } = useDeleteClient();
+  const { user } = useAuth();
+  const canEdit = user?.email === 'aiagentix2025@gmail.com';
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   
@@ -200,7 +210,20 @@ export default function Clients() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="macos-panel">
-                <DropdownMenuItem 
+                {canEdit && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setClientToEdit(client);
+                    }}
+                    data-testid={`button-edit-client-${client.id}`}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Client
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
                   className="text-destructive focus:text-destructive cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -243,9 +266,15 @@ export default function Clients() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <CreateClientModal 
-        open={isCreateOpen} 
-        onOpenChange={setIsCreateOpen} 
+      <CreateClientModal
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+      />
+
+      <EditClientModal
+        open={!!clientToEdit}
+        onOpenChange={(open) => !open && setClientToEdit(null)}
+        client={clientToEdit}
       />
     </div>
   );
