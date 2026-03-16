@@ -312,6 +312,10 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                       <span className="font-medium">{story.estimatedEffortHours || 0}h</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-muted-foreground">Logged</span>
+                      <span className="font-medium">{parseFloat((story as any).actualHoursSpent || '0') || 0}h</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">Due Date</span>
                       <span className="font-medium">{story.dueDate ? format(new Date(story.dueDate), 'MMM d') : 'Not set'}</span>
                     </div>

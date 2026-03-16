@@ -19,7 +19,7 @@ export default function Dashboard() {
   const { data: stories = [], isLoading: isLoadingStories } = useStories() as { data: Story[], isLoading: boolean };
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog() as { data: ActivityLog[], isLoading: boolean };
   const { data: users = [] } = useUsers();
-  const { data: revenueTargets = [] } = useRevenueTargets();
+  const { data: revenueTargets = [] } = useRevenueTargets({ enabled: isOwner });
   const { mutate: upsertTarget } = useUpsertRevenueTarget();
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');

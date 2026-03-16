@@ -408,8 +408,8 @@ export function useDeleteLead() {
 }
 
 // Revenue Targets queries
-export function useRevenueTargets() {
-  return useQuery({ queryKey: ['revenue-targets'], queryFn: revenueTargetsAPI.getAll });
+export function useRevenueTargets(options?: { enabled?: boolean }) {
+  return useQuery({ queryKey: ['revenue-targets'], queryFn: revenueTargetsAPI.getAll, enabled: options?.enabled ?? true });
 }
 export function useUpsertRevenueTarget() {
   const queryClient = useQueryClient();

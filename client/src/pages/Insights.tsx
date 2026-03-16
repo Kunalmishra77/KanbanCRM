@@ -47,7 +47,7 @@ export function RevenueInsight() {
   const stageRevenue = [
     { name: 'Hot', value: clients.filter(c => c.stage === 'Hot').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: 'hsl(var(--chart-1))' },
     { name: 'Warm', value: clients.filter(c => c.stage === 'Warm').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: '#fbbf24' },
-    { name: 'Cool', value: clients.filter(c => c.stage === 'Cool').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: '#94a3b8' },
+    { name: 'Cold', value: clients.filter(c => c.stage === 'Cold').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: '#94a3b8' },
   ];
 
   const exportCSV = () => {
@@ -238,7 +238,7 @@ export function ClientsInsight() {
 
   const hotClients = clients.filter(c => c.stage === 'Hot');
   const warmClients = clients.filter(c => c.stage === 'Warm');
-  const coolClients = clients.filter(c => c.stage === 'Cool');
+  const coldClients = clients.filter(c => c.stage === 'Cold');
 
   const getClientStories = (clientId: string) => stories.filter(s => s.clientId === clientId);
   const getClientProgress = (clientId: string) => {
@@ -290,8 +290,8 @@ export function ClientsInsight() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Cool Clients</p>
-                <p className="text-3xl font-bold text-gray-600">{coolClients.length}</p>
+                <p className="text-sm text-muted-foreground">Cold Clients</p>
+                <p className="text-3xl font-bold text-gray-600">{coldClients.length}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                 <Clock className="h-6 w-6 text-gray-600" />
@@ -304,7 +304,7 @@ export function ClientsInsight() {
       {[
         { title: 'Hot Clients', clients: hotClients, color: 'red' },
         { title: 'Warm Clients', clients: warmClients, color: 'yellow' },
-        { title: 'Cool Clients', clients: coolClients, color: 'gray' }
+        { title: 'Cold Clients', clients: coldClients, color: 'gray' }
       ].map(({ title, clients: stageClients, color }) => stageClients.length > 0 && (
         <Card key={title} className="macos-card border-none">
           <CardHeader>

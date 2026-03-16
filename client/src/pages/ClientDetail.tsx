@@ -80,6 +80,7 @@ export default function ClientDetail() {
     fileName: '',
     fileData: '',
     fileType: '',
+    status: 'pending',
   });
 
   // Communications state
@@ -163,6 +164,7 @@ export default function ClientDetail() {
       fileName: '',
       fileData: '',
       fileType: '',
+      status: 'pending',
     });
     setIsInvoiceModalOpen(true);
   };
@@ -178,6 +180,7 @@ export default function ClientDetail() {
       fileName: invoice.fileName || '',
       fileData: invoice.fileData || '',
       fileType: invoice.fileType || '',
+      status: invoice.status || 'pending',
     });
     setIsInvoiceModalOpen(true);
   };
@@ -237,6 +240,7 @@ export default function ClientDetail() {
         fileName: invoiceForm.fileName || null,
         fileType: invoiceForm.fileType || null,
         fileData: finalFileData || null,
+        status: invoiceForm.status,
       };
 
       if (editingInvoice) {
@@ -415,9 +419,6 @@ export default function ClientDetail() {
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{comm.summary}</p>
-                            {comm.loggedBy && (
-                              <p className="text-xs text-muted-foreground mt-1">Logged by {comm.loggedBy}</p>
-                            )}
                           </div>
                         </div>
                         {isOwner && (
@@ -508,11 +509,26 @@ export default function ClientDetail() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      {invoice.status !== 'paid' && new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) && (
+                      {invoice.status === 'paid' ? (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Paid</span>
+                      ) : new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? (
                         <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Overdue</span>
+                      ) : (
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
                       )}
                       <span className="font-semibold text-lg">₹{parseFloat(invoice.amount).toLocaleString('en-IN')}</span>
                       <div className="flex gap-1">
+                        {invoice.status !== 'paid' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 text-xs px-2"
+                            onClick={() => updateInvoice({ id: invoice.id, data: { status: 'paid' } })}
+                            data-testid={`mark-paid-${invoice.id}`}
+                          >
+                            Mark Paid
+                          </Button>
+                        )}
                         {invoice.fileData && (
                           <Button variant="ghost" size="sm" onClick={() => downloadInvoiceFile(invoice)} data-testid={`download-invoice-${invoice.id}`}>
                             <FileText className="h-4 w-4" />
@@ -591,6 +607,19 @@ export default function ClientDetail() {
                 onChange={(e) => setInvoiceForm(prev => ({ ...prev, issuedOn: e.target.value }))}
                 data-testid="input-invoice-date"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invoice-status">Status</Label>
+              <select
+                id="invoice-status"
+                className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                value={invoiceForm.status}
+                onChange={(e) => setInvoiceForm(prev => ({ ...prev, status: e.target.value }))}
+                data-testid="select-invoice-status"
+              >
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="invoice-notes">Notes</Label>

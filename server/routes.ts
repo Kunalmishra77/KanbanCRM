@@ -794,7 +794,7 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can create leads" });
       }
-      const data = insertLeadSchema.parse(req.body);
+      const data = insertLeadSchema.parse({ ...req.body, ownerId: req.user.id });
       const lead = await storage.createLead(data);
       res.status(201).json(lead);
     } catch (error) {
