@@ -15,6 +15,7 @@ import Settings from "@/pages/Settings";
 import Internal from "@/pages/Internal";
 import Leads from "@/pages/Leads";
 import Announcements from "@/pages/Announcements";
+import SalaryIncentives from "@/pages/SalaryIncentives";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 
@@ -80,6 +81,9 @@ function Router() {
       </Route>
       <Route path="/announcements">
         <ProtectedRoute component={Announcements} />
+      </Route>
+      <Route path="/salary">
+        <ProtectedRoute component={SalaryIncentives} />
       </Route>
 
       <Route component={NotFound} />

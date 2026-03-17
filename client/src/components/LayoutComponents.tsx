@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X } from "lucide-react";
-import { useIsOwner } from "@/lib/auth";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet } from "lucide-react";
+import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,17 +26,23 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const isOwner = useIsOwner();
+  const isHROrOwner = useIsHROrOwner();
 
   const allNavItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/", ownerOnly: false },
-    { icon: Users, label: "Clients", href: "/clients", ownerOnly: false },
-    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", ownerOnly: false },
-    { icon: Target, label: "Leads", href: "/leads", ownerOnly: false },
-    { icon: Megaphone, label: "Announcements", href: "/announcements", ownerOnly: false },
-    { icon: Building2, label: "Internal", href: "/internal", ownerOnly: true },
+    { icon: LayoutDashboard, label: "Dashboard", href: "/", ownerOnly: false, hrOrOwnerOnly: false },
+    { icon: Users, label: "Clients", href: "/clients", ownerOnly: false, hrOrOwnerOnly: false },
+    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", ownerOnly: false, hrOrOwnerOnly: false },
+    { icon: Target, label: "Leads", href: "/leads", ownerOnly: false, hrOrOwnerOnly: false },
+    { icon: Megaphone, label: "Announcements", href: "/announcements", ownerOnly: false, hrOrOwnerOnly: false },
+    { icon: Wallet, label: "Salary & Incentives", href: "/salary", ownerOnly: false, hrOrOwnerOnly: true },
+    { icon: Building2, label: "Internal", href: "/internal", ownerOnly: true, hrOrOwnerOnly: false },
   ];
 
-  const navItems = allNavItems.filter(item => !item.ownerOnly || isOwner);
+  const navItems = allNavItems.filter(item => {
+    if (item.ownerOnly && !isOwner) return false;
+    if (item.hrOrOwnerOnly && !isHROrOwner) return false;
+    return true;
+  });
 
   const sidebarContent = (
     <aside

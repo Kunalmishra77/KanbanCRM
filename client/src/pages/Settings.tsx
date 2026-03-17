@@ -1,16 +1,46 @@
 import { useTheme } from "next-themes";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useIsOwner } from "@/lib/auth";
+import { useUsers, useUpdateUser } from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, Monitor, User, Palette, Bell, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Moon, Sun, Monitor, User, Palette, Bell, Shield, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+
+const USER_TYPE_LABELS: Record<string, string> = {
+  'co-founder': 'Owner',
+  'hr': 'HR',
+  'employee': 'Employee',
+};
+
+const USER_TYPE_BADGE: Record<string, string> = {
+  'co-founder': 'bg-purple-100 text-purple-700 border-purple-200',
+  'hr': 'bg-blue-100 text-blue-700 border-blue-200',
+  'employee': 'bg-gray-100 text-gray-700 border-gray-200',
+};
 
 export default function Settings() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const isOwner = useIsOwner();
+  const { data: allUsers = [] } = useUsers();
+  const { mutate: updateUser } = useUpdateUser();
+  const { toast } = useToast();
+
+  function handleRoleChange(userId: string, newUserType: string) {
+    const roleMap: Record<string, string> = { 'co-founder': 'admin', 'hr': 'hr', 'employee': 'editor' };
+    updateUser({ id: userId, data: { userType: newUserType, role: roleMap[newUserType] || 'editor' } }, {
+      onSuccess: () => toast({ title: "Role updated successfully" }),
+      onError: () => toast({ title: "Failed to update role", variant: "destructive" }),
+    });
+  }
 
   const themeOptions = [
     { value: "light", label: "Light", icon: Sun },
@@ -143,6 +173,57 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {isOwner && (
+          <Card className="macos-card">
+            <CardHeader className="flex flex-row items-center gap-4 pb-4">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>User Role Management</CardTitle>
+                <CardDescription>Assign roles to team members</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(allUsers as any[]).map((u: any) => (
+                <div key={u.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/40 border border-black/5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={u.profileImageUrl || undefined} />
+                      <AvatarFallback className="text-[11px]">{u.firstName?.charAt(0)}{u.lastName?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{u.firstName} {u.lastName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {u.id === user?.id ? (
+                      <Badge variant="outline" className={cn("text-[11px]", USER_TYPE_BADGE[u.userType] || USER_TYPE_BADGE.employee)}>
+                        {USER_TYPE_LABELS[u.userType] || 'Employee'} (You)
+                      </Badge>
+                    ) : (
+                      <Select
+                        value={u.userType || 'employee'}
+                        onValueChange={v => handleRoleChange(u.id, v)}
+                      >
+                        <SelectTrigger className="h-8 w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="employee">Employee</SelectItem>
+                          <SelectItem value="hr">HR</SelectItem>
+                          <SelectItem value="co-founder">Owner</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

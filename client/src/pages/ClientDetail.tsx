@@ -299,16 +299,14 @@ export default function ClientDetail() {
             {getContractEndDateBadge()}
           </div>
           <div className="ml-auto flex gap-2 flex-shrink-0">
-            {isOwner && (
-              <Button
-                className="gap-2 shadow-lg shadow-primary/20"
-                onClick={() => setIsCreateStoryOpen(true)}
-                data-testid="button-add-story"
-              >
-                <Plus className="h-4 w-4" />
-                Add Story
-              </Button>
-            )}
+            <Button
+              className="gap-2 shadow-lg shadow-primary/20"
+              onClick={() => setIsCreateStoryOpen(true)}
+              data-testid="button-add-story"
+            >
+              <Plus className="h-4 w-4" />
+              Add Story
+            </Button>
           </div>
         </div>
 

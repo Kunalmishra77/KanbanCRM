@@ -193,15 +193,13 @@ export default function GlobalKanban() {
               </div>
             </PopoverContent>
           </Popover>
-          {isOwner && (
-            <Button
-              className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
-              onClick={() => setIsCreateOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Add Story
-            </Button>
-          )}
+          <Button
+            className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
+            onClick={() => setIsCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Add Story
+          </Button>
         </div>
       </div>
 
