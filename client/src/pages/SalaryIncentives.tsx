@@ -1,6 +1,25 @@
 import { useState, useMemo } from "react";
 import { useIsHROrOwner } from "@/lib/auth";
 import { useUsers, useCreateUser } from "@/lib/queries";
+
+// Display name overrides — maps email → proper display name + title
+const EMPLOYEE_DISPLAY: Record<string, { name: string; title: string }> = {
+  'myai@ai-agentix.com':        { name: 'Anant Sanadhya',   title: 'Founder & CEO' },
+  'anantsanadhya@gmail.com':    { name: 'Anant Sanadhya',   title: 'Founder & CEO' },
+  'vitalsaigorrela@gmail.com':  { name: 'Vital Sai',        title: 'Co-Founder' },
+  'aiagentix2025@gmail.com':    { name: 'AI AgentIX',       title: 'Co-Founder' },
+  'agentixoffice@gmail.com':    { name: 'Anchal Singh',     title: 'HR Head' },
+  'amandeep.2801singh@gmail.com': { name: 'Amandeep Singh', title: 'Employee' },
+};
+
+function getEmployeeDisplay(u: any): { name: string; title: string; initials: string } {
+  const override = u.email ? EMPLOYEE_DISPLAY[u.email.toLowerCase()] : null;
+  const name = override?.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
+  const title = override?.title || (u.userType === 'co-founder' ? 'Co-Founder' : u.userType === 'hr' ? 'HR' : 'Employee');
+  const parts = name.split(' ');
+  const initials = parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
+  return { name, title, initials: initials.toUpperCase() };
+}
 import {
   useSalaryRecords, useCreateSalaryRecord, useUpdateSalaryRecord, useDeleteSalaryRecord,
   useIncentives, useCreateIncentive, useUpdateIncentive, useDeleteIncentive,
@@ -21,7 +40,8 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, IndianRupee, Search, TrendingUp, Gift, UserPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, IndianRupee, TrendingUp, Gift, UserPlus, ChevronRight } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { format, subMonths } from "date-fns";
 import {
@@ -52,19 +72,11 @@ export default function SalaryIncentives() {
   const { toast } = useToast();
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
-  const [employeeSearch, setEmployeeSearch] = useState("");
 
   // Add Employee modal
   const [addEmpOpen, setAddEmpOpen] = useState(false);
   const [empForm, setEmpForm] = useState({ firstName: "", lastName: "", email: "", userType: "employee" });
   const { mutate: createEmployee } = useCreateUser();
-
-  const employees = useMemo(() => {
-    const q = employeeSearch.toLowerCase();
-    return (allUsers as any[]).filter((u: any) =>
-      !q || `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
-    );
-  }, [allUsers, employeeSearch]);
 
   const selectedEmployee = (allUsers as any[]).find((u: any) => u.id === selectedEmployeeId);
 
@@ -187,36 +199,38 @@ export default function SalaryIncentives() {
         </Button>
       </div>
 
-      {/* Employee selector */}
-      <Card className="macos-card border-none">
-        <CardContent className="p-4">
-          <Label className="text-sm font-medium mb-2 block">Select Employee</Label>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search employees..."
-                className="pl-9 h-9"
-                value={employeeSearch}
-                onChange={e => setEmployeeSearch(e.target.value)}
-              />
-            </div>
-            <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-              <SelectTrigger className="h-9 w-full sm:w-72">
-                <SelectValue placeholder="Choose an employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {employees.map((u: any) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.firstName} {u.lastName}
-                    {u.userType === 'co-founder' ? ' (Owner)' : u.userType === 'hr' ? ' (HR)' : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Employee card grid */}
+      <div>
+        <Label className="text-sm font-medium mb-3 block text-muted-foreground uppercase tracking-wide text-xs">Select Employee</Label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {(allUsers as any[]).map((u: any) => {
+            const { name, title, initials } = getEmployeeDisplay(u);
+            const isSelected = u.id === selectedEmployeeId;
+            return (
+              <button
+                key={u.id}
+                onClick={() => setSelectedEmployeeId(u.id)}
+                className={`text-left rounded-xl p-3 border transition-all duration-150 flex items-center gap-3 group ${
+                  isSelected
+                    ? 'bg-primary/10 border-primary/40 shadow-sm'
+                    : 'bg-white/60 border-black/5 hover:bg-white/90 hover:border-primary/20 hover:shadow-sm'
+                }`}
+              >
+                <Avatar className={`h-10 w-10 shrink-0 ${isSelected ? 'ring-2 ring-primary/40' : ''}`}>
+                  <AvatarFallback className={`text-sm font-bold ${isSelected ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'}`}>
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>{name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{title}</p>
+                </div>
+                {isSelected && <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {selectedEmployee && (
         <>

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useCommunications, useCreateCommunication, useDeleteCommunication } from "@/lib/queries";
-import { useIsOwner } from "@/lib/auth";
+import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +53,7 @@ export default function ClientDetail() {
   const [, params] = useRoute("/clients/:id");
   const { toast } = useToast();
   const isOwner = useIsOwner();
+  const isHROrOwner = useIsHROrOwner();
 
   const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
   const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
@@ -421,7 +422,7 @@ export default function ClientDetail() {
                             <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{comm.summary}</p>
                           </div>
                         </div>
-                        {isOwner && (
+                        {isHROrOwner && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive flex-shrink-0">

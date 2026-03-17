@@ -1,5 +1,5 @@
 import { useClients, useDeleteClient, useStories } from "@/lib/queries";
-import { useAuth, useIsOwner } from "@/lib/auth";
+import { useAuth, useIsHROrOwner } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@ export default function Clients() {
   const { data: clients = [], isLoading } = useClients();
   const { data: stories = [] } = useStories();
   const { mutate: deleteClient } = useDeleteClient();
-  const isOwner = useIsOwner();
+  const isHROrOwner = useIsHROrOwner();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
@@ -119,7 +119,7 @@ export default function Clients() {
               Clear Filter
             </Button>
           )}
-          {isOwner && (
+          {isHROrOwner && (
             <Button
               className="gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateOpen(true)}
@@ -178,7 +178,7 @@ export default function Clients() {
                   
                   <CardContent>
                     <div className="space-y-4">
-                      {isOwner && (
+                      {isHROrOwner && (
                         <>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground flex items-center gap-1">
@@ -225,7 +225,7 @@ export default function Clients() {
                 </Card>
               </div>
             </Link>
-            {isOwner && (
+            {isHROrOwner && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

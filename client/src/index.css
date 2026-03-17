@@ -218,3 +218,22 @@
 .animate-deadline-blink-orange {
   animation: deadline-blink-orange 1.5s ease-in-out infinite;
 }
+
+/* Global cursor pointer for all interactive elements */
+button,
+a,
+[role="button"],
+[role="tab"],
+[role="option"],
+[role="menuitem"],
+[role="checkbox"],
+[role="radio"],
+select,
+summary,
+label[for],
+.cursor-pointer,
+[data-testid*="button"],
+[data-testid*="tab"],
+[data-radix-collection-item] {
+  cursor: pointer !important;
+}
