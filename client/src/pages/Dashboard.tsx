@@ -1,19 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useClients, useStories, useActivityLog, useUsers, useRevenueTargets, useUpsertRevenueTarget } from "@/lib/queries";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from "recharts";
-import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Legend } from "recharts";
+import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil, Gift, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth, useIsOwner } from "@/lib/auth";
+import { useAuth, useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import type { Client, Story, ActivityLog } from "@shared/schema";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useSalaryRecords, useIncentives } from "@/lib/queries";
+import { format, subMonths } from "date-fns";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const isOwner = useIsOwner();
+  const isHROrOwner = useIsHROrOwner();
   const [, setLocation] = useLocation();
   const { data: clients = [], isLoading: isLoadingClients } = useClients() as { data: Client[], isLoading: boolean };
   const { data: stories = [], isLoading: isLoadingStories } = useStories() as { data: Story[], isLoading: boolean };
@@ -25,6 +28,34 @@ export default function Dashboard() {
   const [targetInput, setTargetInput] = useState('');
   const currentPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
   const currentTarget = (revenueTargets as any[]).find(t => t.period === currentPeriod);
+
+  // Salary & Incentive data (HR/Owner only)
+  const { data: allSalaryRecords = [] } = useSalaryRecords(undefined);
+  const { data: allIncentiveRecords = [] } = useIncentives(undefined);
+
+  const payrollChartData = useMemo(() => {
+    if (!isHROrOwner) return [];
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = subMonths(new Date(), 5 - i);
+      return format(d, "yyyy-MM");
+    });
+    return months.map(period => {
+      const salary = (allSalaryRecords as any[])
+        .filter((r: any) => r.period === period)
+        .reduce((s: number, r: any) => s + parseFloat(r.baseSalary || 0), 0);
+      const incentive = (allIncentiveRecords as any[])
+        .filter((r: any) => r.period === period)
+        .reduce((s: number, r: any) => s + parseFloat(r.amount || 0), 0);
+      return { period: format(new Date(period + '-01'), "MMM yy"), salary, incentive };
+    });
+  }, [allSalaryRecords, allIncentiveRecords, isHROrOwner]);
+
+  const currentMonthSalary = (allSalaryRecords as any[])
+    .filter((r: any) => r.period === currentPeriod)
+    .reduce((s: number, r: any) => s + parseFloat(r.baseSalary || 0), 0);
+  const currentMonthIncentives = (allIncentiveRecords as any[])
+    .filter((r: any) => r.period === currentPeriod)
+    .reduce((s: number, r: any) => s + parseFloat(r.amount || 0), 0);
 
   if (isLoadingClients || isLoadingStories || isLoadingActivity) {
     return (
@@ -409,6 +440,89 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* HR/Owner: Payroll Summary */}
+      {isHROrOwner && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-primary" />
+            Payroll Overview
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <IndianRupee className="h-5 w-5 text-primary" />
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                </div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This Month Salary</h3>
+                <div className="text-2xl font-bold mt-1">₹{currentMonthSalary.toLocaleString('en-IN')}</div>
+                <p className="text-xs text-muted-foreground mt-1">{format(new Date(), "MMMM yyyy")}</p>
+              </CardContent>
+            </Card>
+            <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 rounded-xl bg-amber-100/60">
+                    <Gift className="h-5 w-5 text-amber-600" />
+                  </div>
+                </div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This Month Incentives</h3>
+                <div className="text-2xl font-bold mt-1">₹{currentMonthIncentives.toLocaleString('en-IN')}</div>
+                <p className="text-xs text-muted-foreground mt-1">{format(new Date(), "MMMM yyyy")}</p>
+              </CardContent>
+            </Card>
+            <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 rounded-xl bg-emerald-100/60">
+                    <TrendingUp className="h-5 w-5 text-emerald-600" />
+                  </div>
+                </div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Payroll This Month</h3>
+                <div className="text-2xl font-bold mt-1">₹{(currentMonthSalary + currentMonthIncentives).toLocaleString('en-IN')}</div>
+                <p className="text-xs text-muted-foreground mt-1">{(users as any[]).length} team members</p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Payroll 6-month chart */}
+          <Card className="macos-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Monthly Payroll — Last 6 Months</CardTitle>
+            </CardHeader>
+            <CardContent className="pl-0">
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={payrollChartData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="payrollSalaryGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                      </linearGradient>
+                      <linearGradient id="payrollIncentiveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.4} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="period" fontSize={12} tickLine={false} axisLine={false} stroke="#888" dy={8} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888" dx={-8} tickFormatter={v => `₹${v >= 1000 ? (v/1000)+'k' : v}`} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                      contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.95)', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', padding: '12px' }}
+                      formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
+                    />
+                    <Legend iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
+                    <Bar dataKey="salary" name="Salary" fill="url(#payrollSalaryGrad)" radius={[5,5,0,0]} barSize={20} />
+                    <Bar dataKey="incentive" name="Incentive" fill="url(#payrollIncentiveGrad)" radius={[5,5,0,0]} barSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Recent Activity Feed */}
       <div className="space-y-4">

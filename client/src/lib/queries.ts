@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI, leadsAPI, revenueTargetsAPI, communicationsAPI, announcementsAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI, leadsAPI, revenueTargetsAPI, communicationsAPI, announcementsAPI, salaryAPI, incentivesAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -239,6 +239,16 @@ export function useUsers() {
   return useQuery({
     queryKey: ['users'],
     queryFn: usersAPI.getAll,
+  });
+}
+
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => usersAPI.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
   });
 }
 
@@ -489,5 +499,81 @@ export function useDeleteInternalDocument() {
     onError: (error: Error) => {
       toast({ title: "Failed to delete document", description: error.message, variant: "destructive" });
     },
+  });
+}
+
+// ─── Salary Records ──────────────────────────────────────────────────────────
+export function useSalaryRecords(employeeId?: string) {
+  return useQuery({
+    queryKey: ['salary-records', employeeId],
+    queryFn: () => salaryAPI.getAll(employeeId),
+  });
+}
+
+export function useCreateSalaryRecord() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: salaryAPI.create,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['salary-records'] }); toast({ title: "Salary record saved" }); },
+    onError: (e: Error) => toast({ title: "Failed to save salary record", description: e.message, variant: "destructive" }),
+  });
+}
+
+export function useUpdateSalaryRecord() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => salaryAPI.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['salary-records'] }); toast({ title: "Salary record updated" }); },
+    onError: (e: Error) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
+  });
+}
+
+export function useDeleteSalaryRecord() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (id: string) => salaryAPI.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['salary-records'] }); toast({ title: "Salary record deleted" }); },
+    onError: (e: Error) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
+  });
+}
+
+// ─── Incentives ──────────────────────────────────────────────────────────────
+export function useIncentives(employeeId?: string) {
+  return useQuery({
+    queryKey: ['incentives', employeeId],
+    queryFn: () => incentivesAPI.getAll(employeeId),
+  });
+}
+
+export function useCreateIncentive() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: incentivesAPI.create,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['incentives'] }); toast({ title: "Incentive added" }); },
+    onError: (e: Error) => toast({ title: "Failed to add incentive", description: e.message, variant: "destructive" }),
+  });
+}
+
+export function useUpdateIncentive() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => incentivesAPI.update(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['incentives'] }); toast({ title: "Incentive updated" }); },
+    onError: (e: Error) => toast({ title: "Failed to update", description: e.message, variant: "destructive" }),
+  });
+}
+
+export function useDeleteIncentive() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (id: string) => incentivesAPI.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['incentives'] }); toast({ title: "Incentive deleted" }); },
+    onError: (e: Error) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
   });
 }

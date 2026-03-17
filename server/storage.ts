@@ -12,8 +12,10 @@ import {
   type RevenueTarget, type InsertRevenueTarget,
   type ClientCommunication, type InsertClientCommunication,
   type Announcement, type InsertAnnouncement, type UpdateAnnouncement,
+  type SalaryRecord, type InsertSalaryRecord, type UpdateSalaryRecord,
+  type Incentive, type InsertIncentive, type UpdateIncentive,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
-  leads, revenueTargets, clientCommunications, announcements
+  leads, revenueTargets, clientCommunications, announcements, salaryRecords, incentives
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -100,6 +102,23 @@ export interface IStorage {
   createAnnouncement(ann: InsertAnnouncement): Promise<Announcement>;
   updateAnnouncement(id: string, ann: UpdateAnnouncement): Promise<Announcement | undefined>;
   deleteAnnouncement(id: string): Promise<boolean>;
+
+  // Salary Records
+  getSalaryRecords(employeeId?: string): Promise<SalaryRecord[]>;
+  getSalaryRecord(id: string): Promise<SalaryRecord | undefined>;
+  createSalaryRecord(record: InsertSalaryRecord): Promise<SalaryRecord>;
+  updateSalaryRecord(id: string, record: UpdateSalaryRecord): Promise<SalaryRecord | undefined>;
+  deleteSalaryRecord(id: string): Promise<boolean>;
+
+  // Incentives
+  getIncentives(employeeId?: string): Promise<Incentive[]>;
+  getIncentive(id: string): Promise<Incentive | undefined>;
+  createIncentive(incentive: InsertIncentive): Promise<Incentive>;
+  updateIncentive(id: string, incentive: UpdateIncentive): Promise<Incentive | undefined>;
+  deleteIncentive(id: string): Promise<boolean>;
+
+  // Deadline queries (for notification service)
+  getStoriesWithUpcomingDeadlines(hoursAhead: number): Promise<Story[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -136,6 +155,15 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users).orderBy(users.firstName);
+  }
+
+  async createEmployee(data: { firstName: string; lastName: string; email?: string | null; userType: string; role: string }): Promise<User> {
+    const { randomUUID } = await import('crypto');
+    const [user] = await db.insert(users).values({
+      id: randomUUID(),
+      ...data,
+    }).returning();
+    return user;
   }
 
   async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined> {
@@ -440,6 +468,88 @@ export class DatabaseStorage implements IStorage {
   async deleteAnnouncement(id: string): Promise<boolean> {
     const result = await db.delete(announcements).where(eq(announcements.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Salary Records
+  async getSalaryRecords(employeeId?: string): Promise<SalaryRecord[]> {
+    const query = db.select().from(salaryRecords);
+    if (employeeId) {
+      return query.where(eq(salaryRecords.employeeId, employeeId)).orderBy(desc(salaryRecords.period));
+    }
+    return query.orderBy(desc(salaryRecords.period));
+  }
+
+  async getSalaryRecord(id: string): Promise<SalaryRecord | undefined> {
+    const [record] = await db.select().from(salaryRecords).where(eq(salaryRecords.id, id));
+    return record;
+  }
+
+  async createSalaryRecord(record: InsertSalaryRecord): Promise<SalaryRecord> {
+    const [created] = await db.insert(salaryRecords).values(record).returning();
+    return created;
+  }
+
+  async updateSalaryRecord(id: string, record: UpdateSalaryRecord): Promise<SalaryRecord | undefined> {
+    const [updated] = await db
+      .update(salaryRecords)
+      .set({ ...record, updatedAt: new Date() })
+      .where(eq(salaryRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSalaryRecord(id: string): Promise<boolean> {
+    const result = await db.delete(salaryRecords).where(eq(salaryRecords.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Incentives
+  async getIncentives(employeeId?: string): Promise<Incentive[]> {
+    const query = db.select().from(incentives);
+    if (employeeId) {
+      return query.where(eq(incentives.employeeId, employeeId)).orderBy(desc(incentives.period));
+    }
+    return query.orderBy(desc(incentives.period));
+  }
+
+  async getIncentive(id: string): Promise<Incentive | undefined> {
+    const [incentive] = await db.select().from(incentives).where(eq(incentives.id, id));
+    return incentive;
+  }
+
+  async createIncentive(incentive: InsertIncentive): Promise<Incentive> {
+    const [created] = await db.insert(incentives).values(incentive).returning();
+    return created;
+  }
+
+  async updateIncentive(id: string, incentive: UpdateIncentive): Promise<Incentive | undefined> {
+    const [updated] = await db
+      .update(incentives)
+      .set(incentive)
+      .where(eq(incentives.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteIncentive(id: string): Promise<boolean> {
+    const result = await db.delete(incentives).where(eq(incentives.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Deadline queries — stories due within N hours from now, not yet Done
+  async getStoriesWithUpcomingDeadlines(hoursAhead: number): Promise<Story[]> {
+    const now = new Date();
+    const future = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    return db
+      .select()
+      .from(stories)
+      .where(
+        and(
+          sql`${stories.dueDate} > ${now.toISOString()}`,
+          sql`${stories.dueDate} <= ${future.toISOString()}`,
+          sql`${stories.status} != 'Done'`
+        )
+      );
   }
 }
 

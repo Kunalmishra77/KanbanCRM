@@ -119,6 +119,7 @@ export const invoicesAPI = {
 // Users API
 export const usersAPI = {
   getAll: () => fetchAPI('/users'),
+  create: (data: any) => fetchAPI('/users', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => fetchAPI(`/users/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
@@ -194,4 +195,20 @@ export const announcementsAPI = {
   create: (data: any) => fetchAPI('/announcements', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => fetchAPI(`/announcements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: string) => fetchAPI(`/announcements/${id}`, { method: 'DELETE' }),
+};
+
+// Salary Records API (Owner + HR only)
+export const salaryAPI = {
+  getAll: (employeeId?: string) => fetchAPI(`/salary-records${employeeId ? `?employeeId=${employeeId}` : ''}`),
+  create: (data: any) => fetchAPI('/salary-records', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: any) => fetchAPI(`/salary-records/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => fetchAPI(`/salary-records/${id}`, { method: 'DELETE' }),
+};
+
+// Incentives API (Owner + HR only)
+export const incentivesAPI = {
+  getAll: (employeeId?: string) => fetchAPI(`/incentives${employeeId ? `?employeeId=${employeeId}` : ''}`),
+  create: (data: any) => fetchAPI('/incentives', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: any) => fetchAPI(`/incentives/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) => fetchAPI(`/incentives/${id}`, { method: 'DELETE' }),
 };

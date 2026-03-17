@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useIsHROrOwner, useAuth } from "@/lib/auth";
-import { useUsers } from "@/lib/queries";
+import { useIsHROrOwner } from "@/lib/auth";
+import { useUsers, useCreateUser } from "@/lib/queries";
 import {
   useSalaryRecords, useCreateSalaryRecord, useUpdateSalaryRecord, useDeleteSalaryRecord,
   useIncentives, useCreateIncentive, useUpdateIncentive, useDeleteIncentive,
@@ -21,9 +21,12 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, IndianRupee, Search, TrendingUp, Gift } from "lucide-react";
+import { Plus, Pencil, Trash2, IndianRupee, Search, TrendingUp, Gift, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, subMonths } from "date-fns";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
 
 function getCurrentPeriod() {
   return format(new Date(), "yyyy-MM");
@@ -35,16 +38,26 @@ function periodLabel(period: string) {
   return format(date, "MMM yyyy");
 }
 
+function shortPeriodLabel(period: string) {
+  const [year, month] = period.split("-");
+  const date = new Date(parseInt(year), parseInt(month) - 1);
+  return format(date, "MMM yy");
+}
+
 const INCENTIVE_TYPES = ["bonus", "commission", "reward", "other"] as const;
 
 export default function SalaryIncentives() {
   const isHROrOwner = useIsHROrOwner();
-  const { user: currentUser } = useAuth();
   const { data: allUsers = [] } = useUsers();
   const { toast } = useToast();
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [employeeSearch, setEmployeeSearch] = useState("");
+
+  // Add Employee modal
+  const [addEmpOpen, setAddEmpOpen] = useState(false);
+  const [empForm, setEmpForm] = useState({ firstName: "", lastName: "", email: "", userType: "employee" });
+  const { mutate: createEmployee } = useCreateUser();
 
   const employees = useMemo(() => {
     const q = employeeSearch.toLowerCase();
@@ -83,6 +96,15 @@ export default function SalaryIncentives() {
     );
   }
 
+  // --- Add Employee ---
+  function saveEmployee() {
+    if (!empForm.firstName || !empForm.lastName) return toast({ title: "First and last name required", variant: "destructive" });
+    createEmployee(empForm, {
+      onSuccess: () => { setAddEmpOpen(false); setEmpForm({ firstName: "", lastName: "", email: "", userType: "employee" }); toast({ title: "Employee added" }); },
+      onError: (e: any) => toast({ title: "Failed to add employee", description: e.message, variant: "destructive" }),
+    });
+  }
+
   // --- Salary handlers ---
   function openAddSalary() {
     setSalaryForm({ baseSalary: "", period: getCurrentPeriod(), notes: "" });
@@ -105,9 +127,6 @@ export default function SalaryIncentives() {
         onSuccess: () => { setSalaryModal({ open: false }); toast({ title: "Salary record added" }); },
       });
     }
-  }
-  function handleDeleteSalary(id: string) {
-    deleteSalary(id, { onSuccess: () => toast({ title: "Record deleted" }) });
   }
 
   // --- Incentive handlers ---
@@ -133,19 +152,39 @@ export default function SalaryIncentives() {
       });
     }
   }
-  function handleDeleteIncentive(id: string) {
-    deleteIncentive(id, { onSuccess: () => toast({ title: "Record deleted" }) });
-  }
 
   // Summary stats
   const totalSalaryPaid = (salaryRecords as any[]).reduce((sum: number, r: any) => sum + parseFloat(r.baseSalary || 0), 0);
   const totalIncentivesPaid = (incentiveRecords as any[]).reduce((sum: number, r: any) => sum + parseFloat(r.amount || 0), 0);
 
+  // Chart: last 6 months salary + incentives for selected employee
+  const chartData = useMemo(() => {
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = subMonths(new Date(), 5 - i);
+      return format(d, "yyyy-MM");
+    });
+    return months.map(period => {
+      const salary = (salaryRecords as any[])
+        .filter((r: any) => r.period === period)
+        .reduce((s: number, r: any) => s + parseFloat(r.baseSalary || 0), 0);
+      const incentive = (incentiveRecords as any[])
+        .filter((r: any) => r.period === period)
+        .reduce((s: number, r: any) => s + parseFloat(r.amount || 0), 0);
+      return { period: shortPeriodLabel(period), salary, incentive };
+    });
+  }, [salaryRecords, incentiveRecords]);
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 max-w-6xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Salary & Incentives</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage employee compensation records</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Salary & Incentives</h1>
+          <p className="text-muted-foreground text-sm mt-1">Manage employee compensation records</p>
+        </div>
+        <Button className="gap-2 shrink-0" onClick={() => setAddEmpOpen(true)}>
+          <UserPlus className="h-4 w-4" />
+          Add Employee
+        </Button>
       </div>
 
       {/* Employee selector */}
@@ -218,6 +257,42 @@ export default function SalaryIncentives() {
             </Card>
           </div>
 
+          {/* 6-month chart */}
+          <Card className="macos-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                6-Month Compensation — {selectedEmployee.firstName} {selectedEmployee.lastName}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="salaryGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                      </linearGradient>
+                      <linearGradient id="incentiveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.9} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.5} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="period" fontSize={11} tickLine={false} axisLine={false} stroke="#888" />
+                    <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="#888" tickFormatter={v => `₹${v >= 1000 ? (v/1000)+'k' : v}`} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '10px', border: 'none', background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                      formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
+                    />
+                    <Legend iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
+                    <Bar dataKey="salary" name="Salary" fill="url(#salaryGrad)" radius={[4,4,0,0]} barSize={18} />
+                    <Bar dataKey="incentive" name="Incentive" fill="url(#incentiveGrad)" radius={[4,4,0,0]} barSize={18} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
           <Tabs defaultValue="salary">
             <TabsList>
               <TabsTrigger value="salary">Salary Records</TabsTrigger>
@@ -267,7 +342,7 @@ export default function SalaryIncentives() {
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSalary(record)}>
                                       <Pencil className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteSalary(record.id)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteSalary(record.id, { onSuccess: () => toast({ title: "Record deleted" }) })}>
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
@@ -329,7 +404,7 @@ export default function SalaryIncentives() {
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditIncentive(record)}>
                                       <Pencil className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteIncentive(record.id)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteIncentive(record.id, { onSuccess: () => toast({ title: "Record deleted" }) })}>
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                   </div>
@@ -356,6 +431,46 @@ export default function SalaryIncentives() {
         </Card>
       )}
 
+      {/* Add Employee Modal */}
+      <Dialog open={addEmpOpen} onOpenChange={setAddEmpOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Employee</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>First Name *</Label>
+                <Input placeholder="e.g. Rahul" value={empForm.firstName} onChange={e => setEmpForm(f => ({ ...f, firstName: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Last Name *</Label>
+                <Input placeholder="e.g. Sharma" value={empForm.lastName} onChange={e => setEmpForm(f => ({ ...f, lastName: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input type="email" placeholder="rahul@company.com" value={empForm.email} onChange={e => setEmpForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Select value={empForm.userType} onValueChange={v => setEmpForm(f => ({ ...f, userType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="co-founder">Owner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddEmpOpen(false)}>Cancel</Button>
+            <Button onClick={saveEmployee}>Add Employee</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Salary Modal */}
       <Dialog open={salaryModal.open} onOpenChange={open => setSalaryModal({ open })}>
         <DialogContent className="sm:max-w-md">
@@ -366,30 +481,16 @@ export default function SalaryIncentives() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Period (YYYY-MM) *</Label>
-                <Input
-                  placeholder="2025-03"
-                  value={salaryForm.period}
-                  onChange={e => setSalaryForm(f => ({ ...f, period: e.target.value }))}
-                />
+                <Input placeholder="2025-03" value={salaryForm.period} onChange={e => setSalaryForm(f => ({ ...f, period: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Base Salary (₹) *</Label>
-                <Input
-                  type="number"
-                  placeholder="50000"
-                  value={salaryForm.baseSalary}
-                  onChange={e => setSalaryForm(f => ({ ...f, baseSalary: e.target.value }))}
-                />
+                <Input type="number" placeholder="50000" value={salaryForm.baseSalary} onChange={e => setSalaryForm(f => ({ ...f, baseSalary: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Notes</Label>
-              <Textarea
-                rows={2}
-                placeholder="Any notes..."
-                value={salaryForm.notes}
-                onChange={e => setSalaryForm(f => ({ ...f, notes: e.target.value }))}
-              />
+              <Textarea rows={2} placeholder="Any notes..." value={salaryForm.notes} onChange={e => setSalaryForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
@@ -409,28 +510,17 @@ export default function SalaryIncentives() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Period (YYYY-MM) *</Label>
-                <Input
-                  placeholder="2025-03"
-                  value={incentiveForm.period}
-                  onChange={e => setIncentiveForm(f => ({ ...f, period: e.target.value }))}
-                />
+                <Input placeholder="2025-03" value={incentiveForm.period} onChange={e => setIncentiveForm(f => ({ ...f, period: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Amount (₹) *</Label>
-                <Input
-                  type="number"
-                  placeholder="5000"
-                  value={incentiveForm.amount}
-                  onChange={e => setIncentiveForm(f => ({ ...f, amount: e.target.value }))}
-                />
+                <Input type="number" placeholder="5000" value={incentiveForm.amount} onChange={e => setIncentiveForm(f => ({ ...f, amount: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Type</Label>
               <Select value={incentiveForm.type} onValueChange={v => setIncentiveForm(f => ({ ...f, type: v }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {INCENTIVE_TYPES.map(t => (
                     <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
@@ -440,20 +530,11 @@ export default function SalaryIncentives() {
             </div>
             <div className="space-y-1.5">
               <Label>Description</Label>
-              <Input
-                placeholder="e.g. Q1 performance bonus"
-                value={incentiveForm.description}
-                onChange={e => setIncentiveForm(f => ({ ...f, description: e.target.value }))}
-              />
+              <Input placeholder="e.g. Q1 performance bonus" value={incentiveForm.description} onChange={e => setIncentiveForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>Notes</Label>
-              <Textarea
-                rows={2}
-                placeholder="Any notes..."
-                value={incentiveForm.notes}
-                onChange={e => setIncentiveForm(f => ({ ...f, notes: e.target.value }))}
-              />
+              <Textarea rows={2} placeholder="Any notes..." value={incentiveForm.notes} onChange={e => setIncentiveForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>

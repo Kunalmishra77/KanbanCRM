@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { setupGoogleAuth, isAuthenticated, isCoFounderEmail } from "./googleAuth.js";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema } from "../shared/schema.js";
+import { setupGoogleAuth, isAuthenticated, isCoFounderEmail, isOwnerOrHR, isOwnerOrHRUser } from "./googleAuth.js";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema } from "../shared/schema.js";
+import { sendDeadlineReminders } from "./emailService.js";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
@@ -572,8 +573,8 @@ export async function registerRoutes(
   // Users (for internal dashboard - co-founders only, verified by email allowlist)
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
-        return res.status(403).json({ error: "Only co-founders can view team members" });
+      if (!isOwnerOrHRUser(req.user)) {
+        return res.status(403).json({ error: "Access denied. Owner or HR role required." });
       }
 
       const usersList = await storage.getAllUsers();
@@ -584,10 +585,32 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/users", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const { firstName, lastName, email, userType } = req.body;
+      if (!firstName || !lastName) {
+        return res.status(400).json({ error: "firstName and lastName are required" });
+      }
+      const roleMap: Record<string, string> = { 'co-founder': 'admin', 'hr': 'hr', 'employee': 'editor' };
+      const type = userType || 'employee';
+      const user = await storage.createEmployee({
+        firstName,
+        lastName,
+        email: email || null,
+        userType: type,
+        role: roleMap[type] || 'editor',
+      });
+      res.status(201).json(user);
+    } catch (error) {
+      console.error('Create employee error:', error);
+      res.status(500).json({ error: "Failed to create employee" });
+    }
+  });
+
   app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
-        return res.status(403).json({ error: "Only co-founders can update user profiles" });
+      if (!isOwnerOrHRUser(req.user)) {
+        return res.status(403).json({ error: "Access denied. Owner or HR role required." });
       }
 
       const data = updateUserProfileSchema.parse(req.body);
@@ -982,6 +1005,119 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Delete announcement error:', error);
       res.status(500).json({ error: "Failed to delete announcement" });
+    }
+  });
+
+  // ─── Salary Records (Owner + HR only) ───────────────────────────────────────
+  app.get("/api/salary-records", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const { employeeId } = req.query;
+      const records = await storage.getSalaryRecords(employeeId as string | undefined);
+      res.json(records);
+    } catch (error) {
+      console.error('Get salary records error:', error);
+      res.status(500).json({ error: "Failed to fetch salary records" });
+    }
+  });
+
+  app.post("/api/salary-records", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const data = insertSalaryRecordSchema.parse({ ...req.body, createdBy: req.user.id });
+      const record = await storage.createSalaryRecord(data);
+      res.status(201).json(record);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors });
+      console.error('Create salary record error:', error);
+      res.status(500).json({ error: "Failed to create salary record" });
+    }
+  });
+
+  app.patch("/api/salary-records/:id", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const data = updateSalaryRecordSchema.parse(req.body);
+      const record = await storage.updateSalaryRecord(req.params.id, data);
+      if (!record) return res.status(404).json({ error: "Salary record not found" });
+      res.json(record);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors });
+      console.error('Update salary record error:', error);
+      res.status(500).json({ error: "Failed to update salary record" });
+    }
+  });
+
+  app.delete("/api/salary-records/:id", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const success = await storage.deleteSalaryRecord(req.params.id);
+      if (!success) return res.status(404).json({ error: "Salary record not found" });
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete salary record error:', error);
+      res.status(500).json({ error: "Failed to delete salary record" });
+    }
+  });
+
+  // ─── Incentives (Owner + HR only) ───────────────────────────────────────────
+  app.get("/api/incentives", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const { employeeId } = req.query;
+      const records = await storage.getIncentives(employeeId as string | undefined);
+      res.json(records);
+    } catch (error) {
+      console.error('Get incentives error:', error);
+      res.status(500).json({ error: "Failed to fetch incentives" });
+    }
+  });
+
+  app.post("/api/incentives", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const data = insertIncentiveSchema.parse({ ...req.body, createdBy: req.user.id });
+      const incentive = await storage.createIncentive(data);
+      res.status(201).json(incentive);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors });
+      console.error('Create incentive error:', error);
+      res.status(500).json({ error: "Failed to create incentive" });
+    }
+  });
+
+  app.patch("/api/incentives/:id", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const data = updateIncentiveSchema.parse(req.body);
+      const incentive = await storage.updateIncentive(req.params.id, data);
+      if (!incentive) return res.status(404).json({ error: "Incentive not found" });
+      res.json(incentive);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors });
+      console.error('Update incentive error:', error);
+      res.status(500).json({ error: "Failed to update incentive" });
+    }
+  });
+
+  app.delete("/api/incentives/:id", isOwnerOrHR, async (req: any, res) => {
+    try {
+      const success = await storage.deleteIncentive(req.params.id);
+      if (!success) return res.status(404).json({ error: "Incentive not found" });
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete incentive error:', error);
+      res.status(500).json({ error: "Failed to delete incentive" });
+    }
+  });
+
+  // ─── Cron: Deadline Notifications ───────────────────────────────────────────
+  // Called by Vercel Cron daily — sends email reminders for tasks due within 24h
+  app.get("/api/cron/check-deadlines", async (req: any, res) => {
+    try {
+      // Verify cron secret to prevent unauthorized calls
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const result = await sendDeadlineReminders();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('Cron deadline check error:', error);
+      res.status(500).json({ error: "Failed to run deadline check" });
     }
   });
 
