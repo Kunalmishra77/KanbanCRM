@@ -29,32 +29,35 @@ function getDeadlineStatus(story: Story): DeadlineStatus {
 }
 
 const DEADLINE_STYLES: Record<DeadlineStatus, {
-  card: string;
+  cardClass: string;
+  borderColor?: string; // inline style to override macos-card
   strip: string;
   badge?: { className: string; icon: React.ReactNode; label: string };
   dateClass: string;
   titleClass: string;
 }> = {
   done: {
-    card: "border-none opacity-70",
+    cardClass: "opacity-70",
     strip: "bg-gray-300",
     dateClass: "text-muted-foreground",
     titleClass: "line-through text-muted-foreground",
   },
   none: {
-    card: "border-none",
+    cardClass: "",
     strip: "bg-transparent",
     dateClass: "text-muted-foreground",
     titleClass: "",
   },
   safe: {
-    card: "border border-emerald-300",
+    cardClass: "",
+    borderColor: "#6ee7b7", // emerald-300
     strip: "bg-emerald-400",
     dateClass: "text-emerald-600",
     titleClass: "",
   },
   warning: {
-    card: "border-2 animate-deadline-blink-orange",
+    cardClass: "animate-deadline-blink-orange",
+    borderColor: "#fb923c", // orange-400
     strip: "bg-orange-400",
     badge: {
       className: "bg-orange-100 text-orange-700 border-orange-200",
@@ -65,7 +68,8 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     titleClass: "",
   },
   critical: {
-    card: "border-2 animate-deadline-blink-red",
+    cardClass: "animate-deadline-blink-red",
+    borderColor: "#f87171", // red-400
     strip: "bg-red-500",
     badge: {
       className: "bg-red-100 text-red-700 border-red-200",
@@ -76,7 +80,8 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     titleClass: "",
   },
   overdue: {
-    card: "border border-red-400 bg-red-50/40",
+    cardClass: "bg-red-50/40",
+    borderColor: "#f87171", // red-400 solid
     strip: "bg-red-600",
     badge: {
       className: "bg-red-200 text-red-800 border-red-300",
@@ -113,12 +118,18 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
           style={provided.draggableProps.style}
           onClick={() => onClick(story)}
         >
-          <Card className={cn(
-            "macos-card cursor-grab group-active:cursor-grabbing overflow-hidden",
-            snapshot.isDragging
-              ? "shadow-xl ring-2 ring-primary/30 bg-white border-none"
-              : cn(styles.card, "hover:shadow-md")
-          )}>
+          <Card
+            className={cn(
+              "macos-card cursor-grab group-active:cursor-grabbing overflow-hidden hover:shadow-md",
+              snapshot.isDragging
+                ? "shadow-xl ring-2 ring-primary/30 bg-white"
+                : styles.cardClass
+            )}
+            style={!snapshot.isDragging && styles.borderColor
+              ? { borderColor: styles.borderColor, borderWidth: '1.5px' }
+              : undefined
+            }
+          >
             {/* Colour strip at top */}
             {status !== 'none' && (
               <div className={cn("h-1 w-full", styles.strip)} />
