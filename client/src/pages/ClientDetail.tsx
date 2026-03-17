@@ -87,7 +87,7 @@ export default function ClientDetail() {
   const [isCommModalOpen, setIsCommModalOpen] = useState(false);
   const [commForm, setCommForm] = useState({
     type: 'call',
-    date: format(new Date(), 'yyyy-MM-dd'),
+    loggedAt: format(new Date(), 'yyyy-MM-dd'),
     summary: '',
   });
 
@@ -279,14 +279,14 @@ export default function ClientDetail() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 border-b border-white/10 pb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/clients">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">{client.name}</h1>
             <Badge variant="outline">{client.industry}</Badge>
             <Badge className={
               client.stage === 'Hot' ? "bg-red-500 hover:bg-red-600" :
@@ -298,7 +298,7 @@ export default function ClientDetail() {
             </Badge>
             {getContractEndDateBadge()}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex gap-2 flex-shrink-0">
             {isOwner && (
               <Button
                 className="gap-2 shadow-lg shadow-primary/20"
@@ -312,7 +312,7 @@ export default function ClientDetail() {
           </div>
         </div>
 
-        <div className="flex gap-6 text-sm">
+        <div className="flex flex-wrap gap-4 text-sm">
           {isOwner && (
             <>
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -333,7 +333,7 @@ export default function ClientDetail() {
       </div>
 
       <Tabs defaultValue="kanban" className="flex-1 min-h-0 flex flex-col">
-        <TabsList className="w-fit">
+        <TabsList className="w-fit overflow-x-auto">
           <TabsTrigger value="kanban" data-testid="tab-kanban">Kanban Board</TabsTrigger>
           {isOwner && (
             <TabsTrigger value="invoices" data-testid="tab-invoices">
@@ -374,7 +374,7 @@ export default function ClientDetail() {
             };
 
             const sortedComms = [...communications].sort((a: any, b: any) =>
-              new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()
+              new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime()
             );
 
             return (
@@ -385,7 +385,7 @@ export default function ClientDetail() {
                     size="sm"
                     className="gap-2"
                     onClick={() => {
-                      setCommForm({ type: 'call', date: format(new Date(), 'yyyy-MM-dd'), summary: '' });
+                      setCommForm({ type: 'call', loggedAt: format(new Date(), 'yyyy-MM-dd'), summary: '' });
                       setIsCommModalOpen(true);
                     }}
                     data-testid="button-log-communication"
@@ -417,7 +417,7 @@ export default function ClientDetail() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium text-sm">{getCommLabel(comm.type)}</span>
                               <span className="text-xs text-muted-foreground">
-                                {comm.date ? format(new Date(comm.date), 'MMM d, yyyy') : ''}
+                                {comm.loggedAt ? format(new Date(comm.loggedAt), 'MMM d, yyyy') : ''}
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{comm.summary}</p>
@@ -702,8 +702,8 @@ export default function ClientDetail() {
               <Input
                 id="comm-date"
                 type="date"
-                value={commForm.date}
-                onChange={(e) => setCommForm(p => ({ ...p, date: e.target.value }))}
+                value={commForm.loggedAt}
+                onChange={(e) => setCommForm(p => ({ ...p, loggedAt: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -726,7 +726,7 @@ export default function ClientDetail() {
                   return;
                 }
                 createCommunication(
-                  { clientId: params?.id || '', data: { type: commForm.type, date: commForm.date, summary: commForm.summary.trim() } },
+                  { clientId: params?.id || '', data: { type: commForm.type, loggedAt: commForm.loggedAt, summary: commForm.summary.trim() } },
                   { onSuccess: () => setIsCommModalOpen(false) }
                 );
               }}

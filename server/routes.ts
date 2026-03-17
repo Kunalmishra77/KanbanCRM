@@ -861,7 +861,10 @@ export async function registerRoutes(
       if (!isCoFounderEmail(req.user?.email)) {
         return res.status(403).json({ error: "Only co-founders can set revenue targets" });
       }
-      const data = insertRevenueTargetSchema.parse(req.body);
+      const data = insertRevenueTargetSchema.parse({
+        ...req.body,
+        ownerId: req.user.id,
+      });
       const target = await storage.upsertRevenueTarget(data);
       res.status(201).json(target);
     } catch (error) {
@@ -889,7 +892,7 @@ export async function registerRoutes(
       const data = insertClientCommunicationSchema.parse({
         ...req.body,
         clientId: req.params.clientId,
-        loggedById: req.user.id,
+        loggedBy: req.user.firstName || req.user.email || req.user.id,
       });
       const comm = await storage.createClientCommunication(data);
       res.status(201).json(comm);
@@ -933,7 +936,7 @@ export async function registerRoutes(
       }
       const data = insertAnnouncementSchema.parse({
         ...req.body,
-        postedById: req.user.id,
+        postedBy: req.user.firstName || req.user.email || req.user.id,
       });
       const announcement = await storage.createAnnouncement(data);
       res.status(201).json(announcement);

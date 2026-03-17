@@ -393,8 +393,6 @@ export class DatabaseStorage implements IStorage {
         target: revenueTargets.period,
         set: {
           targetAmount: target.targetAmount,
-          notes: target.notes,
-          updatedAt: new Date(),
         },
       })
       .returning();
@@ -407,7 +405,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(clientCommunications)
       .where(eq(clientCommunications.clientId, clientId))
-      .orderBy(desc(clientCommunications.date));
+      .orderBy(desc(clientCommunications.loggedAt));
   }
 
   async createClientCommunication(comm: InsertClientCommunication): Promise<ClientCommunication> {

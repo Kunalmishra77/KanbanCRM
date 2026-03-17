@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Plus, Building2, Target, Megaphone } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X } from "lucide-react";
 import { useIsOwner } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -14,11 +14,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { USERS } from "@/lib/mockData";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import agentixLogo from "@/assets/agentix-logo.png";
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const isOwner = useIsOwner();
@@ -34,10 +38,10 @@ export function Sidebar() {
 
   const navItems = allNavItems.filter(item => !item.ownerOnly || isOwner);
 
-  return (
-    <aside 
+  const sidebarContent = (
+    <aside
       className={cn(
-        "h-screen sticky top-0 left-0 z-50 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] macos-sidebar",
+        "h-screen flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] macos-sidebar",
         collapsed ? "w-[70px]" : "w-[260px]"
       )}
     >
@@ -54,21 +58,30 @@ export function Sidebar() {
           </div>
         )}
         {!collapsed && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setCollapsed(!collapsed)}
-            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5"
+            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 hidden sm:flex"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
         )}
+        {/* Mobile close button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMobileClose}
+          className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 sm:hidden"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
       {collapsed && (
-        <div className="px-3 mb-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+        <div className="px-3 mb-2 hidden sm:block">
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setCollapsed(!collapsed)}
             className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 mx-auto"
           >
@@ -82,12 +95,12 @@ export function Sidebar() {
         {navItems.map((item) => {
           const isActive = location === item.href || (item.href !== '/' && location.startsWith(item.href));
           return (
-            <Link key={item.href} href={item.href}>
-              <div 
+            <Link key={item.href} href={item.href} onClick={onMobileClose}>
+              <div
                 className={cn(
                   "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group relative",
-                  isActive 
-                    ? "bg-primary/10 text-primary font-medium" 
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground"
                 )}
               >
@@ -95,7 +108,7 @@ export function Sidebar() {
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full" />
                 )}
                 <item.icon className={cn(
-                  "h-5 w-5 transition-colors", 
+                  "h-5 w-5 transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
                   collapsed ? "mx-auto" : "mr-3"
                 )} />
@@ -108,35 +121,73 @@ export function Sidebar() {
 
       {/* Bottom Actions */}
       <div className="p-4 border-t border-black/5 space-y-2">
-         <Link href="/settings">
-            <div 
-              className={cn(
-                "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 hover:bg-black/5 text-muted-foreground hover:text-foreground",
-                collapsed && "justify-center px-0"
-              )}
-            >
-              <Settings className="h-5 w-5" />
-              {!collapsed && <span className="ml-3 text-sm">Settings</span>}
-            </div>
-          </Link>
+        <Link href="/settings" onClick={onMobileClose}>
+          <div
+            className={cn(
+              "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 hover:bg-black/5 text-muted-foreground hover:text-foreground",
+              collapsed && "justify-center px-0"
+            )}
+          >
+            <Settings className="h-5 w-5" />
+            {!collapsed && <span className="ml-3 text-sm">Settings</span>}
+          </div>
+        </Link>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar - always visible */}
+      <div className="hidden sm:block sticky top-0 left-0 z-50 h-screen">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile overlay + drawer */}
+      {mobileOpen && (
+        <div className="sm:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={onMobileClose}
+          />
+          {/* Drawer */}
+          <div className="relative z-10 h-full">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 import { useAuth } from "@/lib/auth";
 
-export function TopBar() {
+interface TopBarProps {
+  onMenuClick: () => void;
+}
+
+export function TopBar({ onMenuClick }: TopBarProps) {
   const { user, logout } = useAuth();
 
   return (
-    <header className="h-14 sticky top-0 z-40 flex items-center justify-between px-6 transition-all duration-200 bg-transparent">
-      <div className="flex items-center flex-1 max-w-xl">
-        {/* Glass Search Bar */}
+    <header className="h-14 sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 transition-all duration-200 bg-transparent">
+      <div className="flex items-center gap-3 flex-1 max-w-xl">
+        {/* Mobile hamburger */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuClick}
+          className="sm:hidden h-9 w-9 flex-shrink-0"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+
+        {/* Search bar */}
         <div className="relative w-full max-w-sm group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-          <Input 
-            placeholder="Search..." 
+          <Input
+            placeholder="Search..."
             className="pl-10 h-9 macos-input rounded-lg text-sm shadow-sm focus-visible:ring-offset-0"
           />
         </div>
@@ -144,7 +195,7 @@ export function TopBar() {
 
       <div className="flex items-center gap-3">
         <NotificationsDropdown />
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="rounded-full h-9 w-9 p-0 ring-2 ring-white/50 shadow-sm hover:ring-primary/20 transition-all ml-1">
@@ -169,7 +220,7 @@ export function TopBar() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-black/5" />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="rounded-lg cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
               onClick={logout}
             >
