@@ -21,4 +21,4 @@ COPY --from=build /app/dist ./dist
 
 EXPOSE 5000
 
-CMD ["npm", "start"]
+CMD ["node", "dist/index.cjs"]
