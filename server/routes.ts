@@ -8,7 +8,7 @@ import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
 import multer from "multer";
-import { supabaseAdmin } from "./lib/supabase.js";
+import { uploadToPocketBase } from "./lib/pocketbaseStorage.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -40,27 +40,15 @@ export async function registerRoutes(
     }
 
     try {
-      const fileExt = req.file.originalname.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const result = await uploadToPocketBase({
+        bucket,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        buffer: req.file.buffer,
+        uploadedBy: req.user?.id,
+      });
 
-      const { error: uploadError } = await supabaseAdmin.storage
-        .from(bucket)
-        .upload(filePath, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('Supabase upload error:', uploadError);
-        throw uploadError;
-      }
-
-      const { data: { publicUrl } } = supabaseAdmin.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      res.json({ publicUrl, fileName: req.file.originalname });
+      res.json(result);
     } catch (error: any) {
       console.error('Upload error:', error);
       res.status(500).json({ error: "Failed to upload file to storage", details: error.message });

@@ -22,12 +22,16 @@ export function isCoFounderEmail(email: string | null | undefined): boolean {
  * Returns the stable callback URL based on the environment.
  */
 function getCallbackURL() {
-  const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
-  const isProd = process.env.NODE_ENV === 'production';
-
-  if (isVercel || isProd) {
-    return "https://kanbancrm-five.vercel.app/api/auth/google/callback";
+  const appUrl = process.env.APP_URL || process.env.PUBLIC_URL;
+  if (appUrl) {
+    return `${appUrl.replace(/\/+$/, "")}/api/auth/google/callback`;
   }
+
+  const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
+  if (isVercel && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api/auth/google/callback`;
+  }
+
   return `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`;
 }
 
@@ -241,4 +245,21 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   }
   // console.warn(`Auth: Unauthorized access attempt to ${req.path}`);
   res.status(401).json({ message: "Unauthorized. Please log in." });
+};
+
+export function isOwnerOrHRUser(user: any): boolean {
+  if (!user) return false;
+  return user.userType === "co-founder" || user.userType === "hr" || isCoFounderEmail(user.email);
+}
+
+export const isOwnerOrHR: RequestHandler = (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
+
+  if (!isOwnerOrHRUser(req.user)) {
+    return res.status(403).json({ error: "Access denied. Owner or HR role required." });
+  }
+
+  next();
 };

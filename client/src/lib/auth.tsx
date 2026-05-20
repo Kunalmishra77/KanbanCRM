@@ -63,3 +63,8 @@ export function useIsOwner() {
   const { user } = useAuth();
   return user?.userType === 'co-founder';
 }
+
+export function useIsHROrOwner() {
+  const { user } = useAuth();
+  return user?.userType === 'hr' || user?.userType === 'co-founder';
+}

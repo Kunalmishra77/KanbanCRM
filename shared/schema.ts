@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, uuid, numeric, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, uuid, numeric, jsonb, index, date } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -271,3 +271,44 @@ export const updateAnnouncementSchema = insertAnnouncementSchema.partial();
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 export type UpdateAnnouncement = z.infer<typeof updateAnnouncementSchema>;
 export type Announcement = typeof announcements.$inferSelect;
+
+export const salaryRecords = pgTable("salary_records", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id", { length: 255 }).references(() => users.id).notNull(),
+  baseSalary: numeric("base_salary").notNull(),
+  period: varchar("period", { length: 255 }).notNull(),
+  notes: text("notes"),
+  createdBy: varchar("created_by", { length: 255 }).references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  disbursedAt: date("disbursed_at"),
+  receiptFileName: varchar("receipt_file_name", { length: 255 }),
+  receiptFileData: text("receipt_file_data"),
+});
+
+export const insertSalaryRecordSchema = createInsertSchema(salaryRecords).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateSalaryRecordSchema = insertSalaryRecordSchema.partial();
+export type InsertSalaryRecord = z.infer<typeof insertSalaryRecordSchema>;
+export type UpdateSalaryRecord = z.infer<typeof updateSalaryRecordSchema>;
+export type SalaryRecord = typeof salaryRecords.$inferSelect;
+
+export const incentives = pgTable("incentives", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id", { length: 255 }).references(() => users.id).notNull(),
+  amount: numeric("amount").notNull(),
+  type: text("type").notNull().default("bonus"),
+  description: text("description"),
+  period: varchar("period", { length: 255 }).notNull(),
+  notes: text("notes"),
+  createdBy: varchar("created_by", { length: 255 }).references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  disbursedAt: date("disbursed_at"),
+  receiptFileName: varchar("receipt_file_name", { length: 255 }),
+  receiptFileData: text("receipt_file_data"),
+});
+
+export const insertIncentiveSchema = createInsertSchema(incentives).omit({ id: true, createdAt: true });
+export const updateIncentiveSchema = insertIncentiveSchema.partial();
+export type InsertIncentive = z.infer<typeof insertIncentiveSchema>;
+export type UpdateIncentive = z.infer<typeof updateIncentiveSchema>;
+export type Incentive = typeof incentives.$inferSelect;
