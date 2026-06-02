@@ -229,12 +229,32 @@ export async function setupGoogleAuth(app: Express) {
 
   app.get("/api/logout", (req, res) => {
     const userId = (req.user as any)?.id;
+    console.log(`Auth Route: /api/logout hit for user ${userId}`);
+
+    // Prevent browser/proxy from caching this redirect
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+
     req.logout((err) => {
       if (err) {
         console.error("Auth Route: Logout error:", err);
       }
-      console.log(`Auth Route: User ${userId} logged out.`);
-      res.redirect("/auth");
+
+      // Fully destroy the session to ensure a clean logout
+      if (req.session) {
+        req.session.destroy((destroyErr) => {
+          if (destroyErr) {
+            console.error("Auth Route: Session destroy error:", destroyErr);
+          }
+          res.clearCookie("kanban.sid");
+          console.log(`Auth Route: User ${userId} logged out successfully.`);
+          res.redirect("/auth");
+        });
+      } else {
+        res.clearCookie("kanban.sid");
+        console.log(`Auth Route: User ${userId} logged out (no session).`);
+        res.redirect("/auth");
+      }
     });
   });
 }

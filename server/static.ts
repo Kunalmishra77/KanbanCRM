@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
 
@@ -12,8 +12,12 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // fall through to index.html for non-API routes (SPA client-side routing)
+  // IMPORTANT: Never intercept /api/* routes — those must be handled by Express
+  app.use("*", (req: Request, res: Response) => {
+    if (req.originalUrl.startsWith("/api/")) {
+      return res.status(404).json({ message: `API route not found: ${req.originalUrl}` });
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
