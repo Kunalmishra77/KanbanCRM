@@ -8,7 +8,7 @@ import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
 import multer from "multer";
-import { uploadToPocketBase } from "./lib/pocketbaseStorage.js";
+import { uploadFile } from "./lib/pocketbaseStorage.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -40,7 +40,7 @@ export async function registerRoutes(
     }
 
     try {
-      const result = await uploadToPocketBase({
+      const result = await uploadFile({
         bucket,
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,

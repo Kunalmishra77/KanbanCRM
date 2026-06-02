@@ -139,16 +139,16 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
               {/* Company + deadline badge row */}
               <div className="flex items-center justify-between gap-2">
                 {clientName && (
-                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[11px] px-2 py-0.5 font-semibold hover:bg-primary/10 shrink-0">
+                  <Badge className="bg-primary/10 text-primary border-primary/20 text-[11px] px-2 py-0.5 font-semibold hover:bg-primary/10 shrink-0 truncate max-w-[130px]" title={clientName}>
                     {clientName}
                   </Badge>
                 )}
-                <div className="flex items-center gap-1 ml-auto">
+                <div className="flex items-center gap-1 ml-auto shrink-0">
                   {status === 'done' && (
                     <CheckCircle2 className="h-3.5 w-3.5 text-gray-400" />
                   )}
                   {styles.badge && (
-                    <Badge className={cn("text-[10px] px-1.5 py-0 h-5 font-semibold flex items-center", styles.badge.className)}>
+                    <Badge className={cn("text-[10px] px-1.5 py-0 h-5 font-semibold flex items-center whitespace-nowrap", styles.badge.className)}>
                       {styles.badge.icon}
                       {styles.badge.label}
                     </Badge>
@@ -157,12 +157,12 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
               </div>
 
               {/* Priority + tags */}
-              <div className="flex gap-2 flex-wrap">
-                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border font-medium shadow-none", priorityConfig.color)}>
+              <div className="flex gap-1.5 flex-wrap">
+                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 border font-medium shadow-none shrink-0", priorityConfig.color)}>
                   {priorityConfig.label}
                 </Badge>
                 {story.tags.map(tag => (
-                  <span key={tag} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-[4px] border border-black/5">
+                  <span key={tag} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-[4px] border border-black/5 shrink-0 truncate max-w-[100px]" title={tag}>
                     {tag}
                   </span>
                 ))}
@@ -170,9 +170,9 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
 
               {/* Title */}
               <h4 className={cn(
-                "text-sm font-semibold leading-snug transition-colors",
+                "text-sm font-semibold leading-snug transition-colors line-clamp-2",
                 styles.titleClass || "text-foreground group-hover:text-primary"
-              )}>
+              )} title={story.title}>
                 {story.title}
               </h4>
 

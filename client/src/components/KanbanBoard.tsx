@@ -70,12 +70,12 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex h-full gap-4 overflow-x-auto pb-4 snap-x">
+      <div className="flex h-full gap-4 overflow-x-auto pb-4 snap-x snap-mandatory no-scrollbar">
         {COLUMNS.map((status) => {
           const columnStories = localStories.filter((s: Story) => s.status === status);
 
           return (
-            <div key={status} className="min-w-[280px] w-[320px] flex flex-col h-full snap-center">
+            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col h-full snap-center shrink-0">
               <div className="flex items-center justify-between mb-3 px-2">
                 <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <span className={cn(

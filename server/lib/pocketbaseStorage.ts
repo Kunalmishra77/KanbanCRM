@@ -160,3 +160,25 @@ export async function uploadToPocketBase(input: PocketBaseUploadInput) {
     recordId: data.id,
   };
 }
+
+export function uploadToInlineDataUrl(input: PocketBaseUploadInput) {
+  const mimeType = input.mimeType || "application/octet-stream";
+
+  return {
+    publicUrl: `data:${mimeType};base64,${input.buffer.toString("base64")}`,
+    fileName: input.fileName,
+    storageProvider: "inline",
+  };
+}
+
+export async function uploadFile(input: PocketBaseUploadInput) {
+  try {
+    return await uploadToPocketBase(input);
+  } catch (error) {
+    console.warn(
+      "PocketBase upload failed; storing file inline instead:",
+      error instanceof Error ? error.message : error,
+    );
+    return uploadToInlineDataUrl(input);
+  }
+}
