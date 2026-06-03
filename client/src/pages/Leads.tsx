@@ -323,10 +323,8 @@ export default function Leads() {
     deleteLead(leadToDelete.id, {
       onSuccess: () => {
         setLeadToDelete(null);
-        if (editingLead && editingLead.id === leadToDelete.id) {
-          setEditingLead(null);
-          setIsAddOpen(false);
-        }
+        setEditingLead(null);
+        setIsAddOpen(false);
       }
     });
   };

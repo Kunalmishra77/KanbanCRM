@@ -13,6 +13,7 @@ export default defineConfig({
     tailwindcss(),
     metaImagesPlugin(),
     VitePWA({
+      selfDestroying: true,
       registerType: 'autoUpdate',
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
