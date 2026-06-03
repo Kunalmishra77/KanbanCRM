@@ -306,6 +306,31 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isOwnerOrHRUser(req.user)) {
+        return res.status(403).json({ error: "Access denied. Owner or HR role required." });
+      }
+
+      await storage.deleteUser(req.params.id);
+
+      if (req.user?.id) {
+        await storage.createActivityLog({
+          entityType: 'user',
+          entityId: req.params.id,
+          action: 'deleted',
+          userId: req.user.id,
+          details: `Deleted user ${req.params.id}`,
+        });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete user error:', error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // Comments (all protected with authentication)
   app.get("/api/stories/:storyId/comments", isAuthenticated, async (req: any, res) => {
     try {

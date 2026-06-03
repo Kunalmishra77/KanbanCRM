@@ -17,6 +17,17 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -26,6 +37,7 @@ import {
 import {
   useUsers,
   useUpdateUser,
+  useDeleteUser,
   useCreateEmployee,
   useFounderInvestments,
   useCreateFounderInvestment,
@@ -205,6 +217,7 @@ export default function Internal() {
 
 function TeamSection({ users, coFounders, employees }: { users: User[], coFounders: User[], employees: User[] }) {
   const updateUser = useUpdateUser();
+  const deleteUser = useDeleteUser();
   const createEmployee = useCreateEmployee();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<string>('');
@@ -316,9 +329,10 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                     </div>
                   </div>
                 </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button
+                <div className="flex items-center gap-2 mt-3">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
                       variant="ghost"
                       size="sm"
                       className="w-full mt-3"
@@ -370,6 +384,29 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="mt-3 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="macos-panel">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {user.firstName}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently remove {user.firstName} {user.lastName} from the CRM. All their activity logs will be deleted, and any assigned tasks or clients will be unassigned.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteUser.mutate(user.id)} className="bg-red-500 hover:bg-red-600 text-white">
+                        {deleteUser.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -403,9 +440,10 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                       <Badge variant="outline" className="text-xs mt-2">Employee</Badge>
                     </div>
                   </div>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
+                  <div className="flex items-center gap-2 mt-3">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
                         variant="ghost"
                         size="sm"
                         className="w-full mt-3"
@@ -457,6 +495,29 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="mt-3 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="macos-panel">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {user.firstName}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove {user.firstName} {user.lastName} from the CRM. All their activity logs will be deleted, and any assigned tasks or clients will be unassigned.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteUser.mutate(user.id)} className="bg-red-500 hover:bg-red-600 text-white">
+                          {deleteUser.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  </div>
                 </CardContent>
               </Card>
             ))}

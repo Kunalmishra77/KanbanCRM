@@ -280,6 +280,19 @@ export function useUpdateUser() {
   });
 }
 
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: (id: string) => usersAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: "User deleted" });
+    },
+    onError: (e: Error) => toast({ title: "Deletion failed", description: e.message, variant: "destructive" }),
+  });
+}
+
 // Founder Investment queries
 export function useFounderInvestments() {
   return useQuery({

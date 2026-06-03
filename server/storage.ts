@@ -30,6 +30,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   upsertUserFromGoogle(user: UpsertUser): Promise<User>;
   updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
   
   // Clients
   getClients(): Promise<Client[]>;
@@ -190,6 +191,10 @@ export class DatabaseStorage implements IStorage {
       ...data,
     }).returning();
     return user;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined> {

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useCreateClient, useLeadComments, useCreateLeadComment } from "@/lib/queries";
 import { useIsOwner, useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -112,7 +113,7 @@ function LeadCommentsTab({ leadId }: { leadId: string }) {
                       {new Date(comment.createdAt).toLocaleString()}
                     </span>
                   </div>
-                  <div className="text-sm bg-white/60 p-3 rounded-md border border-white/40 shadow-sm whitespace-pre-wrap">
+                  <div className="text-sm bg-background/90 text-foreground p-3 rounded-md border shadow-sm whitespace-pre-wrap">
                     {comment.body}
                   </div>
                 </div>
@@ -121,12 +122,12 @@ function LeadCommentsTab({ leadId }: { leadId: string }) {
           </div>
         )}
       </ScrollArea>
-      <div className="flex gap-2 items-end border-t border-black/5 pt-4">
+      <div className="flex gap-2 items-end border-t border-border pt-4">
         <Textarea
           placeholder="Add a note or update..."
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
-          className="min-h-[60px] resize-none bg-white/60"
+          className="min-h-[60px] resize-none bg-background/50"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -168,10 +169,42 @@ export default function Leads() {
     notes: '',
   });
 
+  const [localLeads, setLocalLeads] = useState<Lead[]>([]);
+  const pendingMoves = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setLocalLeads(prevLocal => {
+      return leads.map((lead: Lead) => {
+        if (pendingMoves.current.has(lead.id)) {
+          const localVersion = prevLocal.find(l => l.id === lead.id);
+          if (localVersion) {
+            if (localVersion.stage === lead.stage) {
+              pendingMoves.current.delete(lead.id);
+            }
+            return localVersion;
+          }
+        }
+        return lead;
+      });
+    });
+  }, [leads]);
+
   const leadsByStage = LEAD_STAGES.reduce((acc, stage) => {
-    acc[stage] = leads.filter((l: Lead) => l.stage === stage);
+    acc[stage] = localLeads.filter((l: Lead) => l.stage === stage);
     return acc;
   }, {} as Record<LeadStage, Lead[]>);
+
+  const onDragEnd = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    
+    const newStage = destination.droppableId as LeadStage;
+    pendingMoves.current.add(draggableId);
+    
+    setLocalLeads(prev => prev.map(l => l.id === draggableId ? { ...l, stage: newStage } : l));
+    updateLead({ id: draggableId, data: { stage: newStage } });
+  };
 
   const openAddModal = () => {
     setForm(defaultForm);
@@ -291,124 +324,144 @@ export default function Leads() {
       </div>
 
       {/* Kanban Columns */}
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-14rem)]">
-        {LEAD_STAGES.map((stage) => {
-          const stageLeads = leadsByStage[stage];
-          return (
-            <div
-              key={stage}
-              className={`flex-shrink-0 w-72 flex flex-col rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm`}
-            >
-              {/* Column Header */}
-              <div className="px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">{stage}</span>
-                  <Badge variant="outline" className="text-xs h-5 px-1.5">
-                    {stageLeads.length}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Cards */}
-              <div className="flex-1 px-3 pb-3 space-y-3 overflow-y-auto">
-                {stageLeads.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground text-xs">
-                    No leads in this stage
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-12rem)] min-h-[400px] snap-x snap-mandatory no-scrollbar">
+          {LEAD_STAGES.map((stage) => {
+            const stageLeads = leadsByStage[stage];
+            return (
+              <div
+                key={stage}
+                className={`min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col h-full snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm`}
+              >
+                {/* Column Header */}
+                <div className="px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{stage}</span>
+                    <Badge variant="outline" className="text-xs h-5 px-1.5">
+                      {stageLeads.length}
+                    </Badge>
                   </div>
-                )}
-                {stageLeads.map((lead: Lead) => (
-                  <div key={lead.id} className="macos-card p-3 space-y-2 relative group/card">
-                    {/* Won celebration badge */}
-                    {lead.stage === "Won" && (
-                      <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
-                        <Trophy className="h-3 w-3" />
-                        Won!
-                      </div>
-                    )}
+                </div>
 
-                    {/* Card header: company + menu */}
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-sm leading-tight">{lead.name}</p>
-                      {isOwner && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 flex-shrink-0"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="macos-panel">
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onClick={() => openEditModal(lead)}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-green-600 focus:text-green-700"
-                              onClick={() => openConvertModal(lead)}
-                            >
-                              <ArrowRightLeft className="h-4 w-4 mr-2" />
-                              Convert to Client
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive cursor-pointer"
-                              onClick={() => setLeadToDelete(lead)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-
-                    {/* Contact info */}
-                    {lead.contactName && (
-                      <p className="text-xs text-muted-foreground">{lead.contactName}</p>
-                    )}
-                    {lead.contactEmail && (
-                      <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
-                    )}
-
-                    {/* Last Contacted Badge */}
-                    {lead.updatedAt && (
-                      <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
-                        <MessageSquare className="h-3 w-3" />
-                        Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
-                      </div>
-                    )}
-
-                    {/* Bottom row: industry badge + value */}
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      {lead.industry && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs px-1.5 py-0 h-4 border-0 bg-primary/5 text-primary"
-                        >
-                          {lead.industry}
-                        </Badge>
-                      )}
-                      {lead.estimatedValue && (
-                        <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
-                          <IndianRupee className="h-3 w-3" />
-                          {Number(lead.estimatedValue).toLocaleString("en-IN")}
+                <Droppable droppableId={stage}>
+                  {(provided, snapshot) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={`flex-1 px-3 pb-3 space-y-3 overflow-y-auto ${snapshot.isDraggingOver ? "bg-primary/5 rounded-b-xl" : ""}`}
+                    >
+                      {stageLeads.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground text-xs">
+                          No leads in this stage
                         </div>
                       )}
+                      {stageLeads.map((lead: Lead, index: number) => (
+                        <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`macos-card p-3 space-y-2 relative group/card cursor-pointer hover:border-primary/30 transition-colors ${snapshot.isDragging ? "shadow-2xl shadow-primary/20 scale-[1.02] rotate-1 z-50 ring-2 ring-primary border-transparent" : ""}`}
+                              onClick={() => openEditModal(lead)}
+                            >
+                              {/* Won celebration badge */}
+                              {lead.stage === "Won" && (
+                                <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
+                                  <Trophy className="h-3 w-3" />
+                                  Won!
+                                </div>
+                              )}
+
+                              {/* Card header: company + menu */}
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="font-semibold text-sm leading-tight">{lead.name}</p>
+                                {isOwner && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 flex-shrink-0"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <MoreHorizontal className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="macos-panel">
+                                      <DropdownMenuItem
+                                        className="cursor-pointer"
+                                        onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
+                                      >
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="cursor-pointer text-green-600 focus:text-green-700"
+                                        onClick={(e) => { e.stopPropagation(); openConvertModal(lead); }}
+                                      >
+                                        <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                        Convert to Client
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive cursor-pointer"
+                                        onClick={(e) => { e.stopPropagation(); setLeadToDelete(lead); }}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
+
+                              {/* Contact info */}
+                              {lead.contactName && (
+                                <p className="text-xs text-muted-foreground">{lead.contactName}</p>
+                              )}
+                              {lead.contactEmail && (
+                                <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
+                              )}
+
+                              {/* Last Contacted Badge */}
+                              {lead.updatedAt && (
+                                <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
+                                  <MessageSquare className="h-3 w-3" />
+                                  Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
+                                </div>
+                              )}
+
+                              {/* Bottom row: industry badge + value */}
+                              <div className="flex items-center justify-between gap-2 pt-1">
+                                {lead.industry && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs px-1.5 py-0 h-4 border-0 bg-primary/5 text-primary"
+                                  >
+                                    {lead.industry}
+                                  </Badge>
+                                )}
+                                {lead.estimatedValue && (
+                                  <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
+                                    <IndianRupee className="h-3 w-3" />
+                                    {Number(lead.estimatedValue).toLocaleString("en-IN")}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
                     </div>
-                  </div>
-                ))}
+                  )}
+                </Droppable>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </DragDropContext>
 
       {/* Add / Edit Modal */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>

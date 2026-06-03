@@ -124,6 +124,7 @@ export const usersAPI = {
     method: 'PATCH',
     body: JSON.stringify(data),
   }),
+  delete: (id: string) => fetchAPI(`/users/${id}`, { method: 'DELETE' }),
 };
 
 // Founder Investments API

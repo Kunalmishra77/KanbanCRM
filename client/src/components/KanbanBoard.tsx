@@ -75,7 +75,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
           const columnStories = localStories.filter((s: Story) => s.status === status);
 
           return (
-            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col h-full snap-center shrink-0">
+            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col snap-center shrink-0">
               <div className="flex items-center justify-between mb-3 px-2">
                 <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <span className={cn(
@@ -105,7 +105,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
                         : "bg-white/20 dark:bg-black/20"
                     )}
                   >
-                    <ScrollArea className="h-full pr-2">
+                    <div className="flex flex-col gap-3">
                       {columnStories.map((story: Story, index: number) => (
                         <StoryCard
                           key={story.id}
@@ -116,7 +116,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
                         />
                       ))}
                       {provided.placeholder}
-                    </ScrollArea>
+                    </div>
                   </div>
                 )}
               </Droppable>

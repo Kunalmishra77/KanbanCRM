@@ -39,7 +39,7 @@ export type User = typeof users.$inferSelect;
 export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id).notNull(),
+  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
   industry: text("industry").notNull(),
   stage: text("stage").notNull().default('Warm'),
   averageProgress: numeric("average_progress").default('0').notNull(),
@@ -68,7 +68,7 @@ export const stories = pgTable("stories", {
   clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
   title: text("title").notNull(),
   description: text("description").notNull().default(''),
-  assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id),
+  assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
   priority: text("priority").notNull().default('Medium'),
   estimatedEffortHours: integer("estimated_effort_hours").default(0).notNull(),
   actualHoursSpent: numeric("actual_hours_spent").default('0'),
@@ -111,7 +111,7 @@ export const activityLog = pgTable("activity_log", {
   entityType: text("entity_type").notNull(),
   entityId: uuid("entity_id").notNull(),
   action: text("action").notNull(),
-  userId: varchar("user_id", { length: 255 }).references(() => users.id).notNull(),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   details: text("details").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -145,7 +145,7 @@ export type Invoice = typeof invoices.$inferSelect;
 // Founder Investments table (for tracking co-founder investments in the company)
 export const founderInvestments = pgTable("founder_investments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).references(() => users.id).notNull(),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   amount: numeric("amount").notNull(),
   description: text("description"),
   investedOn: timestamp("invested_on").defaultNow().notNull(),
@@ -168,7 +168,7 @@ export const internalDocuments = pgTable("internal_documents", {
   title: text("title").notNull(),
   description: text("description"),
   category: text("category").notNull().default('General'),
-  uploadedById: varchar("uploaded_by_id", { length: 255 }).references(() => users.id).notNull(),
+  uploadedById: varchar("uploaded_by_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   fileName: text("file_name"),
   fileType: text("file_type"),
   fileData: text("file_data"),
@@ -188,7 +188,7 @@ export const sentEmails = pgTable("sent_emails", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   storyId: uuid("story_id").references(() => stories.id, { onDelete: 'cascade' }).notNull(),
   clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
-  sentById: varchar("sent_by_id", { length: 255 }).references(() => users.id).notNull(),
+  sentById: varchar("sent_by_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   recipientEmail: text("recipient_email"),
   recipientName: text("recipient_name"),
   subject: text("subject").notNull(),
@@ -213,8 +213,8 @@ export const leads = pgTable("leads", {
   stage: text("stage").notNull().default('New'),
   estimatedValue: numeric("estimated_value").default('0'),
   notes: text("notes"),
-  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id).notNull(),
-  assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id),
+  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
+  assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -230,7 +230,7 @@ export const revenueTargets = pgTable("revenue_targets", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   period: text("period").notNull(), // YYYY-MM
   targetAmount: numeric("target_amount").notNull(),
-  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id).notNull(),
+  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -274,11 +274,11 @@ export type Announcement = typeof announcements.$inferSelect;
 
 export const salaryRecords = pgTable("salary_records", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  employeeId: varchar("employee_id", { length: 255 }).references(() => users.id).notNull(),
+  employeeId: varchar("employee_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   baseSalary: numeric("base_salary").notNull(),
   period: varchar("period", { length: 255 }).notNull(),
   notes: text("notes"),
-  createdBy: varchar("created_by", { length: 255 }).references(() => users.id).notNull(),
+  createdBy: varchar("created_by", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   disbursedAt: date("disbursed_at"),
@@ -294,13 +294,13 @@ export type SalaryRecord = typeof salaryRecords.$inferSelect;
 
 export const incentives = pgTable("incentives", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  employeeId: varchar("employee_id", { length: 255 }).references(() => users.id).notNull(),
+  employeeId: varchar("employee_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   amount: numeric("amount").notNull(),
   type: text("type").notNull().default("bonus"),
   description: text("description"),
   period: varchar("period", { length: 255 }).notNull(),
   notes: text("notes"),
-  createdBy: varchar("created_by", { length: 255 }).references(() => users.id).notNull(),
+  createdBy: varchar("created_by", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   disbursedAt: date("disbursed_at"),
   receiptFileName: varchar("receipt_file_name", { length: 255 }),
