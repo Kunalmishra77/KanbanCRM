@@ -308,8 +308,11 @@ export async function registerRoutes(
 
   app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isOwnerOrHRUser(req.user)) {
-        return res.status(403).json({ error: "Access denied. Owner or HR role required." });
+      // Co-founders have full admin access — they can delete any employee
+      const user = req.user;
+      const isAuthorized = isOwnerOrHRUser(user);
+      if (!isAuthorized) {
+        return res.status(403).json({ error: "Access denied. Admin role required to delete employees." });
       }
 
       await storage.deleteUser(req.params.id);
@@ -325,9 +328,10 @@ export async function registerRoutes(
       }
 
       res.status(204).send();
-    } catch (error) {
-      console.error('Delete user error:', error);
-      res.status(500).json({ error: "Failed to delete user" });
+    } catch (error: any) {
+      console.error('Delete user error:', error?.message || error);
+      console.error('Delete user error stack:', error?.stack);
+      res.status(500).json({ error: "Failed to delete user", detail: error?.message });
     }
   });
 

@@ -311,7 +311,7 @@ export default function Leads() {
   }
 
   return (
-    <div className="flex flex-col space-y-6 animate-in fade-in duration-500 h-[calc(100vh-8rem)]">
+    <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -330,16 +330,16 @@ export default function Leads() {
 
       {/* Kanban Columns */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-auto pb-4 flex-1 min-h-0 items-start snap-x snap-mandatory no-scrollbar">
+        <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start">
           {LEAD_STAGES.map((stage) => {
             const stageLeads = leadsByStage[stage];
             return (
               <div
                 key={stage}
-                className={`min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm relative`}
+              className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm`}
               >
                 {/* Column Header */}
-                <div className="px-4 py-3 flex items-center justify-between sticky top-0 z-10 bg-white/10 dark:bg-black/10 backdrop-blur-md rounded-t-lg shadow-sm">
+                <div className="px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm">{stage}</span>
                     <Badge variant="outline" className="text-xs h-5 px-1.5">
@@ -353,7 +353,7 @@ export default function Leads() {
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className={`flex-1 px-3 pb-3 pt-2 space-y-3 min-h-[200px] transition-colors ${snapshot.isDraggingOver ? "bg-primary/5 rounded-b-xl" : ""}`}
+                      className={`px-3 pb-3 pt-1 space-y-3 min-h-[80px] rounded-b-xl transition-colors ${snapshot.isDraggingOver ? "bg-primary/8 ring-1 ring-primary/20" : ""}`}
                     >
                       {stageLeads.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground text-xs">

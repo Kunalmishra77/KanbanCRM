@@ -101,7 +101,7 @@ export default function GlobalKanban() {
   }
 
   return (
-    <div className="flex flex-col space-y-6 animate-in fade-in duration-500 h-[calc(100vh-8rem)]">
+    <div className="flex flex-col space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Global Board</h1>
@@ -203,7 +203,7 @@ export default function GlobalKanban() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 bg-transparent">
+      <div className="overflow-x-auto pb-4">
         <KanbanBoard
           stories={filteredStories}
           onStoryMove={handleStoryMove}

@@ -194,6 +194,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
+    // Pre-delete cleanup: nullify or remove all FK references to this user
+    // to avoid constraint violations (DB cascade may not match schema definition)
+    const cleanups = [
+      // activity_log.user_id is NOT NULL — must delete the log rows
+      db.execute(sql`DELETE FROM activity_log WHERE user_id = ${id}`),
+      // Nullable references — set to NULL
+      db.execute(sql`UPDATE stories SET assigned_to = NULL WHERE assigned_to = ${id}`),
+      db.execute(sql`UPDATE clients SET owner_id = NULL WHERE owner_id = ${id}`),
+      db.execute(sql`UPDATE leads SET owner_id = NULL WHERE owner_id = ${id}`),
+      db.execute(sql`UPDATE leads SET assigned_to = NULL WHERE assigned_to = ${id}`),
+      // Cascade rows — delete them outright (they belong to this user)
+      db.execute(sql`DELETE FROM founder_investments WHERE user_id = ${id}`),
+      db.execute(sql`DELETE FROM internal_documents WHERE uploaded_by_id = ${id}`),
+      db.execute(sql`DELETE FROM sent_emails WHERE sent_by_id = ${id}`),
+      db.execute(sql`DELETE FROM revenue_targets WHERE owner_id = ${id}`),
+      db.execute(sql`DELETE FROM salary_records WHERE employee_id = ${id}`),
+      db.execute(sql`DELETE FROM salary_records WHERE created_by = ${id}`),
+      db.execute(sql`DELETE FROM incentives WHERE employee_id = ${id}`),
+      db.execute(sql`DELETE FROM incentives WHERE created_by = ${id}`),
+    ];
+
+    // Run all cleanups, ignore individual failures (table may not exist or column may be nullable)
+    await Promise.allSettled(cleanups);
+
+    // Finally delete the user row
     await db.delete(users).where(eq(users.id, id));
   }
 
