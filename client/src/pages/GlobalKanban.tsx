@@ -101,7 +101,7 @@ export default function GlobalKanban() {
   }
 
   return (
-    <div className="flex flex-col space-y-6 animate-in fade-in duration-500 min-h-[calc(100vh-12rem)]">
+    <div className="flex flex-col space-y-6 animate-in fade-in duration-500 h-[calc(100vh-8rem)] overflow-hidden">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Global Board</h1>

@@ -95,16 +95,16 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
 
               <Droppable droppableId={status}>
                 {(provided, snapshot) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className={cn(
-                      "flex-1 rounded-xl p-2 min-h-[200px]",
-                      snapshot.isDraggingOver
-                        ? "bg-primary/5"
-                        : "bg-white/20 dark:bg-black/20"
-                    )}
-                  >
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={cn(
+                        "flex-1 overflow-y-auto rounded-xl p-2 min-h-[200px]",
+                        snapshot.isDraggingOver
+                          ? "bg-primary/5"
+                          : "bg-white/20 dark:bg-black/20"
+                      )}
+                    >
                     <div className="flex flex-col gap-3">
                       {columnStories.map((story: Story, index: number) => (
                         <StoryCard

@@ -271,7 +271,7 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
 
 export function isOwnerOrHRUser(user: any): boolean {
   if (!user) return false;
-  return user.userType === "co-founder" || user.userType === "hr" || isCoFounderEmail(user.email);
+  return user.userType === "co-founder" || user.userType === "hr" || user.role === "admin" || isCoFounderEmail(user.email);
 }
 
 export const isOwnerOrHR: RequestHandler = (req, res, next) => {

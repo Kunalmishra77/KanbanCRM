@@ -204,6 +204,11 @@ export default function Leads() {
     
     setLocalLeads(prev => prev.map(l => l.id === draggableId ? { ...l, stage: newStage } : l));
     updateLead({ id: draggableId, data: { stage: newStage } });
+    
+    toast({
+      title: "Status Updated",
+      description: `Moved lead to ${newStage}`,
+    });
   };
 
   const openAddModal = () => {
