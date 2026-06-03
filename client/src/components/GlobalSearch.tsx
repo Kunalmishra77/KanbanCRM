@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useStories, useLeads, useClients } from "@/lib/queries";
 import { useLocation } from "wouter";
@@ -66,8 +66,8 @@ export function GlobalSearch() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden macos-panel gap-0">
-          <div className="flex items-center border-b border-black/5 px-3">
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden gap-0 bg-background border shadow-xl">
+          <div className="flex items-center border-b px-3">
             <Search className="h-5 w-5 text-muted-foreground shrink-0" />
             <Input
               value={query}
@@ -93,7 +93,7 @@ export function GlobalSearch() {
                       <div 
                         key={s.id} 
                         onClick={() => navigateTo(`/?story=${s.id}`)}
-                        className="p-2 hover:bg-black/5 rounded-md cursor-pointer flex justify-between items-center group"
+                        className="p-2 hover:bg-muted rounded-md cursor-pointer flex justify-between items-center group"
                       >
                         <div>
                           <p className="text-sm font-medium">{s.title}</p>
@@ -112,7 +112,7 @@ export function GlobalSearch() {
                       <div 
                         key={l.id} 
                         onClick={() => navigateTo(`/leads`)}
-                        className="p-2 hover:bg-black/5 rounded-md cursor-pointer flex justify-between items-center"
+                        className="p-2 hover:bg-muted rounded-md cursor-pointer flex justify-between items-center"
                       >
                         <div>
                           <p className="text-sm font-medium">{l.name}</p>
@@ -131,7 +131,7 @@ export function GlobalSearch() {
                       <div 
                         key={c.id} 
                         onClick={() => navigateTo(`/clients`)}
-                        className="p-2 hover:bg-black/5 rounded-md cursor-pointer flex justify-between items-center"
+                        className="p-2 hover:bg-muted rounded-md cursor-pointer flex justify-between items-center"
                       >
                         <div>
                           <p className="text-sm font-medium">{c.name}</p>
