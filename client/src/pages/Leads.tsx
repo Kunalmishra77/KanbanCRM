@@ -396,18 +396,21 @@ export default function Leads() {
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               style={provided.draggableProps.style}
-                              className={`macos-card p-3 space-y-2 relative group/card cursor-pointer hover:border-primary/30 transition-colors ${snapshot.isDragging ? "shadow-2xl shadow-primary/20 scale-[1.02] rotate-1 z-50 ring-2 ring-primary border-transparent" : ""}`}
-                              onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-                              onMouseUp={(e) => handleEnd(e.clientX, e.clientY, lead)}
-                              onTouchStart={(e) => {
-                                const touch = e.touches[0];
-                                if (touch) handleStart(touch.clientX, touch.clientY);
-                              }}
-                              onTouchEnd={(e) => {
-                                const touch = e.changedTouches[0];
-                                if (touch) handleEnd(touch.clientX, touch.clientY, lead);
-                              }}
+                              className="outline-none"
                             >
+                              <div
+                                className={`macos-card p-3 space-y-2 relative group/card cursor-pointer hover:border-primary/30 transition-colors ${snapshot.isDragging ? "shadow-2xl shadow-primary/20 scale-[1.02] rotate-1 z-50 ring-2 ring-primary border-transparent" : ""}`}
+                                onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+                                onMouseUp={(e) => handleEnd(e.clientX, e.clientY, lead)}
+                                onTouchStart={(e) => {
+                                  const touch = e.touches[0];
+                                  if (touch) handleStart(touch.clientX, touch.clientY);
+                                }}
+                                onTouchEnd={(e) => {
+                                  const touch = e.changedTouches[0];
+                                  if (touch) handleEnd(touch.clientX, touch.clientY, lead);
+                                }}
+                              >
                               {/* Won celebration badge */}
                               {lead.stage === "Won" && (
                                 <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
@@ -505,8 +508,9 @@ export default function Leads() {
                                 )}
                               </div>
                             </div>
-                          )}
-                        </Draggable>
+                          </div>
+                        )}
+                      </Draggable>
                       ))}
                       {provided.placeholder}
                     </div>
