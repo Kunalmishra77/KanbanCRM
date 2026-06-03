@@ -371,7 +371,7 @@ export default function Dashboard() {
 
       {/* Owner-only: Overdue Tasks + Employee Workload */}
       {isOwner && (() => {
-        const overdueTasks = stories.filter((s: Story) => s.dueDate && s.status !== 'Done' && new Date(s.dueDate as string) < new Date());
+        const overdueTasks = stories.filter((s: Story) => s.dueDate && s.status !== 'Done' && new Date(s.dueDate as any as string) < new Date());
         const workload = users.map((u: any) => ({
           name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
           active: stories.filter((s: Story) => s.assignedTo === u.id && s.status !== 'Done').length,
@@ -403,7 +403,7 @@ export default function Dashboard() {
                           <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{s.title}</p>
-                            <p className="text-xs text-muted-foreground">{client?.name} · Due {new Date(s.dueDate as string).toLocaleDateString()}</p>
+                            <p className="text-xs text-muted-foreground">{client?.name} · Due {new Date(s.dueDate as any as string).toLocaleDateString()}</p>
                           </div>
                         </div>
                       );

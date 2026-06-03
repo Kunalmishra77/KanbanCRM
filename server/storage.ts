@@ -9,13 +9,14 @@ import {
   type SentEmail, type InsertSentEmail,
   type InternalDocument, type InsertInternalDocument, type UpdateInternalDocument,
   type Lead, type InsertLead, type UpdateLead,
+  type LeadComment, type InsertLeadComment,
   type RevenueTarget, type InsertRevenueTarget,
   type ClientCommunication, type InsertClientCommunication,
   type Announcement, type InsertAnnouncement, type UpdateAnnouncement,
   type SalaryRecord, type InsertSalaryRecord, type UpdateSalaryRecord,
   type Incentive, type InsertIncentive, type UpdateIncentive,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
-  leads, revenueTargets, clientCommunications, announcements, salaryRecords, incentives
+  leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -27,6 +28,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
+  upsertUserFromGoogle(user: UpsertUser): Promise<User>;
   updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
   
   // Clients
@@ -87,6 +89,10 @@ export interface IStorage {
   updateLead(id: string, lead: UpdateLead): Promise<Lead | undefined>;
   deleteLead(id: string): Promise<boolean>;
 
+  // Lead Comments
+  getLeadCommentsByLead(leadId: string): Promise<LeadComment[]>;
+  createLeadComment(comment: InsertLeadComment): Promise<LeadComment>;
+
   // Revenue Targets
   getRevenueTargets(): Promise<RevenueTarget[]>;
   getRevenueTarget(period: string): Promise<RevenueTarget | undefined>;
@@ -145,11 +151,31 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...userData,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          profileImageUrl: userData.profileImageUrl,
           updatedAt: new Date(),
         },
       })
       .returning();
+    return user;
+  }
+
+  async upsertUserFromGoogle(userData: UpsertUser): Promise<User> {
+    const existingByEmail = await this.getUserByEmail(userData.email || '');
+    
+    if (existingByEmail) {
+      const [user] = await db.update(users).set({
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        updatedAt: new Date(),
+      }).where(eq(users.email, userData.email || '')).returning();
+      return user;
+    }
+
+    const [user] = await db.insert(users).values(userData).returning();
     return user;
   }
 
@@ -401,6 +427,16 @@ export class DatabaseStorage implements IStorage {
   async deleteLead(id: string): Promise<boolean> {
     const result = await db.delete(leads).where(eq(leads.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Lead Comments
+  async getLeadCommentsByLead(leadId: string): Promise<LeadComment[]> {
+    return db.select().from(leadComments).where(eq(leadComments.leadId, leadId)).orderBy(leadComments.createdAt);
+  }
+
+  async createLeadComment(insertComment: InsertLeadComment): Promise<LeadComment> {
+    const [comment] = await db.insert(leadComments).values(insertComment).returning();
+    return comment;
   }
 
   // Revenue Targets

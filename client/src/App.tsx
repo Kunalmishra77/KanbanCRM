@@ -17,6 +17,7 @@ import Leads from "@/pages/Leads";
 import Announcements from "@/pages/Announcements";
 import SalaryIncentives from "@/pages/SalaryIncentives";
 import AuditLog from "@/pages/AuditLog";
+import TeamPerformance from "@/pages/TeamPerformance";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 
@@ -88,6 +89,9 @@ function Router() {
       </Route>
       <Route path="/audit-log">
         <ProtectedRoute component={AuditLog} />
+      </Route>
+      <Route path="/team">
+        <ProtectedRoute component={TeamPerformance} />
       </Route>
 
       <Route component={NotFound} />

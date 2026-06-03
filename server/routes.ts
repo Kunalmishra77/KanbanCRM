@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupGoogleAuth, isAuthenticated, isCoFounderEmail, isOwnerOrHR, isOwnerOrHRUser } from "./googleAuth.js";
-import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema } from "../shared/schema.js";
+import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
 import { sendDeadlineReminders } from "./emailService.js";
 import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
@@ -435,6 +435,51 @@ export async function registerRoutes(
     }
   });
 
+  // Lead Comments
+  app.get("/api/leads/:leadId/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const commentsList = await storage.getLeadCommentsByLead(req.params.leadId);
+      res.json(commentsList);
+    } catch (error) {
+      console.error('Get lead comments error:', error);
+      res.status(500).json({ error: "Failed to fetch lead comments" });
+    }
+  });
+
+  app.post("/api/leads/:leadId/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = insertLeadCommentSchema.parse({
+        ...req.body,
+        leadId: req.params.leadId,
+        authorId: req.user.id,
+        authorName: req.user.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : req.user.email,
+        createdAt: new Date(),
+      });
+      const comment = await storage.createLeadComment(data);
+      
+      // Update the lead's updatedAt timestamp to power the "Last Contacted" badge
+      await storage.updateLead(req.params.leadId, { updatedAt: new Date() });
+
+      if (req.user?.id) {
+        await storage.createActivityLog({
+          entityType: 'lead',
+          entityId: req.params.leadId,
+          action: 'commented',
+          userId: req.user.id,
+          details: `Added a note to lead: ${req.body.body.substring(0, 50)}...`,
+        });
+      }
+
+      res.status(201).json(comment);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error('Create lead comment error:', error);
+      res.status(500).json({ error: "Failed to add note to lead" });
+    }
+  });
+
   // AI Proposal Analysis (protected)
   app.post("/api/analyze-proposal", isAuthenticated, async (req: any, res) => {
     try {
@@ -621,6 +666,38 @@ export async function registerRoutes(
   });
 
   // Users (for internal dashboard - co-founders only, verified by email allowlist)
+  app.get("/api/analytics/team", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isOwnerOrHRUser(req.user)) {
+        return res.status(403).json({ error: "Access denied. Admin or HR role required." });
+      }
+
+      const allUsers = await storage.getAllUsers();
+      const allStories = await storage.getStories();
+      
+      const teamStats = allUsers.map(u => {
+        const userStories = allStories.filter(s => s.assignedTo === u.id || (!s.assignedTo && s.person?.toLowerCase() === `${u.firstName || ''} ${u.lastName || ''}`.trim().toLowerCase()));
+        
+        const completedStories = userStories.filter(s => s.status === 'Done');
+        const overdueStories = userStories.filter(s => s.status !== 'Done' && new Date(s.dueDate) < new Date());
+        const totalEstimatedHours = userStories.reduce((acc, s) => acc + (s.estimatedEffortHours || 0), 0);
+        
+        return {
+          user: u,
+          totalAssigned: userStories.length,
+          completed: completedStories.length,
+          overdue: overdueStories.length,
+          totalEstimatedHours,
+        };
+      });
+
+      res.json(teamStats);
+    } catch (error) {
+      console.error('Get team analytics error:', error);
+      res.status(500).json({ error: "Failed to fetch team analytics" });
+    }
+  });
+
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
       if (!isOwnerOrHRUser(req.user)) {
@@ -654,6 +731,45 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Create employee error:', error);
       res.status(500).json({ error: "Failed to create employee" });
+    }
+  });
+
+  app.get("/api/seed-users-tmp", async (req: any, res) => {
+    try {
+      const seedUsers = [
+        { email: 'support@ai-agentix.com', firstName: 'Support', lastName: 'Team', userType: 'employee', role: 'editor' },
+        { email: 'anant@ai-agentix.com', firstName: 'Anant', lastName: 'Admin', userType: 'co-founder', role: 'admin' },
+        { email: 'aiagentix2025@gmail.com', firstName: 'AI', lastName: 'Agentix', userType: 'employee', role: 'editor' },
+        { email: 'agentixoffice@gmail.com', firstName: 'Agentix', lastName: 'Office', userType: 'employee', role: 'editor' },
+        { email: 'rachitsrivastava792@gmail.com', firstName: 'Rachit', lastName: 'Srivastava', userType: 'employee', role: 'editor' },
+        { email: 'tiwarivimlendra@gmail.com', firstName: 'Vimlendra', lastName: 'Tiwari', userType: 'co-founder', role: 'admin' },
+        { email: 'vitalsaigorrela@gmail.com', firstName: 'Vital', lastName: 'Saigorrela', userType: 'co-founder', role: 'admin' },
+        { email: 'anantsanadhya@gmail.com', firstName: 'Anant', lastName: 'Sanadhya', userType: 'co-founder', role: 'admin' },
+        { email: 'myai@ai-agentix.com', firstName: 'MyAI', lastName: 'Admin', userType: 'co-founder', role: 'admin' },
+      ];
+      
+      const { db } = await import("./db.js");
+      const { users } = await import("../shared/schema.js");
+      const { eq } = await import("drizzle-orm");
+      const { randomUUID } = await import("crypto");
+
+      for (const u of seedUsers) {
+        const existing = await db.select().from(users).where(eq(users.email, u.email));
+        if (existing.length === 0) {
+          await db.insert(users).values({
+            id: randomUUID(),
+            ...u
+          });
+        } else {
+          await db.update(users).set({
+            userType: u.userType,
+            role: u.role
+          }).where(eq(users.email, u.email));
+        }
+      }
+      res.json({ success: true, message: "Seeded users successfully" });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 

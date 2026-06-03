@@ -35,25 +35,25 @@ export function RevenueInsight() {
     );
   }
 
-  const totalRevenue = clients.reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0);
-  const sortedClients = [...clients].sort((a, b) => Number(b.revenueTotal || 0) - Number(a.revenueTotal || 0));
+  const totalRevenue = clients.reduce((acc: any, c: any) => acc + Number(c.revenueTotal || 0), 0);
+  const sortedClients = [...clients].sort((a: any, b: any) => Number(b.revenueTotal || 0) - Number(a.revenueTotal || 0));
   
-  const revenueData = clients.map(c => ({
+  const revenueData = clients.map((c: any) => ({
     name: c.name.split(' ')[0],
     revenue: Number(c.revenueTotal || 0),
     fullName: c.name
   }));
 
   const stageRevenue = [
-    { name: 'Hot', value: clients.filter(c => c.stage === 'Hot').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: 'hsl(var(--chart-1))' },
-    { name: 'Warm', value: clients.filter(c => c.stage === 'Warm').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: '#fbbf24' },
-    { name: 'Cold', value: clients.filter(c => c.stage === 'Cold').reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0), color: '#94a3b8' },
+    { name: 'Hot', value: clients.filter((c: any) => c.stage === 'Hot').reduce((acc: any, c: any) => acc + Number(c.revenueTotal || 0), 0), color: 'hsl(var(--chart-1))' },
+    { name: 'Warm', value: clients.filter((c: any) => c.stage === 'Warm').reduce((acc: any, c: any) => acc + Number(c.revenueTotal || 0), 0), color: '#fbbf24' },
+    { name: 'Cold', value: clients.filter((c: any) => c.stage === 'Cold').reduce((acc: any, c: any) => acc + Number(c.revenueTotal || 0), 0), color: '#94a3b8' },
   ];
 
   const exportCSV = () => {
     const rows = [
       ['Client', 'Industry', 'Stage', 'Expected Revenue (₹)', 'Received Revenue (₹)', 'Collection %'],
-      ...clients.map(c => [
+      ...clients.map((c: any) => [
         c.name,
         c.industry,
         c.stage,
@@ -236,15 +236,15 @@ export function ClientsInsight() {
     );
   }
 
-  const hotClients = clients.filter(c => c.stage === 'Hot');
-  const warmClients = clients.filter(c => c.stage === 'Warm');
-  const coldClients = clients.filter(c => c.stage === 'Cold');
+  const hotClients = clients.filter((c: any) => c.stage === 'Hot');
+  const warmClients = clients.filter((c: any) => c.stage === 'Warm');
+  const coldClients = clients.filter((c: any) => c.stage === 'Cold');
 
-  const getClientStories = (clientId: string) => stories.filter(s => s.clientId === clientId);
+  const getClientStories = (clientId: string) => stories.filter((s: any) => s.clientId === clientId);
   const getClientProgress = (clientId: string) => {
     const clientStories = getClientStories(clientId);
     if (clientStories.length === 0) return 0;
-    return Math.round(clientStories.reduce((acc, s) => acc + Number(s.progressPercent || 0), 0) / clientStories.length);
+    return Math.round(clientStories.reduce((acc: any, s: any) => acc + Number(s.progressPercent || 0), 0) / clientStories.length);
   };
 
   return (
@@ -315,7 +315,7 @@ export function ClientsInsight() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stageClients.map((client) => {
+              {stageClients.map((client: any) => {
                 const progress = getClientProgress(client.id);
                 const storyCount = getClientStories(client.id).length;
                 return (
@@ -359,18 +359,18 @@ export function StoriesInsight() {
     );
   }
 
-  const pendingStories = stories.filter(s => s.status !== 'Done');
-  const todoStories = stories.filter(s => s.status === 'To Do');
-  const inProgressStories = stories.filter(s => s.status === 'In Progress');
-  const reviewStories = stories.filter(s => s.status === 'Review');
+  const pendingStories = stories.filter((s: any) => s.status !== 'Done');
+  const todoStories = stories.filter((s: any) => s.status === 'To Do');
+  const inProgressStories = stories.filter((s: any) => s.status === 'In Progress');
+  const reviewStories = stories.filter((s: any) => s.status === 'Review');
 
   const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
+    const client = clients.find((c: any) => c.id === clientId);
     return client?.name || 'Unknown';
   };
 
   const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
-  const sortedPending = [...pendingStories].sort((a, b) => {
+  const sortedPending = [...pendingStories].sort((a: any, b: any) => {
     const priorityDiff = (priorityOrder[a.priority as keyof typeof priorityOrder] || 1) - (priorityOrder[b.priority as keyof typeof priorityOrder] || 1);
     if (priorityDiff !== 0) return priorityDiff;
     if (a.dueDate && b.dueDate) return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
@@ -486,17 +486,17 @@ export function CompletionInsight() {
   }
 
   const totalStories = stories.length;
-  const completedStories = stories.filter(s => s.status === 'Done');
+  const completedStories = stories.filter((s: any) => s.status === 'Done');
   const completionRate = Math.round((completedStories.length / totalStories) * 100) || 0;
 
   const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
+    const client = clients.find((c: any) => c.id === clientId);
     return client?.name || 'Unknown';
   };
 
-  const clientCompletion = clients.map(client => {
-    const clientStories = stories.filter(s => s.clientId === client.id);
-    const completed = clientStories.filter(s => s.status === 'Done').length;
+  const clientCompletion = clients.map((client: any) => {
+    const clientStories = stories.filter((s: any) => s.clientId === client.id);
+    const completed = clientStories.filter((s: any) => s.status === 'Done').length;
     const total = clientStories.length;
     return {
       name: client.name.split(' ')[0],
@@ -507,13 +507,13 @@ export function CompletionInsight() {
       total,
       rate: total > 0 ? Math.round((completed / total) * 100) : 0
     };
-  }).filter(c => c.total > 0).sort((a, b) => b.rate - a.rate);
+  }).filter((c: any) => c.total > 0).sort((a: any, b: any) => b.rate - a.rate);
 
   const statusDistribution = [
-    { name: 'Done', value: stories.filter(s => s.status === 'Done').length, color: '#22c55e' },
-    { name: 'In Progress', value: stories.filter(s => s.status === 'In Progress').length, color: '#3b82f6' },
-    { name: 'Review', value: stories.filter(s => s.status === 'Review').length, color: '#a855f7' },
-    { name: 'To Do', value: stories.filter(s => s.status === 'To Do').length, color: '#94a3b8' },
+    { name: 'Done', value: stories.filter((s: any) => s.status === 'Done').length, color: '#22c55e' },
+    { name: 'In Progress', value: stories.filter((s: any) => s.status === 'In Progress').length, color: '#3b82f6' },
+    { name: 'Review', value: stories.filter((s: any) => s.status === 'Review').length, color: '#a855f7' },
+    { name: 'To Do', value: stories.filter((s: any) => s.status === 'To Do').length, color: '#94a3b8' },
   ];
 
   return (
@@ -620,7 +620,7 @@ export function CompletionInsight() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {clientCompletion.map((client) => (
+            {clientCompletion.map((client: any) => (
               <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 hover:bg-white/60 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`completion-client-${client.id}`}>
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
                   {client.fullName.charAt(0)}

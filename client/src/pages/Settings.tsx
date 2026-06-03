@@ -14,6 +14,9 @@ import { Moon, Sun, Monitor, User, Palette, Bell, Shield, Users } from "lucide-r
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+import { CreateEmployeeModal } from "@/components/CreateEmployeeModal";
+import { useState } from "react";
+
 const USER_TYPE_LABELS: Record<string, string> = {
   'co-founder': 'Owner',
   'hr': 'HR',
@@ -28,11 +31,12 @@ const USER_TYPE_BADGE: Record<string, string> = {
 
 export default function Settings() {
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
   const isOwner = useIsOwner();
-  const { data: allUsers = [] } = useUsers();
-  const { mutate: updateUser } = useUpdateUser();
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+  const { data: allUsers = [], isLoading } = useUsers();
+  const { mutate: updateUser } = useUpdateUser();
+  const [showAddMember, setShowAddMember] = useState(false);
 
   function handleRoleChange(userId: string, newUserType: string) {
     const roleMap: Record<string, string> = { 'co-founder': 'admin', 'hr': 'hr', 'employee': 'editor' };
@@ -180,10 +184,11 @@ export default function Settings() {
               <div className="p-2 rounded-lg bg-primary/10">
                 <Users className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <CardTitle>User Role Management</CardTitle>
                 <CardDescription>Assign roles to team members</CardDescription>
               </div>
+              <Button size="sm" onClick={() => setShowAddMember(true)}>Add Member</Button>
             </CardHeader>
             <CardContent className="space-y-3">
               {(allUsers as any[]).map((u: any) => (
@@ -225,6 +230,11 @@ export default function Settings() {
           </Card>
         )}
       </div>
+      
+      <CreateEmployeeModal 
+        open={showAddMember} 
+        onOpenChange={setShowAddMember} 
+      />
     </div>
   );
 }

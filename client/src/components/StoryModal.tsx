@@ -12,7 +12,7 @@ import { Clock, Paperclip, Send, Wand2, Mail, X, FileUp, Loader2, Image, FileTex
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers } from "@/lib/queries";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +77,7 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   const [editStatus, setEditStatus] = useState('');
   const [editPriority, setEditPriority] = useState('');
   const [editPerson, setEditPerson] = useState('');
+  const [editAssignedTo, setEditAssignedTo] = useState('unassigned');
   const [editDueDate, setEditDueDate] = useState('');
   const [editHours, setEditHours] = useState('');
   const [editTags, setEditTags] = useState('');
@@ -90,6 +91,7 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
 
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
   const { data: sentEmails = [], isLoading: isLoadingSentEmails, refetch: refetchEmails } = useSentEmails(story?.id || '');
+  const { data: users = [] } = useUsers();
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: deleteStory } = useDeleteStory();
@@ -285,6 +287,7 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
     setEditStatus(story.status);
     setEditPriority(story.priority);
     setEditPerson(story.person || '');
+    setEditAssignedTo(story.assignedTo || 'unassigned');
     setEditDueDate(story.dueDate ? new Date(story.dueDate).toISOString().slice(0, 10) : '');
     setEditHours(String(story.estimatedEffortHours || 0));
     setEditTags((story.tags || []).join(', '));
@@ -292,15 +295,29 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   };
 
   const saveEdits = () => {
-    updateStory({
-      id: story.id,
-      data: {
-        title: editTitle.trim() || story.title,
-        description: editDescription.trim(),
-        status: editStatus,
-        priority: editPriority,
-        person: editPerson.trim(),
-        dueDate: editDueDate ? new Date(editDueDate) : undefined,
+      const finalAssignedTo = editAssignedTo === 'unassigned' ? null : editAssignedTo;
+      
+      // Fallback person name
+      let personName = "Unassigned";
+      if (finalAssignedTo) {
+        const selectedUser = users.find((u: any) => u.id === finalAssignedTo);
+        if (selectedUser) {
+          personName = `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim();
+        }
+      } else {
+        personName = "Unassigned";
+      }
+
+      updateStory({
+        id: story.id,
+        data: {
+          title: editTitle.trim() || story.title,
+          description: editDescription.trim(),
+          status: editStatus,
+          priority: editPriority,
+          person: personName,
+          assignedTo: finalAssignedTo,
+          dueDate: editDueDate ? new Date(editDueDate) : undefined,
         estimatedEffortHours: parseInt(editHours) || 0,
         tags: editTags ? editTags.split(',').map(t => t.trim()).filter(Boolean) : [],
       }
@@ -337,7 +354,18 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                       <AvatarFallback>{(story.person || 'U').charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="overflow-hidden">
-                      <p className="text-sm font-medium truncate">{story.person || 'Unassigned'}</p>
+                      <p className="text-sm font-medium truncate">
+                        {story.assignedTo ? (
+                          (() => {
+                            const assigneeUser = users.find((u: any) => u.id === story.assignedTo);
+                            return assigneeUser 
+                              ? `${assigneeUser.firstName || ''} ${assigneeUser.lastName || ''}`.trim()
+                              : story.person || "Unassigned";
+                          })()
+                        ) : (
+                          story.person || 'Unassigned'
+                        )}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -625,13 +653,19 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Assignee</Label>
-                              <Input
-                                value={editPerson}
-                                onChange={(e) => setEditPerson(e.target.value)}
-                                className="bg-white/60"
-                                placeholder="Assignee name"
-                                data-testid="input-edit-person"
-                              />
+                              <select
+                                value={editAssignedTo}
+                                onChange={(e) => setEditAssignedTo(e.target.value)}
+                                className="w-full h-9 rounded-md border border-input bg-white/60 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                data-testid="select-edit-assignee"
+                              >
+                                <option value="unassigned">Unassigned</option>
+                                {users.map((u: any) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.firstName} {u.lastName}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Due Date</Label>

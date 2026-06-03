@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useCreateClient } from "@/lib/queries";
+import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useCreateClient, useLeadComments, useCreateLeadComment } from "@/lib/queries";
 import { useIsOwner, useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Trash2, Pencil, Loader2, Trophy, IndianRupee, ArrowRightLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, MoreHorizontal, Trash2, Pencil, Loader2, Trophy, IndianRupee, ArrowRightLeft, Send, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const LEAD_STAGES = ['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost'] as const;
@@ -50,6 +53,8 @@ type Lead = {
   stage: string;
   estimatedValue?: string | number | null;
   notes?: string | null;
+  updatedAt?: string | Date;
+  createdAt?: string | Date;
 };
 
 type LeadForm = {
@@ -73,6 +78,69 @@ const defaultForm: LeadForm = {
   estimatedValue: "",
   notes: "",
 };
+
+function LeadCommentsTab({ leadId }: { leadId: string }) {
+  const { data: comments = [], isLoading } = useLeadComments(leadId);
+  const { mutate: createComment, isPending } = useCreateLeadComment();
+  const [newComment, setNewComment] = useState("");
+
+  const handlePost = () => {
+    if (!newComment.trim()) return;
+    createComment({ leadId, body: newComment.trim() }, {
+      onSuccess: () => setNewComment("")
+    });
+  };
+
+  return (
+    <div className="flex flex-col h-[400px]">
+      <ScrollArea className="flex-1 pr-4 mb-4">
+        {isLoading ? (
+          <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : comments.length === 0 ? (
+          <div className="text-center text-muted-foreground p-4 text-sm">No notes yet. Be the first to add one!</div>
+        ) : (
+          <div className="space-y-4">
+            {comments.map((comment: any) => (
+              <div key={comment.id} className="flex gap-3">
+                <Avatar className="h-8 w-8 mt-1">
+                  <AvatarFallback>{comment.authorName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">{comment.authorName}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(comment.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="text-sm bg-white/60 p-3 rounded-md border border-white/40 shadow-sm whitespace-pre-wrap">
+                    {comment.body}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+      <div className="flex gap-2 items-end border-t border-black/5 pt-4">
+        <Textarea
+          placeholder="Add a note or update..."
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          className="min-h-[60px] resize-none bg-white/60"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handlePost();
+            }
+          }}
+        />
+        <Button onClick={handlePost} disabled={isPending || !newComment.trim()} className="h-[60px] w-[60px] shrink-0 rounded-xl">
+          {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function Leads() {
   const { data: leads = [], isLoading } = useLeads();
@@ -309,6 +377,14 @@ export default function Leads() {
                       <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
                     )}
 
+                    {/* Last Contacted Badge */}
+                    {lead.updatedAt && (
+                      <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
+                        <MessageSquare className="h-3 w-3" />
+                        Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
+                      </div>
+                    )}
+
                     {/* Bottom row: industry badge + value */}
                     <div className="flex items-center justify-between gap-2 pt-1">
                       {lead.industry && (
@@ -340,95 +416,197 @@ export default function Leads() {
           <DialogHeader>
             <DialogTitle>{editingLead ? "Edit Lead" : "Add Lead"}</DialogTitle>
             <DialogDescription>
-              {editingLead ? "Update lead details." : "Add a new lead to your pipeline."}
+              {editingLead ? "Update lead details and track notes." : "Add a new lead to your pipeline."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
-            <div className="space-y-2">
-              <Label htmlFor="lead-name">Company Name *</Label>
-              <Input
-                id="lead-name"
-                placeholder="Acme Corp"
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              />
+
+          {editingLead ? (
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4 bg-white/40">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="notes">Notes & Comments</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
+                <div className="space-y-2">
+                  <Label htmlFor="lead-name">Company Name *</Label>
+                  <Input
+                    id="lead-name"
+                    placeholder="Acme Corp"
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-contact-name">Contact Name</Label>
+                  <Input
+                    id="lead-contact-name"
+                    placeholder="Jane Doe"
+                    value={form.contactName}
+                    onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-contact-email">Contact Email</Label>
+                  <Input
+                    id="lead-contact-email"
+                    type="email"
+                    placeholder="jane@acme.com"
+                    value={form.contactEmail}
+                    onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-contact-phone">Contact Phone</Label>
+                  <Input
+                    id="lead-contact-phone"
+                    placeholder="+91 98765 43210"
+                    value={form.contactPhone}
+                    onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-industry">Industry</Label>
+                  <select
+                    id="lead-industry"
+                    className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={form.industry}
+                    onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))}
+                  >
+                    <option value="">Select industry</option>
+                    {INDUSTRIES.map((ind) => (
+                      <option key={ind} value={ind}>{ind}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-stage">Stage</Label>
+                  <select
+                    id="lead-stage"
+                    className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={form.stage}
+                    onChange={(e) => setForm((p) => ({ ...p, stage: e.target.value as LeadStage }))}
+                  >
+                    {LEAD_STAGES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-value">Estimated Value (₹)</Label>
+                  <Input
+                    id="lead-value"
+                    type="number"
+                    placeholder="500000"
+                    value={form.estimatedValue}
+                    onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-notes">Notes</Label>
+                  <Textarea
+                    id="lead-notes"
+                    placeholder="Any additional notes..."
+                    value={form.notes}
+                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="notes">
+                <LeadCommentsTab leadId={editingLead.id} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
+              <div className="space-y-2">
+                <Label htmlFor="lead-name">Company Name *</Label>
+                <Input
+                  id="lead-name"
+                  placeholder="Acme Corp"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-contact-name">Contact Name</Label>
+                <Input
+                  id="lead-contact-name"
+                  placeholder="Jane Doe"
+                  value={form.contactName}
+                  onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-contact-email">Contact Email</Label>
+                <Input
+                  id="lead-contact-email"
+                  type="email"
+                  placeholder="jane@acme.com"
+                  value={form.contactEmail}
+                  onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-contact-phone">Contact Phone</Label>
+                <Input
+                  id="lead-contact-phone"
+                  placeholder="+91 98765 43210"
+                  value={form.contactPhone}
+                  onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-industry">Industry</Label>
+                <select
+                  id="lead-industry"
+                  className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={form.industry}
+                  onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))}
+                >
+                  <option value="">Select industry</option>
+                  {INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-stage">Stage</Label>
+                <select
+                  id="lead-stage"
+                  className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={form.stage}
+                  onChange={(e) => setForm((p) => ({ ...p, stage: e.target.value as LeadStage }))}
+                >
+                  {LEAD_STAGES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-value">Estimated Value (₹)</Label>
+                <Input
+                  id="lead-value"
+                  type="number"
+                  placeholder="500000"
+                  value={form.estimatedValue}
+                  onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lead-notes">Notes</Label>
+                <Textarea
+                  id="lead-notes"
+                  placeholder="Any additional notes..."
+                  value={form.notes}
+                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-contact-name">Contact Name</Label>
-              <Input
-                id="lead-contact-name"
-                placeholder="Jane Doe"
-                value={form.contactName}
-                onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-contact-email">Contact Email</Label>
-              <Input
-                id="lead-contact-email"
-                type="email"
-                placeholder="jane@acme.com"
-                value={form.contactEmail}
-                onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-contact-phone">Contact Phone</Label>
-              <Input
-                id="lead-contact-phone"
-                placeholder="+91 98765 43210"
-                value={form.contactPhone}
-                onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-industry">Industry</Label>
-              <select
-                id="lead-industry"
-                className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                value={form.industry}
-                onChange={(e) => setForm((p) => ({ ...p, industry: e.target.value }))}
-              >
-                <option value="">Select industry</option>
-                {INDUSTRIES.map((ind) => (
-                  <option key={ind} value={ind}>{ind}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-stage">Stage</Label>
-              <select
-                id="lead-stage"
-                className="macos-input w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                value={form.stage}
-                onChange={(e) => setForm((p) => ({ ...p, stage: e.target.value as LeadStage }))}
-              >
-                {LEAD_STAGES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-value">Estimated Value (₹)</Label>
-              <Input
-                id="lead-value"
-                type="number"
-                placeholder="500000"
-                value={form.estimatedValue}
-                onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-notes">Notes</Label>
-              <Textarea
-                id="lead-notes"
-                placeholder="Any additional notes..."
-                value={form.notes}
-                onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                rows={3}
-              />
-            </div>
-          </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={isCreating || isUpdating}>

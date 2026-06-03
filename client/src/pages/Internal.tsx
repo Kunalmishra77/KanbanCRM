@@ -26,6 +26,7 @@ import {
 import {
   useUsers,
   useUpdateUser,
+  useCreateEmployee,
   useFounderInvestments,
   useCreateFounderInvestment,
   useDeleteFounderInvestment,
@@ -204,9 +205,12 @@ export default function Internal() {
 
 function TeamSection({ users, coFounders, employees }: { users: User[], coFounders: User[], employees: User[] }) {
   const updateUser = useUpdateUser();
+  const createEmployee = useCreateEmployee();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<string>('');
   const [shareholding, setShareholding] = useState<string>('');
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', userType: 'employee' });
 
   const handleSave = () => {
     if (!editingUser) return;
@@ -223,11 +227,73 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
           <Building2 className="h-5 w-5 text-primary" />
           Co-Founders ({coFounders.length})
         </h3>
+        <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Team Member
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="macos-panel">
+            <DialogHeader>
+              <DialogTitle>Add Team Member</DialogTitle>
+              <DialogDescription>Pre-register an employee or co-founder so they can access the CRM when they log in.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>First Name</Label>
+                  <Input value={newUser.firstName} onChange={e => setNewUser({ ...newUser, firstName: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Last Name</Label>
+                  <Input value={newUser.lastName} onChange={e => setNewUser({ ...newUser, lastName: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={newUser.userType} onValueChange={v => setNewUser({ ...newUser, userType: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="co-founder">Co-founder (Admin)</SelectItem>
+                    <SelectItem value="employee">Employee</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddingUser(false)}>Cancel</Button>
+              <Button 
+                onClick={() => {
+                  if (!newUser.firstName || !newUser.lastName || !newUser.email) return;
+                  createEmployee.mutate(newUser, {
+                    onSuccess: () => {
+                      setIsAddingUser(false);
+                      setNewUser({ firstName: '', lastName: '', email: '', userType: 'employee' });
+                    }
+                  });
+                }} 
+                disabled={createEmployee.isPending}
+              >
+                {createEmployee.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Add Member
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {coFounders.map(user => (
             <Card key={user.id} className="macos-card border-none" data-testid={`user-card-${user.id}`}>

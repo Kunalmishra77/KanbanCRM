@@ -143,8 +143,8 @@ export async function setupGoogleAuth(app: Express) {
             const userType = isCoFounder ? 'co-founder' : 'employee';
             const role = isCoFounder ? 'admin' : 'editor';
 
-            console.log(`Auth Callback: Pre-upsertUser for ID: ${profile.id}`);
-            const user = await storage.upsertUser({
+            console.log(`Auth Callback: Pre-upsertUserFromGoogle for ID: ${profile.id}`);
+            const user = await storage.upsertUserFromGoogle({
               id: profile.id,
               email,
               firstName,
@@ -153,7 +153,8 @@ export async function setupGoogleAuth(app: Express) {
               userType,
               role,
             });
-            console.log(`Auth Callback: Post-upsertUser success for user ID: ${user.id}`);
+
+            console.log(`Auth Callback: User upserted successfully: ${user.id}`);
 
             done(null, user);
           } catch (error) {

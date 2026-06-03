@@ -11,34 +11,10 @@ import { Loader2, Calendar as CalendarIcon, Check, ChevronsUpDown, User } from "
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useClients, useCreateStory } from "@/lib/queries";
+import { useClients, useCreateStory, useUsers } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 
-const ASSIGNEES_STORAGE_KEY = 'agentix-assignees';
-
-function getStoredAssignees(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(ASSIGNEES_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function addAssignee(name: string) {
-  if (typeof window === 'undefined') return;
-  if (!name.trim()) return;
-  try {
-    const assignees = getStoredAssignees();
-    if (!assignees.includes(name.trim())) {
-      assignees.unshift(name.trim());
-      localStorage.setItem(ASSIGNEES_STORAGE_KEY, JSON.stringify(assignees.slice(0, 50)));
-    }
-  } catch {
-    // Ignore storage errors
-  }
-}
+// Assignee tracking now handled via User relationships directly
 
 type ClientData = {
   id: string;
@@ -56,20 +32,17 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   const { mutate: createStory, isPending } = useCreateStory();
   const { user } = useAuth();
   
+  const { data: users = [] } = useUsers();
   const [clientId, setClientId] = useState(defaultClientId || "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("Medium");
-  const [assignee, setAssignee] = useState("");
-  const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const [assigneeSearch, setAssigneeSearch] = useState("");
-  const [storedAssignees, setStoredAssignees] = useState<string[]>([]);
+  const [assignedTo, setAssignedTo] = useState<string>("unassigned");
   const [date, setDate] = useState<Date>();
   const [dateOpen, setDateOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setStoredAssignees(getStoredAssignees());
       if (defaultClientId) {
         setClientId(defaultClientId);
       }
@@ -81,8 +54,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
     setTitle("");
     setDescription("");
     setPriority("Medium");
-    setAssignee("");
-    setAssigneeSearch("");
+    setAssignedTo("unassigned");
     setDate(undefined);
   };
 
@@ -93,10 +65,17 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
 
     const creatorName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
 
-    const finalAssignee = assignee.trim() || creatorName || "Unassigned";
+    const finalAssignedTo = assignedTo === "unassigned" ? null : assignedTo;
     
-    if (assignee.trim()) {
-      addAssignee(assignee.trim());
+    // Fallback logic for person field to keep legacy views working
+    let personName = "Unassigned";
+    if (finalAssignedTo) {
+      const selectedUser = users.find((u: any) => u.id === finalAssignedTo);
+      if (selectedUser) {
+        personName = `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim();
+      }
+    } else {
+      personName = creatorName || "Unassigned";
     }
 
     createStory({
@@ -105,8 +84,8 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
       description: description.trim(),
       priority,
       status: "To Do",
-      person: finalAssignee,
-      assignedTo: null,
+      person: personName,
+      assignedTo: finalAssignedTo,
       estimatedEffortHours: 0,
       progressPercent: 0,
       dueDate: date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -154,74 +133,19 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             </div>
             <div className="space-y-2">
               <Label>Assignee</Label>
-              <Popover open={assigneeOpen} onOpenChange={setAssigneeOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={assigneeOpen}
-                    className="w-full justify-between macos-input border-input font-normal"
-                    data-testid="select-story-assignee"
-                  >
-                    <span className={cn(!assignee && "text-muted-foreground")}>
-                      {assignee || "Select or type name..."}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[250px] p-0" align="start">
-                  <Command>
-                    <CommandInput 
-                      placeholder="Search or type new..."
-                      value={assigneeSearch}
-                      onValueChange={(value) => {
-                        setAssigneeSearch(value);
-                        setAssignee(value);
-                      }}
-                    />
-                    <CommandList>
-                      <CommandEmpty>
-                        {assigneeSearch ? (
-                          <div 
-                            className="py-3 px-2 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                            onClick={() => {
-                              setAssignee(assigneeSearch);
-                              setAssigneeOpen(false);
-                            }}
-                          >
-                            <User className="inline-block h-4 w-4 mr-2" />
-                            Add "{assigneeSearch}"
-                          </div>
-                        ) : (
-                          "Type a name to add"
-                        )}
-                      </CommandEmpty>
-                      {storedAssignees.length > 0 && (
-                        <CommandGroup heading="Recent Assignees">
-                          {storedAssignees
-                            .filter(name => name.toLowerCase().includes(assigneeSearch.toLowerCase()))
-                            .slice(0, 8)
-                            .map((name) => (
-                              <CommandItem
-                                key={name}
-                                value={name}
-                                onSelect={() => {
-                                  setAssignee(name);
-                                  setAssigneeSearch(name);
-                                  setAssigneeOpen(false);
-                                }}
-                              >
-                                <Check className={cn("mr-2 h-4 w-4", assignee === name ? "opacity-100" : "opacity-0")} />
-                                <User className="mr-2 h-4 w-4 text-muted-foreground" />
-                                {name}
-                              </CommandItem>
-                            ))}
-                        </CommandGroup>
-                      )}
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger className="macos-input" data-testid="select-story-assignee">
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {users.map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -220,7 +220,7 @@ export const leads = pgTable("leads", {
 });
 
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
-export const updateLeadSchema = insertLeadSchema.partial();
+export const updateLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true }).partial();
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type UpdateLead = z.infer<typeof updateLeadSchema>;
 export type Lead = typeof leads.$inferSelect;
@@ -312,3 +312,18 @@ export const updateIncentiveSchema = insertIncentiveSchema.partial();
 export type InsertIncentive = z.infer<typeof insertIncentiveSchema>;
 export type UpdateIncentive = z.infer<typeof updateIncentiveSchema>;
 export type Incentive = typeof incentives.$inferSelect;
+
+// Lead Comments table
+export const leadComments = pgTable("lead_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: uuid("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
+  authorId: varchar("author_id", { length: 255 }).notNull(),
+  authorName: varchar("author_name", { length: 255 }),
+  body: text("body").notNull(),
+  isSystem: boolean("is_system").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [index("idx_lead_comments_lead_id").on(table.leadId)]);
+
+export const insertLeadCommentSchema = createInsertSchema(leadComments).omit({ id: true, createdAt: true });
+export type InsertLeadComment = z.infer<typeof insertLeadCommentSchema>;
+export type LeadComment = typeof leadComments.$inferSelect;

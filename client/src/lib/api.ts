@@ -176,6 +176,12 @@ export const leadsAPI = {
   delete: (id: string) => fetchAPI(`/leads/${id}`, { method: 'DELETE' }),
 };
 
+// Lead Comments API
+export const leadCommentsAPI = {
+  getByLead: (leadId: string) => fetchAPI(`/leads/${leadId}/comments`),
+  create: (leadId: string, data: any) => fetchAPI(`/leads/${leadId}/comments`, { method: 'POST', body: JSON.stringify(data) }),
+};
+
 // Revenue Targets API
 export const revenueTargetsAPI = {
   getAll: () => fetchAPI('/revenue-targets'),
@@ -211,4 +217,9 @@ export const incentivesAPI = {
   create: (data: any) => fetchAPI('/incentives', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => fetchAPI(`/incentives/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: string) => fetchAPI(`/incentives/${id}`, { method: 'DELETE' }),
+};
+
+// Analytics API
+export const analyticsAPI = {
+  getTeamStats: () => fetchAPI('/analytics/team'),
 };

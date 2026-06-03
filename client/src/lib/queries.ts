@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI, leadsAPI, revenueTargetsAPI, communicationsAPI, announcementsAPI, salaryAPI, incentivesAPI } from "./api";
+import { clientsAPI, storiesAPI, commentsAPI, activityAPI, invoicesAPI, usersAPI, founderInvestmentsAPI, sentEmailsAPI, internalDocumentsAPI, leadsAPI, revenueTargetsAPI, communicationsAPI, announcementsAPI, salaryAPI, incentivesAPI, leadCommentsAPI, analyticsAPI } from "./api";
 import { useToast } from "@/hooks/use-toast";
 
 // Clients queries
@@ -429,6 +429,28 @@ export function useDeleteLead() {
   });
 }
 
+export function useLeadComments(leadId: string) {
+  return useQuery({
+    queryKey: ['lead-comments', leadId],
+    queryFn: () => leadCommentsAPI.getByLead(leadId),
+    enabled: !!leadId,
+  });
+}
+
+export function useCreateLeadComment() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: ({ leadId, body }: { leadId: string, body: string }) => leadCommentsAPI.create(leadId, { body }),
+    onSuccess: (_, { leadId }) => {
+      queryClient.invalidateQueries({ queryKey: ['lead-comments', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] }); // for updatedAt badge
+      toast({ title: "Note added" });
+    },
+    onError: (e: Error) => toast({ title: "Failed to add note", description: e.message, variant: "destructive" }),
+  });
+}
+
 // Revenue Targets queries
 export function useRevenueTargets(options?: { enabled?: boolean }) {
   return useQuery({ queryKey: ['revenue-targets'], queryFn: revenueTargetsAPI.getAll, enabled: options?.enabled ?? true });
@@ -587,5 +609,29 @@ export function useDeleteIncentive() {
     mutationFn: (id: string) => incentivesAPI.delete(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['incentives'] }); toast({ title: "Incentive deleted" }); },
     onError: (e: Error) => toast({ title: "Failed to delete", description: e.message, variant: "destructive" }),
+  });
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+export function useTeamAnalytics() {
+  return useQuery({
+    queryKey: ['team-analytics'],
+    queryFn: analyticsAPI.getTeamStats,
+  });
+}
+
+export function useCreateEmployee() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (data: any) => usersAPI.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: "Employee added successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add employee", description: error.message, variant: "destructive" });
+    },
   });
 }

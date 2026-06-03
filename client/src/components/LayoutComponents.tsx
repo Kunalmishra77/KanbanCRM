@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp } from "lucide-react";
 import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -37,6 +37,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { icon: Wallet, label: "Salary & Incentives", href: "/salary", ownerOnly: false, hrOrOwnerOnly: true },
     { icon: Building2, label: "Internal", href: "/internal", ownerOnly: true, hrOrOwnerOnly: false },
     { icon: Activity, label: "Audit Log", href: "/audit-log", ownerOnly: false, hrOrOwnerOnly: true },
+    { icon: TrendingUp, label: "Team Performance", href: "/team", ownerOnly: true, hrOrOwnerOnly: false },
   ];
 
   const navItems = allNavItems.filter(item => {
@@ -169,6 +170,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 }
 
 import { useAuth } from "@/lib/auth";
+import { GlobalSearch } from "./GlobalSearch";
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -190,13 +192,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <Menu className="h-5 w-5" />
         </Button>
 
-        {/* Search bar */}
-        <div className="relative w-full max-w-sm group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-          <Input
-            placeholder="Search..."
-            className="pl-10 h-9 macos-input rounded-lg text-sm shadow-sm focus-visible:ring-offset-0"
-          />
+        {/* Global Search */}
+        <div className="w-full max-w-sm">
+          <GlobalSearch />
         </div>
       </div>
 
