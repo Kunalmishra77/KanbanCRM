@@ -6,6 +6,7 @@ import { Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Story, USERS } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 import { format, differenceInHours } from "date-fns";
+import { getStoryBottleneck } from "@/lib/bottleneck";
 
 interface StoryCardProps {
   story: Story;
@@ -103,6 +104,12 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
     Medium: { color: "bg-yellow-100 text-yellow-700 border-yellow-200", label: "Med" },
     High: { color: "bg-red-100 text-red-700 border-red-200", label: "High" },
   }[story.priority];
+  
+  const bottleneck = getStoryBottleneck(story);
+  const bottleneckBorderColor = bottleneck ? 
+    bottleneck.color.includes('red') ? '#ef4444' : 
+    bottleneck.color.includes('orange') ? '#f97316' : 
+    bottleneck.color.includes('yellow') ? '#eab308' : undefined : undefined;
 
   return (
     <Draggable draggableId={story.id} index={index}>
@@ -123,12 +130,13 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
               "macos-card cursor-grab group-active:cursor-grabbing overflow-hidden hover:shadow-md",
               snapshot.isDragging
                 ? "shadow-xl ring-2 ring-primary/30 bg-white"
-                : styles.cardClass
+                : styles.cardClass,
+              bottleneck && "border-l-4" // thick left border for bottlenecks
             )}
-            style={!snapshot.isDragging && styles.borderColor
-              ? { borderColor: styles.borderColor, borderWidth: '1.5px' }
-              : undefined
-            }
+            style={!snapshot.isDragging ? {
+              borderColor: bottleneckBorderColor || styles.borderColor,
+              borderWidth: bottleneck ? '0 0 0 4px' : styles.borderColor ? '1.5px' : undefined
+            } : undefined}
           >
             {/* Colour strip at top */}
             {status !== 'none' && (
@@ -147,7 +155,13 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
                   {status === 'done' && (
                     <CheckCircle2 className="h-3.5 w-3.5 text-gray-400" />
                   )}
-                  {styles.badge && (
+                  {bottleneck && (
+                    <Badge className={cn("text-[10px] px-1.5 py-0 h-5 font-semibold flex items-center whitespace-nowrap", bottleneck.color)}>
+                      <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                      {bottleneck.type}
+                    </Badge>
+                  )}
+                  {!bottleneck && styles.badge && (
                     <Badge className={cn("text-[10px] px-1.5 py-0 h-5 font-semibold flex items-center whitespace-nowrap", styles.badge.className)}>
                       {styles.badge.icon}
                       {styles.badge.label}

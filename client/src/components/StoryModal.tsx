@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, Paperclip, Send, Wand2, Mail, CheckCircle2, X, FileUp, Loader2, Image, FileText, Trash2, History } from "lucide-react";
+import { Clock, Paperclip, Send, Wand2, Mail, X, FileUp, Loader2, Image, FileText, Trash2, History, Pencil, Check } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -71,6 +71,15 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
   const [timeLogHours, setTimeLogHours] = useState("");
   const [timeLogNote, setTimeLogNote] = useState("");
   const [localProgress, setLocalProgress] = useState<number>(story?.progressPercent || 0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [editPriority, setEditPriority] = useState('');
+  const [editPerson, setEditPerson] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editHours, setEditHours] = useState('');
+  const [editTags, setEditTags] = useState('');
 
   // Sync local progress when story prop changes (e.g., when modal opens with different story)
   useEffect(() => {
@@ -270,10 +279,43 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
 
   const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
 
+  const startEditing = () => {
+    setEditTitle(story.title);
+    setEditDescription(story.description || '');
+    setEditStatus(story.status);
+    setEditPriority(story.priority);
+    setEditPerson(story.person || '');
+    setEditDueDate(story.dueDate ? new Date(story.dueDate).toISOString().slice(0, 10) : '');
+    setEditHours(String(story.estimatedEffortHours || 0));
+    setEditTags((story.tags || []).join(', '));
+    setIsEditing(true);
+  };
+
+  const saveEdits = () => {
+    updateStory({
+      id: story.id,
+      data: {
+        title: editTitle.trim() || story.title,
+        description: editDescription.trim(),
+        status: editStatus,
+        priority: editPriority,
+        person: editPerson.trim(),
+        dueDate: editDueDate ? new Date(editDueDate) : undefined,
+        estimatedEffortHours: parseInt(editHours) || 0,
+        tags: editTags ? editTags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      }
+    }, {
+      onSuccess: () => {
+        setIsEditing(false);
+        toast({ title: 'Story updated successfully' });
+      }
+    });
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20">
+        <DialogContent className="max-w-4xl h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 [&>button]:hidden">
           <div className="flex h-full overflow-hidden">
             {/* Left Sidebar: Meta & Status */}
             <ScrollArea className="w-72 bg-muted/30 border-r border-white/10">
@@ -340,35 +382,93 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
               <div className="p-6 border-b border-white/10">
                 <DialogHeader>
                   <div className="flex items-start justify-between gap-4">
-                    <DialogTitle className="text-2xl font-bold leading-tight">{story.title}</DialogTitle>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className={cn("rounded-full h-8 w-8", showAttachmentUpload && "bg-primary/10 border-primary")}
-                        onClick={() => setShowAttachmentUpload(!showAttachmentUpload)}
-                        data-testid="button-attachment"
-                      >
-                        <Paperclip className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className={cn("rounded-full h-8 w-8", showTimeLog && "bg-primary/10 border-primary")}
-                        onClick={() => setShowTimeLog(!showTimeLog)}
-                        data-testid="button-time-log"
-                      >
-                        <Clock className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-full h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        data-testid="button-delete-story"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <DialogTitle className="text-2xl font-bold leading-tight pr-2">
+                      {isEditing ? (
+                        <Input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="text-2xl font-bold bg-white/60 border-primary/40 h-auto py-1"
+                          data-testid="input-edit-title"
+                        />
+                      ) : story.title}
+                    </DialogTitle>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full h-8 w-8 text-green-600 border-green-300 hover:bg-green-50"
+                            onClick={saveEdits}
+                            data-testid="button-save-story"
+                            title="Save changes"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full h-8 w-8"
+                            onClick={() => setIsEditing(false)}
+                            title="Cancel editing"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full h-8 w-8 text-primary hover:bg-primary/10 hover:border-primary"
+                            onClick={startEditing}
+                            data-testid="button-edit-story"
+                            title="Edit story"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className={cn("rounded-full h-8 w-8", showAttachmentUpload && "bg-primary/10 border-primary")}
+                            onClick={() => setShowAttachmentUpload(!showAttachmentUpload)}
+                            data-testid="button-attachment"
+                            title="Attach file"
+                          >
+                            <Paperclip className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className={cn("rounded-full h-8 w-8", showTimeLog && "bg-primary/10 border-primary")}
+                            onClick={() => setShowTimeLog(!showTimeLog)}
+                            data-testid="button-time-log"
+                            title="Log time"
+                          >
+                            <Clock className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            data-testid="button-delete-story"
+                            title="Delete story"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full h-8 w-8 ml-1"
+                            onClick={() => onOpenChange(false)}
+                            data-testid="button-close-story"
+                            title="Close"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <DialogDescription className="mt-2 text-base">
@@ -481,12 +581,105 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                 <ScrollArea className="flex-1">
                   <div className="p-6">
                     <TabsContent value="details" className="mt-0 space-y-6 outline-none">
-                      <div className="space-y-2">
-                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
-                        <div className="min-h-[150px] p-4 rounded-lg bg-white/40 border border-white/20 text-sm leading-relaxed">
-                          {story.description || 'No description provided.'}
+                      {isEditing ? (
+                        <div className="space-y-4 p-4 rounded-xl border border-primary/20 bg-primary/5">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wider">Editing Story</p>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Description</Label>
+                            <Textarea
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              className="bg-white/60 min-h-[120px] resize-none"
+                              placeholder="Story description..."
+                              data-testid="input-edit-description"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs">Status</Label>
+                              <select
+                                value={editStatus}
+                                onChange={(e) => setEditStatus(e.target.value)}
+                                className="w-full h-9 rounded-md border border-input bg-white/60 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                data-testid="select-edit-status"
+                              >
+                                <option value="To Do">To Do</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Blocked">Blocked</option>
+                                <option value="Review">Review</option>
+                                <option value="Done">Done</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Priority</Label>
+                              <select
+                                value={editPriority}
+                                onChange={(e) => setEditPriority(e.target.value)}
+                                className="w-full h-9 rounded-md border border-input bg-white/60 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                data-testid="select-edit-priority"
+                              >
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Assignee</Label>
+                              <Input
+                                value={editPerson}
+                                onChange={(e) => setEditPerson(e.target.value)}
+                                className="bg-white/60"
+                                placeholder="Assignee name"
+                                data-testid="input-edit-person"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Due Date</Label>
+                              <Input
+                                type="date"
+                                value={editDueDate}
+                                onChange={(e) => setEditDueDate(e.target.value)}
+                                className="bg-white/60"
+                                data-testid="input-edit-due-date"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Estimated Hours</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={editHours}
+                                onChange={(e) => setEditHours(e.target.value)}
+                                className="bg-white/60"
+                                data-testid="input-edit-hours"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">Tags (comma-separated)</Label>
+                              <Input
+                                value={editTags}
+                                onChange={(e) => setEditTags(e.target.value)}
+                                className="bg-white/60"
+                                placeholder="e.g. payment, followup"
+                                data-testid="input-edit-tags"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end pt-2">
+                            <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                            <Button size="sm" onClick={saveEdits} className="gap-1">
+                              <Check className="h-3 w-3" /> Save Changes
+                            </Button>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
+                          <div className="min-h-[150px] p-4 rounded-lg bg-white/40 border border-white/20 text-sm leading-relaxed">
+                            {story.description || 'No description provided.'}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">

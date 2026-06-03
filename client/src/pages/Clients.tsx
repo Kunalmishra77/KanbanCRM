@@ -55,10 +55,11 @@ function getHealthScore(client: ClientData, stories: any[]): { score: number; la
   const received = Number(client.revenueTotal || 0);
   const revenueScore = expected > 0 ? Math.min((received / expected) * 40, 40) : 20;
 
-  const stageScore = client.stage === 'Hot' ? 20 : client.stage === 'Warm' ? 15 : client.stage === 'Cold' ? 8 : 0;
+  const stageScore = client.stage === 'Hot' ? 20 : client.stage === 'Warm' ? 15 : client.stage === 'Cold' ? 8 : client.stage === 'Hold' ? 10 : 0;
 
   const total_score = Math.round(progressScore + revenueScore + stageScore);
   if (client.stage === 'Dropped') return { score: 0, label: 'Inactive', color: 'bg-gray-100 text-gray-500' };
+  if (client.stage === 'Hold') return { score: total_score, label: 'On Hold', color: 'bg-amber-100 text-amber-700' };
   if (total_score >= 65) return { score: total_score, label: 'Healthy', color: 'bg-green-100 text-green-700' };
   if (total_score >= 35) return { score: total_score, label: 'At Risk', color: 'bg-yellow-100 text-yellow-700' };
   return { score: total_score, label: 'Critical', color: 'bg-red-100 text-red-700' };

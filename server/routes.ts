@@ -89,6 +89,57 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/clients/:id/timeline", isAuthenticated, async (req: any, res) => {
+    try {
+      const clientId = req.params.id;
+      
+      const [clientStories, clientInvoices, clientComms, allActivity] = await Promise.all([
+        storage.getStoriesByClient(clientId),
+        storage.getInvoicesByClient(clientId),
+        storage.getCommunicationsByClient(clientId),
+        storage.getActivityLog(1000) // fetch more for timeline
+      ]);
+
+      const storyIds = new Set(clientStories.map(s => s.id));
+      
+      const timeline: any[] = [];
+      
+      // Add stories
+      clientStories.forEach(s => {
+        timeline.push({ id: `story-${s.id}`, type: 'story', date: s.createdAt, data: s });
+      });
+      
+      // Add invoices
+      clientInvoices.forEach(i => {
+        timeline.push({ id: `invoice-${i.id}`, type: 'invoice', date: i.createdAt, data: i });
+      });
+      
+      // Add communications
+      clientComms.forEach(c => {
+        timeline.push({ id: `comm-${c.id}`, type: 'communication', date: c.loggedAt, data: c });
+      });
+      
+      // Add relevant activity
+      allActivity.forEach(a => {
+        if (
+          (a.entityType === 'client' && a.entityId === clientId) ||
+          (a.entityType === 'story' && storyIds.has(a.entityId)) ||
+          (a.entityType === 'invoice' && clientInvoices.some(i => i.id === a.entityId))
+        ) {
+          timeline.push({ id: `activity-${a.id}`, type: 'activity', date: a.createdAt, data: a });
+        }
+      });
+      
+      // Sort by date descending
+      timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      res.json(timeline);
+    } catch (error) {
+      console.error('Get timeline error:', error);
+      res.status(500).json({ error: "Failed to fetch timeline" });
+    }
+  });
+
   app.post("/api/clients", isAuthenticated, async (req: any, res) => {
     try {
       const data = insertClientSchema.parse(req.body);
@@ -273,6 +324,17 @@ export async function registerRoutes(
         storyId: req.params.storyId,
       });
       const comment = await storage.createComment(data);
+
+      if (req.user?.id) {
+        await storage.createActivityLog({
+          entityType: 'comment',
+          entityId: comment.id,
+          action: 'created',
+          userId: req.user.id,
+          details: `Added comment to story`,
+        });
+      }
+
       res.status(201).json(comment);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -608,6 +670,16 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
 
+      if (req.user?.id) {
+        await storage.createActivityLog({
+          entityType: 'user',
+          entityId: user.id,
+          action: 'updated',
+          userId: req.user.id,
+          details: `Updated user profile for ${user.firstName || user.email}`,
+        });
+      }
+
       res.json(user);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -807,6 +879,17 @@ export async function registerRoutes(
       }
       const data = insertLeadSchema.parse({ ...req.body, ownerId: req.user.id });
       const lead = await storage.createLead(data);
+
+      if (req.user?.id) {
+        await storage.createActivityLog({
+          entityType: 'lead',
+          entityId: lead.id,
+          action: 'created',
+          userId: req.user.id,
+          details: `Created lead: ${lead.name}`,
+        });
+      }
+
       res.status(201).json(lead);
     } catch (error) {
       if (error instanceof ZodError) {

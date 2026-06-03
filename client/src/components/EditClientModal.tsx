@@ -25,7 +25,7 @@ const INDUSTRIES = [
   "Other"
 ];
 
-const STAGES = ["Hot", "Warm", "Cold", "Dropped"];
+const STAGES = ["Hot", "Warm", "Cold", "Hold", "Dropped"];
 
 interface ClientEditData {
   id: string;

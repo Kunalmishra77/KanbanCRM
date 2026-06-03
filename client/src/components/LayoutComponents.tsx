@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity } from "lucide-react";
 import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -36,6 +36,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { icon: Megaphone, label: "Announcements", href: "/announcements", ownerOnly: false, hrOrOwnerOnly: false },
     { icon: Wallet, label: "Salary & Incentives", href: "/salary", ownerOnly: false, hrOrOwnerOnly: true },
     { icon: Building2, label: "Internal", href: "/internal", ownerOnly: true, hrOrOwnerOnly: false },
+    { icon: Activity, label: "Audit Log", href: "/audit-log", ownerOnly: false, hrOrOwnerOnly: true },
   ];
 
   const navItems = allNavItems.filter(item => {

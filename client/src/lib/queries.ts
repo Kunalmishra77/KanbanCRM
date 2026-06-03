@@ -18,6 +18,18 @@ export function useClient(id: string) {
   });
 }
 
+export function useClientTimeline(id: string) {
+  return useQuery({
+    queryKey: ['clients', id, 'timeline'],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${id}/timeline`);
+      if (!res.ok) throw new Error('Failed to fetch timeline');
+      return res.json();
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCreateClient() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

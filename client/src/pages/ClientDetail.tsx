@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
+import { EntityTimeline } from "@/components/EntityTimeline";
 import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useCommunications, useCreateCommunication, useDeleteCommunication } from "@/lib/queries";
 import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -292,8 +293,9 @@ export default function ClientDetail() {
             <Badge className={
               client.stage === 'Hot' ? "bg-red-500 hover:bg-red-600" :
                 client.stage === 'Warm' ? "bg-orange-500 hover:bg-orange-600" :
-                  client.stage === 'Dropped' ? "bg-gray-500 hover:bg-gray-600" :
-                    "bg-blue-500 hover:bg-blue-600"
+                  client.stage === 'Hold' ? "bg-amber-500 hover:bg-amber-600" :
+                    client.stage === 'Dropped' ? "bg-gray-500 hover:bg-gray-600" :
+                      "bg-blue-500 hover:bg-blue-600"
             }>
               {client.stage}
             </Badge>
@@ -342,7 +344,17 @@ export default function ClientDetail() {
           <TabsTrigger value="communications" data-testid="tab-communications">
             Communications ({communications.length})
           </TabsTrigger>
+          <TabsTrigger value="timeline" data-testid="tab-timeline">
+            Timeline
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="timeline" className="flex-1 min-h-0 mt-4 overflow-auto">
+          <div className="max-w-3xl mx-auto macos-card p-6 min-h-[500px]">
+            <h2 className="text-xl font-bold mb-4">Complete Client History</h2>
+            <EntityTimeline clientId={client.id} />
+          </div>
+        </TabsContent>
 
         <TabsContent value="kanban" className="flex-1 min-h-0 mt-4">
           <KanbanBoard

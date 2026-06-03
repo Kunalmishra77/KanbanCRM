@@ -12,6 +12,7 @@ import type { Client, Story, ActivityLog } from "@shared/schema";
 import { useState, useMemo } from "react";
 import { useSalaryRecords, useIncentives } from "@/lib/queries";
 import { format, subMonths } from "date-fns";
+import { getStoryBottleneck } from "@/lib/bottleneck";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -73,6 +74,8 @@ export default function Dashboard() {
   const completedStories = stories.filter(s => s.status === 'Done').length;
   const completionRate = Math.round((completedStories / totalStories) * 100) || 0;
   const collectionRate = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0;
+  
+  const bottleneckStories = stories.map(s => ({ story: s, bottleneck: getStoryBottleneck(s) })).filter(item => item.bottleneck !== null);
 
   const revenueData = clients.map(c => ({
     name: c.name.split(' ')[0], 
@@ -518,6 +521,44 @@ export default function Dashboard() {
                     <Bar dataKey="incentive" name="Incentive" fill="url(#payrollIncentiveGrad)" radius={[5,5,0,0]} barSize={20} />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Bottlenecks Card */}
+      {bottleneckStories.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-orange-500" />
+            Active Bottlenecks
+            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{bottleneckStories.length}</span>
+          </h2>
+          <Card className="macos-card border-none shadow-sm overflow-hidden">
+            <CardContent className="p-0">
+              <div className="divide-y divide-black/5">
+                {bottleneckStories.map(({story, bottleneck}: any) => {
+                  const client = clients.find(c => c.id === story.clientId);
+                  const borderClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('border-'))?.replace('border-', 'border-l-4 border-') || 'border-l-4 border-gray-400';
+                  const bgClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('bg-')) || 'bg-gray-50';
+                  const textClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('text-')) || 'text-gray-700';
+                  
+                  return (
+                    <div key={story.id} className={cn("flex items-center justify-between p-4", borderClass, bgClass, textClass)}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{story.title}</p>
+                        <p className="text-xs opacity-80 mt-1">{client?.name} · Assignee: {story.person || 'Unassigned'}</p>
+                      </div>
+                      <div className="text-sm font-medium pl-4 text-right">
+                         <div className="flex items-center gap-1.5 justify-end">
+                            <span className="bg-white/60 px-2 py-0.5 rounded-md shadow-sm border border-black/5 uppercase tracking-wide text-[10px]">{bottleneck.type}</span>
+                         </div>
+                         <p className="text-xs mt-1 opacity-90">{bottleneck.description}</p>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>

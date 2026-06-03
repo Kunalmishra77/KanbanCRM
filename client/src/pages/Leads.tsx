@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useLeads, useCreateLead, useUpdateLead, useDeleteLead } from "@/lib/queries";
-import { useIsOwner } from "@/lib/auth";
+import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useCreateClient } from "@/lib/queries";
+import { useIsOwner, useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Trash2, Pencil, Loader2, Trophy, IndianRupee } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, MoreHorizontal, Trash2, Pencil, Loader2, Trophy, IndianRupee, ArrowRightLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const LEAD_STAGES = ['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Won', 'Lost'] as const;
+const LEAD_STAGES = ['New', 'Contacted', 'Proposal Sent', 'Negotiation', 'Hold', 'Won', 'Lost'] as const;
 type LeadStage = typeof LEAD_STAGES[number];
 
 const INDUSTRIES = [
@@ -25,6 +25,7 @@ const STAGE_COLORS: Record<LeadStage, string> = {
   Contacted: "bg-purple-500/10 text-purple-600 border-purple-200",
   "Proposal Sent": "bg-orange-500/10 text-orange-600 border-orange-200",
   Negotiation: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
+  Hold: "bg-amber-500/10 text-amber-700 border-amber-200",
   Won: "bg-green-500/10 text-green-600 border-green-200",
   Lost: "bg-gray-500/10 text-gray-600 border-gray-200",
 };
@@ -34,6 +35,7 @@ const STAGE_HEADER_COLORS: Record<LeadStage, string> = {
   Contacted: "border-t-purple-500",
   "Proposal Sent": "border-t-orange-500",
   Negotiation: "border-t-yellow-500",
+  Hold: "border-t-amber-500",
   Won: "border-t-green-500",
   Lost: "border-t-gray-400",
 };
@@ -77,13 +79,26 @@ export default function Leads() {
   const { mutate: createLead, isPending: isCreating } = useCreateLead();
   const { mutate: updateLead, isPending: isUpdating } = useUpdateLead();
   const { mutate: deleteLead } = useDeleteLead();
+  const { mutate: createClient, isPending: isConverting } = useCreateClient();
   const isOwner = useIsOwner();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [convertingLead, setConvertingLead] = useState<Lead | null>(null);
   const [form, setForm] = useState<LeadForm>(defaultForm);
+  const [convertForm, setConvertForm] = useState({
+    name: '',
+    industry: '',
+    stage: 'Hot',
+    contactName: '',
+    contactEmail: '',
+    contactPhone: '',
+    expectedRevenue: '',
+    notes: '',
+  });
 
   const leadsByStage = LEAD_STAGES.reduce((acc, stage) => {
     acc[stage] = leads.filter((l: Lead) => l.stage === stage);
@@ -111,6 +126,20 @@ export default function Leads() {
     setIsAddOpen(true);
   };
 
+  const openConvertModal = (lead: Lead) => {
+    setConvertingLead(lead);
+    setConvertForm({
+      name: lead.name,
+      industry: lead.industry || '',
+      stage: 'Hot',
+      contactName: lead.contactName || '',
+      contactEmail: lead.contactEmail || '',
+      contactPhone: lead.contactPhone || '',
+      expectedRevenue: lead.estimatedValue ? String(lead.estimatedValue) : '',
+      notes: lead.notes || '',
+    });
+  };
+
   const handleSubmit = () => {
     if (!form.name.trim()) {
       toast({ title: "Company name is required", variant: "destructive" });
@@ -131,6 +160,35 @@ export default function Leads() {
     } else {
       createLead(data, { onSuccess: () => setIsAddOpen(false) });
     }
+  };
+
+  const handleConvert = () => {
+    if (!convertingLead || !user?.id) return;
+    if (!convertForm.name.trim() || !convertForm.industry) {
+      toast({ title: "Company name and industry are required", variant: "destructive" });
+      return;
+    }
+    const revenueValue = parseFloat(convertForm.expectedRevenue.replace(/[^0-9.]/g, '')) || 0;
+    createClient({
+      name: convertForm.name.trim(),
+      industry: convertForm.industry,
+      stage: convertForm.stage,
+      ownerId: user.id,
+      averageProgress: '0',
+      expectedRevenue: revenueValue.toString(),
+      revenueTotal: '0',
+      notes: convertForm.notes.trim() || null,
+      contactName: convertForm.contactName.trim() || null,
+      contactEmail: convertForm.contactEmail.trim() || null,
+      contactPhone: convertForm.contactPhone.trim() || null,
+    }, {
+      onSuccess: () => {
+        // Move lead to Won
+        updateLead({ id: convertingLead.id, data: { stage: 'Won' } });
+        setConvertingLead(null);
+        toast({ title: '🎉 Lead converted!', description: `${convertForm.name} is now a client.` });
+      }
+    });
   };
 
   const handleDelete = () => {
@@ -223,6 +281,14 @@ export default function Leads() {
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-green-600 focus:text-green-700"
+                              onClick={() => openConvertModal(lead)}
+                            >
+                              <ArrowRightLeft className="h-4 w-4 mr-2" />
+                              Convert to Client
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive cursor-pointer"
                               onClick={() => setLeadToDelete(lead)}
@@ -393,6 +459,113 @@ export default function Leads() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Convert to Client Modal */}
+      <Dialog open={!!convertingLead} onOpenChange={(open) => !open && setConvertingLead(null)}>
+        <DialogContent className="macos-panel sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-green-600" />
+              Convert Lead to Client
+            </DialogTitle>
+            <DialogDescription>
+              Review and confirm the client details. The lead will be moved to "Won".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="convert-name">Company Name *</Label>
+                <Input
+                  id="convert-name"
+                  value={convertForm.name}
+                  onChange={(e) => setConvertForm(p => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="convert-industry">Industry *</Label>
+                <select
+                  id="convert-industry"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={convertForm.industry}
+                  onChange={(e) => setConvertForm(p => ({ ...p, industry: e.target.value }))}
+                >
+                  <option value="">Select industry</option>
+                  {INDUSTRIES.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="convert-stage">Client Stage</Label>
+                <select
+                  id="convert-stage"
+                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={convertForm.stage}
+                  onChange={(e) => setConvertForm(p => ({ ...p, stage: e.target.value }))}
+                >
+                  <option value="Hot">Hot</option>
+                  <option value="Warm">Warm</option>
+                  <option value="Cold">Cold</option>
+                  <option value="Hold">Hold</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="convert-contact-name">Contact Name</Label>
+                <Input
+                  id="convert-contact-name"
+                  value={convertForm.contactName}
+                  onChange={(e) => setConvertForm(p => ({ ...p, contactName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="convert-contact-email">Contact Email</Label>
+                <Input
+                  id="convert-contact-email"
+                  type="email"
+                  value={convertForm.contactEmail}
+                  onChange={(e) => setConvertForm(p => ({ ...p, contactEmail: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="convert-contact-phone">Contact Phone</Label>
+                <Input
+                  id="convert-contact-phone"
+                  value={convertForm.contactPhone}
+                  onChange={(e) => setConvertForm(p => ({ ...p, contactPhone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="convert-revenue">Expected Revenue (₹)</Label>
+                <Input
+                  id="convert-revenue"
+                  type="number"
+                  value={convertForm.expectedRevenue}
+                  onChange={(e) => setConvertForm(p => ({ ...p, expectedRevenue: e.target.value }))}
+                />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="convert-notes">Notes</Label>
+                <Textarea
+                  id="convert-notes"
+                  value={convertForm.notes}
+                  onChange={(e) => setConvertForm(p => ({ ...p, notes: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertingLead(null)}>Cancel</Button>
+            <Button
+              onClick={handleConvert}
+              disabled={isConverting}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2"
+            >
+              {isConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+              Convert to Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
