@@ -363,7 +363,7 @@ export default function Leads() {
             return (
               <div
                 key={stage}
-                className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm h-full`}
+                className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 h-full`}
               >
                 {/* Column Header */}
                 <div className="px-4 py-3 flex items-center justify-between shrink-0">
