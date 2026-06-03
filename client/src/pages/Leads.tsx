@@ -382,6 +382,7 @@ export default function Leads() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
+                              style={provided.draggableProps.style}
                               className={`macos-card p-3 space-y-2 relative group/card cursor-pointer hover:border-primary/30 transition-colors ${snapshot.isDragging ? "shadow-2xl shadow-primary/20 scale-[1.02] rotate-1 z-50 ring-2 ring-primary border-transparent" : ""}`}
                               onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
                               onMouseUp={(e) => handleEnd(e.clientX, e.clientY, lead)}
@@ -413,6 +414,10 @@ export default function Leads() {
                                         size="icon"
                                         className="h-6 w-6 flex-shrink-0"
                                         onClick={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onMouseUp={(e) => e.stopPropagation()}
+                                        onTouchStart={(e) => e.stopPropagation()}
+                                        onTouchEnd={(e) => e.stopPropagation()}
                                       >
                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                       </Button>

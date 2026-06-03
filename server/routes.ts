@@ -266,7 +266,11 @@ export async function registerRoutes(
 
   app.patch("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const data = updateStorySchema.parse(req.body);
+      const body = { ...req.body };
+      if (body.dueDate) {
+        body.dueDate = new Date(body.dueDate);
+      }
+      const data = updateStorySchema.parse(body);
       const story = await storage.updateStory(req.params.id, data);
 
       if (!story) {
