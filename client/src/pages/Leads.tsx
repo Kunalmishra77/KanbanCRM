@@ -435,7 +435,15 @@ export default function Leads() {
                                         <MoreHorizontal className="h-3.5 w-3.5" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="macos-panel">
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="macos-panel"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onMouseUp={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => e.stopPropagation()}
+                                      onTouchEnd={(e) => e.stopPropagation()}
+                                    >
                                       <DropdownMenuItem
                                         className="cursor-pointer"
                                         onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
