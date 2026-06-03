@@ -172,6 +172,21 @@ export default function Leads() {
   const [localLeads, setLocalLeads] = useState<Lead[]>([]);
   const pendingMoves = useRef<Set<string>>(new Set());
 
+  const clickStart = useRef({ x: 0, y: 0, time: 0 });
+
+  const handleStart = (clientX: number, clientY: number) => {
+    clickStart.current = { x: clientX, y: clientY, time: Date.now() };
+  };
+
+  const handleEnd = (clientX: number, clientY: number, lead: Lead) => {
+    const deltaX = Math.abs(clientX - clickStart.current.x);
+    const deltaY = Math.abs(clientY - clickStart.current.y);
+    const deltaTime = Date.now() - clickStart.current.time;
+    if (deltaX < 5 && deltaY < 5 && deltaTime < 300) {
+      openEditModal(lead);
+    }
+  };
+
   useEffect(() => {
     setLocalLeads(prevLocal => {
       return leads.map((lead: Lead) => {
@@ -330,16 +345,16 @@ export default function Leads() {
 
       {/* Kanban Columns */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start">
+        <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start h-[calc(100vh-220px)] min-h-[500px]">
           {LEAD_STAGES.map((stage) => {
             const stageLeads = leadsByStage[stage];
             return (
               <div
                 key={stage}
-              className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm`}
+                className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 backdrop-blur-sm h-full`}
               >
                 {/* Column Header */}
-                <div className="px-4 py-3 flex items-center justify-between">
+                <div className="px-4 py-3 flex items-center justify-between shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm">{stage}</span>
                     <Badge variant="outline" className="text-xs h-5 px-1.5">
@@ -353,7 +368,7 @@ export default function Leads() {
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className={`px-3 pb-3 pt-1 space-y-3 min-h-[80px] rounded-b-xl transition-colors ${snapshot.isDraggingOver ? "bg-primary/8 ring-1 ring-primary/20" : ""}`}
+                      className={`px-3 pb-3 pt-1 space-y-3 min-h-[80px] rounded-b-xl transition-colors flex-1 overflow-y-auto no-scrollbar ${snapshot.isDraggingOver ? "bg-primary/8 ring-1 ring-primary/20" : ""}`}
                     >
                       {stageLeads.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground text-xs">
@@ -368,7 +383,16 @@ export default function Leads() {
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               className={`macos-card p-3 space-y-2 relative group/card cursor-pointer hover:border-primary/30 transition-colors ${snapshot.isDragging ? "shadow-2xl shadow-primary/20 scale-[1.02] rotate-1 z-50 ring-2 ring-primary border-transparent" : ""}`}
-                              onClick={() => openEditModal(lead)}
+                              onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+                              onMouseUp={(e) => handleEnd(e.clientX, e.clientY, lead)}
+                              onTouchStart={(e) => {
+                                const touch = e.touches[0];
+                                if (touch) handleStart(touch.clientX, touch.clientY);
+                              }}
+                              onTouchEnd={(e) => {
+                                const touch = e.changedTouches[0];
+                                if (touch) handleEnd(touch.clientX, touch.clientY, lead);
+                              }}
                             >
                               {/* Won celebration badge */}
                               {lead.stage === "Won" && (

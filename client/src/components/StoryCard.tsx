@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +112,21 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
     bottleneck.color.includes('orange') ? '#f97316' : 
     bottleneck.color.includes('yellow') ? '#eab308' : undefined : undefined;
 
+  const clickStart = useRef({ x: 0, y: 0, time: 0 });
+
+  const handleStart = (clientX: number, clientY: number) => {
+    clickStart.current = { x: clientX, y: clientY, time: Date.now() };
+  };
+
+  const handleEnd = (clientX: number, clientY: number) => {
+    const deltaX = Math.abs(clientX - clickStart.current.x);
+    const deltaY = Math.abs(clientY - clickStart.current.y);
+    const deltaTime = Date.now() - clickStart.current.time;
+    if (deltaX < 5 && deltaY < 5 && deltaTime < 300) {
+      onClick(story);
+    }
+  };
+
   return (
     <Draggable draggableId={story.id} index={index}>
       {(provided, snapshot) => (
@@ -123,7 +139,16 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
             snapshot.isDragging && "z-50 opacity-95"
           )}
           style={provided.draggableProps.style}
-          onClick={() => onClick(story)}
+          onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+          onMouseUp={(e) => handleEnd(e.clientX, e.clientY)}
+          onTouchStart={(e) => {
+            const touch = e.touches[0];
+            if (touch) handleStart(touch.clientX, touch.clientY);
+          }}
+          onTouchEnd={(e) => {
+            const touch = e.changedTouches[0];
+            if (touch) handleEnd(touch.clientX, touch.clientY);
+          }}
         >
           <Card
             className={cn(

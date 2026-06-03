@@ -75,9 +75,9 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
           const columnStories = localStories.filter((s: Story) => s.status === status);
 
           return (
-            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[300px] flex flex-col snap-center shrink-0">
+            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[300px] flex flex-col snap-center shrink-0 h-full">
               {/* Column Header */}
-              <div className="flex items-center justify-between mb-3 px-2">
+              <div className="flex items-center justify-between mb-3 px-2 shrink-0">
                 <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <span className={cn(
                     "w-2 h-2 rounded-full",
@@ -94,14 +94,14 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
                 </span>
               </div>
 
-              {/* Droppable zone — no overflow-y, cards flow naturally */}
+              {/* Droppable zone — internal scroll for stories, hidden scrollbar */}
               <Droppable droppableId={status}>
                 {(provided, snapshot) => (
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
                     className={cn(
-                      "rounded-xl p-2 min-h-[120px] transition-colors",
+                      "rounded-xl p-2 min-h-[120px] transition-colors flex-1 overflow-y-auto no-scrollbar",
                       snapshot.isDraggingOver
                         ? "bg-primary/10 ring-2 ring-primary/20"
                         : "bg-white/20 dark:bg-black/20"

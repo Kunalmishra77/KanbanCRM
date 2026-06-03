@@ -109,7 +109,7 @@ export type Comment = typeof comments.$inferSelect;
 export const activityLog = pgTable("activity_log", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   entityType: text("entity_type").notNull(),
-  entityId: uuid("entity_id").notNull(),
+  entityId: text("entity_id").notNull(),
   action: text("action").notNull(),
   userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
   details: text("details").notNull(),

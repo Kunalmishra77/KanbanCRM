@@ -203,7 +203,7 @@ export default function GlobalKanban() {
         </div>
       </div>
 
-      <div className="overflow-x-auto pb-4">
+      <div className="overflow-x-auto pb-4 h-[calc(100vh-220px)] min-h-[500px]">
         <KanbanBoard
           stories={filteredStories}
           onStoryMove={handleStoryMove}

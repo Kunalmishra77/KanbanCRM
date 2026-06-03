@@ -777,7 +777,7 @@ export async function registerRoutes(
         { email: 'myai@ai-agentix.com', firstName: 'MyAI', lastName: 'Admin', userType: 'co-founder', role: 'admin' },
       ];
       
-      const { db } = await import("./db.js");
+      const { db } = await import("../db/index.js");
       const { users } = await import("../shared/schema.js");
       const { eq } = await import("drizzle-orm");
       const { randomUUID } = await import("crypto");
