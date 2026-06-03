@@ -110,13 +110,13 @@ export default function Internal() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Internal Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Internal Dashboard</h1>
         <p className="text-muted-foreground">Co-founder exclusive view of team, investments, and shareholding.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="macos-card border-none" data-testid="stat-card-team">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-blue-100/50">
                 <Users className="h-6 w-6 text-blue-600" />
@@ -133,7 +133,7 @@ export default function Internal() {
         </Card>
 
         <Card className="macos-card border-none" data-testid="stat-card-investment">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-green-100/50">
                 <IndianRupee className="h-6 w-6 text-green-600" />
@@ -150,7 +150,7 @@ export default function Internal() {
         </Card>
 
         <Card className="macos-card border-none" data-testid="stat-card-shareholding">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-purple-100/50">
                 <PieChart className="h-6 w-6 text-purple-600" />
@@ -168,7 +168,7 @@ export default function Internal() {
       </div>
 
       <Tabs defaultValue="team" className="space-y-6">
-        <TabsList className="macos-card border-none p-1">
+        <TabsList className="macos-card border-none p-1 w-full">
           <TabsTrigger value="team" data-testid="tab-team" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Users className="h-4 w-4 mr-2" />
             Team
@@ -240,7 +240,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Building2 className="h-5 w-5 text-primary" />
           Co-Founders ({coFounders.length})
@@ -258,7 +258,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
               <DialogDescription>Pre-register an employee or co-founder so they can access the CRM when they log in.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>First Name</Label>
                   <Input value={newUser.firstName} onChange={e => setNewUser({ ...newUser, firstName: e.target.value })} />
@@ -420,7 +420,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
         </h3>
         {employees.length === 0 ? (
           <Card className="macos-card border-none">
-            <CardContent className="p-8 text-center text-muted-foreground">
+            <CardContent className="p-6 sm:p-8 text-center text-muted-foreground">
               No employees registered yet. New team members will appear here after they sign in.
             </CardContent>
           </Card>
@@ -570,7 +570,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">Investment Records</h3>
         <Dialog open={isAddingInvestment} onOpenChange={setIsAddingInvestment}>
           <DialogTrigger asChild>
@@ -666,7 +666,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
               {investments.map(inv => (
                 <div
                   key={inv.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/30"
                   data-testid={`investment-row-${inv.id}`}
                 >
                   <div className="flex items-center gap-3">
@@ -770,7 +770,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
           <CardContent className="space-y-4">
             {coFounders.map((user, index) => (
               <div key={user.id} className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded-full"
@@ -784,7 +784,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
               </div>
             ))}
             <div className="pt-4 border-t">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-gray-200" />
                   <span className="font-medium text-muted-foreground">Unallocated</span>
@@ -976,7 +976,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Company Documents</h3>
           <p className="text-sm text-muted-foreground">Shared internal documents for co-founders only.</p>
@@ -1035,7 +1035,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
               </div>
               <div className="space-y-2">
                 <Label>Document Source</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <Label htmlFor="doc-file" className="text-xs text-muted-foreground">Upload File</Label>
                     <Input

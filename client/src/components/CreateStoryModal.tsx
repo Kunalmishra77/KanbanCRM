@@ -103,15 +103,15 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="macos-panel border-none sm:max-w-[600px] p-0 overflow-hidden">
-        <div className="p-6 border-b border-black/5 bg-white/50">
+        <div className="p-4 sm:p-6 border-b border-black/5 bg-white/50">
           <DialogHeader>
             <DialogTitle className="text-xl">Create New Story</DialogTitle>
             <DialogDescription>Add a new task to track progress.</DialogDescription>
           </DialogHeader>
         </div>
         
-        <div className="p-6 space-y-6 bg-white/30">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-4 sm:p-6 space-y-6 bg-white/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Client *</Label>
               <Select value={clientId} onValueChange={setClientId}>
@@ -171,7 +171,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={setPriority}>
@@ -218,7 +218,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
           </div>
         </div>
 
-        <DialogFooter className="p-6 border-t border-black/5 bg-white/50">
+        <DialogFooter className="p-4 sm:p-6 border-t border-black/5 bg-white/50">
           <Button 
             variant="ghost" 
             onClick={() => onOpenChange(false)}

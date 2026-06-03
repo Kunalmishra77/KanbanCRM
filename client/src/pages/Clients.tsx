@@ -96,9 +96,9 @@ export default function Clients() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {stageFilter ? `${stageFilter} Clients` : 'Clients'}
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -108,11 +108,11 @@ export default function Clients() {
             }
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {stageFilter && (
             <Button 
               variant="outline"
-              className="gap-2"
+              className="w-full sm:w-auto gap-2"
               onClick={() => setLocation('/clients')}
               data-testid="button-clear-filter"
             >
@@ -122,7 +122,7 @@ export default function Clients() {
           )}
           {isHROrOwner && (
             <Button
-              className="gap-2 shadow-lg shadow-primary/20"
+              className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateOpen(true)}
               data-testid="button-new-client"
             >

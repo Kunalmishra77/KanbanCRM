@@ -334,11 +334,11 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 [&>button]:hidden">
+        <DialogContent className="max-w-4xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 [&>button]:hidden">
           <div className="flex h-full overflow-hidden">
             {/* Left Sidebar: Meta & Status */}
             <ScrollArea className="w-72 bg-muted/30 border-r border-white/10">
-              <div className="p-6 flex flex-col gap-6">
+              <div className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-6">
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status</h4>
                   <Badge variant="outline" className={cn(
@@ -409,7 +409,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
-              <div className="p-6 border-b border-white/10">
+              <div className="p-4 sm:p-6 border-b border-white/10">
                 <DialogHeader>
                   <div className="flex items-start justify-between gap-4">
                     <DialogTitle className="text-2xl font-bold leading-tight pr-2">
@@ -542,7 +542,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">Hours</Label>
                         <Input
@@ -576,7 +576,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                 <div className="px-6 pt-4 border-b border-white/10 bg-white/20">
-                  <TabsList className="bg-transparent p-0 gap-6 h-auto">
+                  <TabsList className="bg-transparent p-0 gap-4 sm:gap-6 h-auto w-full">
                     <TabsTrigger
                       value="details"
                       className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
@@ -609,7 +609,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                 </div>
 
                 <ScrollArea className="flex-1">
-                  <div className="p-6">
+                  <div className="p-4 sm:p-6">
                     <TabsContent value="details" className="mt-0 space-y-6 outline-none">
                       {isEditing ? (
                         <div className="space-y-4 p-4 rounded-xl border border-primary/20 bg-primary/5">
@@ -624,7 +624,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               data-testid="input-edit-description"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-2">
                               <Label className="text-xs">Status</Label>
                               <select
@@ -910,7 +910,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     </TabsContent>
 
                     <TabsContent value="email" className="mt-0 space-y-6 outline-none">
-                      <div className="grid gap-4 p-6 rounded-xl border border-white/20 bg-white/30">
+                      <div className="grid gap-4 p-4 sm:p-6 rounded-xl border border-white/20 bg-white/30">
                         <div className="flex items-center justify-between">
                           <h3 className="font-medium flex items-center gap-2">
                             <Mail className="h-4 w-4 text-primary" />

@@ -90,7 +90,7 @@ export function RevenueInsight() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="macos-card border-none">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-green-100/50">
                 <IndianRupee className="h-6 w-6 text-green-600" />
@@ -103,7 +103,7 @@ export function RevenueInsight() {
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-blue-100/50">
                 <Briefcase className="h-6 w-6 text-blue-600" />
@@ -116,7 +116,7 @@ export function RevenueInsight() {
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-xl bg-purple-100/50">
                 <TrendingUp className="h-6 w-6 text-purple-600" />
@@ -261,8 +261,8 @@ export function ClientsInsight() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="macos-card border-none bg-red-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">Hot Clients</p>
                 <p className="text-3xl font-bold text-red-600">{hotClients.length}</p>
@@ -274,8 +274,8 @@ export function ClientsInsight() {
           </CardContent>
         </Card>
         <Card className="macos-card border-none bg-yellow-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">Warm Clients</p>
                 <p className="text-3xl font-bold text-yellow-600">{warmClients.length}</p>
@@ -287,8 +287,8 @@ export function ClientsInsight() {
           </CardContent>
         </Card>
         <Card className="macos-card border-none bg-gray-50/50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">Cold Clients</p>
                 <p className="text-3xl font-bold text-gray-600">{coldClients.length}</p>
@@ -391,25 +391,25 @@ export function StoriesInsight() {
 
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-orange-600">{pendingStories.length}</p>
             <p className="text-sm text-muted-foreground">Total Pending</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-gray-600">{todoStories.length}</p>
             <p className="text-sm text-muted-foreground">To Do</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-blue-600">{inProgressStories.length}</p>
             <p className="text-sm text-muted-foreground">In Progress</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-purple-600">{reviewStories.length}</p>
             <p className="text-sm text-muted-foreground">In Review</p>
           </CardContent>
@@ -529,8 +529,8 @@ export function CompletionInsight() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
-        <Card className="macos-card border-none col-span-2 md:col-span-1">
-          <CardContent className="p-6">
+        <Card className="macos-card border-none md:col-span-1">
+          <CardContent className="p-4 sm:p-6">
             <div className="relative h-32 w-32 mx-auto">
               <svg className="w-full h-full transform -rotate-90">
                 <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-200" />
@@ -544,19 +544,19 @@ export function CompletionInsight() {
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-green-600">{completedStories.length}</p>
             <p className="text-sm text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-orange-600">{totalStories - completedStories.length}</p>
             <p className="text-sm text-muted-foreground">Pending</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
-          <CardContent className="p-6 text-center">
+          <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold">{totalStories}</p>
             <p className="text-sm text-muted-foreground">Total Stories</p>
           </CardContent>

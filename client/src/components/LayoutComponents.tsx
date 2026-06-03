@@ -180,8 +180,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const { user, logout } = useAuth();
 
   return (
-    <header className="h-14 sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 transition-all duration-200 bg-transparent">
-      <div className="flex items-center gap-3 flex-1 max-w-xl">
+    <header className="h-14 sticky top-0 z-40 flex items-center justify-between gap-2 px-3 sm:px-6 transition-all duration-200 bg-transparent">
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
         {/* Mobile hamburger */}
         <Button
           variant="ghost"
@@ -193,12 +193,12 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </Button>
 
         {/* Global Search */}
-        <div className="w-full max-w-sm">
+        <div className="w-full min-w-0 max-w-sm">
           <GlobalSearch />
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <NotificationsDropdown />
 
         <DropdownMenu>

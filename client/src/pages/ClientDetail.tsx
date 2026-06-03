@@ -279,7 +279,7 @@ export default function ClientDetail() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
+    <div className="min-h-[calc(100vh-8rem)] sm:h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
       <div className="flex flex-col gap-4 border-b border-white/10 pb-4">
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/clients">
@@ -301,9 +301,9 @@ export default function ClientDetail() {
             </Badge>
             {getContractEndDateBadge()}
           </div>
-          <div className="ml-auto flex gap-2 flex-shrink-0">
+          <div className="w-full sm:w-auto sm:ml-auto flex gap-2 flex-shrink-0">
             <Button
-              className="gap-2 shadow-lg shadow-primary/20"
+              className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateStoryOpen(true)}
               data-testid="button-add-story"
             >
@@ -334,7 +334,7 @@ export default function ClientDetail() {
       </div>
 
       <Tabs defaultValue="kanban" className="flex-1 min-h-0 flex flex-col">
-        <TabsList className="w-fit overflow-x-auto">
+        <TabsList className="w-full sm:w-fit overflow-x-auto">
           <TabsTrigger value="kanban" data-testid="tab-kanban">Kanban Board</TabsTrigger>
           {isOwner && (
             <TabsTrigger value="invoices" data-testid="tab-invoices">
@@ -350,7 +350,7 @@ export default function ClientDetail() {
         </TabsList>
 
         <TabsContent value="timeline" className="flex-1 min-h-0 mt-4 overflow-auto">
-          <div className="max-w-3xl mx-auto macos-card p-6 min-h-[500px]">
+          <div className="max-w-3xl mx-auto macos-card p-4 sm:p-6 min-h-[360px] sm:min-h-[500px]">
             <h2 className="text-xl font-bold mb-4">Complete Client History</h2>
             <EntityTimeline clientId={client.id} />
           </div>
@@ -390,7 +390,7 @@ export default function ClientDetail() {
 
             return (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <h3 className="font-semibold">Communication Logs</h3>
                   <Button
                     size="sm"
@@ -411,7 +411,7 @@ export default function ClientDetail() {
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : sortedComms.length === 0 ? (
-                  <div className="macos-card p-8 text-center">
+                  <div className="macos-card p-6 sm:p-8 text-center">
                     <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground">No communication logs yet</p>
                     <p className="text-sm text-muted-foreground">Log calls, meetings, emails and more.</p>
@@ -472,7 +472,7 @@ export default function ClientDetail() {
         <TabsContent value="invoices" className="flex-1 min-h-0 mt-4 overflow-auto">
           <div className="space-y-4">
             <div className="macos-card p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
                   <h3 className="font-semibold">Revenue Tracking</h3>
                   <p className="text-sm text-muted-foreground">
@@ -487,7 +487,7 @@ export default function ClientDetail() {
               <Progress value={revenueProgress} className="h-2" />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="font-semibold">Invoices</h3>
               <Button onClick={openAddInvoiceModal} size="sm" className="gap-2" data-testid="button-add-invoice">
                 <Plus className="h-4 w-4" />
@@ -500,7 +500,7 @@ export default function ClientDetail() {
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : invoices.length === 0 ? (
-              <div className="macos-card p-8 text-center">
+              <div className="macos-card p-6 sm:p-8 text-center">
                 <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                 <p className="text-muted-foreground">No invoices yet</p>
                 <p className="text-sm text-muted-foreground">Add invoices to track your revenue collection</p>
@@ -508,12 +508,12 @@ export default function ClientDetail() {
             ) : (
               <div className="space-y-2">
                 {invoices.map((invoice: Invoice) => (
-                  <div key={invoice.id} className="macos-card p-4 flex items-center justify-between" data-testid={`invoice-${invoice.id}`}>
-                    <div className="flex items-center gap-4">
+                  <div key={invoice.id} className="macos-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4" data-testid={`invoice-${invoice.id}`}>
+                    <div className="flex items-center gap-4 min-w-0">
                       <div className="p-2 rounded-lg bg-primary/10">
                         <FileText className="h-5 w-5 text-primary" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium">{invoice.label}</p>
                         <p className="text-sm text-muted-foreground">
                           {format(new Date(invoice.issuedOn), 'MMM d, yyyy')}
@@ -521,7 +521,7 @@ export default function ClientDetail() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       {invoice.status === 'paid' ? (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Paid</span>
                       ) : new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? (

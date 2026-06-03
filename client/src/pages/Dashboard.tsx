@@ -95,7 +95,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Overview</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Overview</h1>
         <p className="text-muted-foreground">Welcome back, {user?.firstName || 'there'}. Here's what's happening today.</p>
       </div>
 
@@ -107,7 +107,7 @@ export default function Dashboard() {
             onClick={() => setLocation('/insights/revenue')}
             data-testid="stat-card-revenue"
           >
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 rounded-xl bg-green-100/50">
                   <IndianRupee className="h-6 w-6 text-green-600" />
@@ -136,7 +136,7 @@ export default function Dashboard() {
           onClick={() => setLocation('/clients')}
           data-testid="stat-card-clients"
         >
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-blue-100/50">
                 <Briefcase className="h-6 w-6 text-blue-600" />
@@ -453,7 +453,7 @@ export default function Dashboard() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-3">
             <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="p-3 rounded-xl bg-primary/10">
                     <IndianRupee className="h-5 w-5 text-primary" />
@@ -466,7 +466,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="p-3 rounded-xl bg-amber-100/60">
                     <Gift className="h-5 w-5 text-amber-600" />
@@ -478,7 +478,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="p-3 rounded-xl bg-emerald-100/60">
                     <TrendingUp className="h-5 w-5 text-emerald-600" />
@@ -545,7 +545,7 @@ export default function Dashboard() {
                   const textClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('text-')) || 'text-gray-700';
                   
                   return (
-                    <div key={story.id} className={cn("flex items-center justify-between p-4", borderClass, bgClass, textClass)}>
+                    <div key={story.id} className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4", borderClass, bgClass, textClass)}>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{story.title}</p>
                         <p className="text-xs opacity-80 mt-1">{client?.name} · Assignee: {story.person || 'Unassigned'}</p>
@@ -602,8 +602,8 @@ function StatCard({ title, value, icon: Icon, trend, trendUp, color, bgColor, on
       onClick={onClick}
       data-testid={`stat-card-${title.toLowerCase().replace(/\s+/g, '-')}`}
     >
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
           <div className={cn("p-3 rounded-xl transition-colors", bgColor)}>
             <Icon className={cn("h-6 w-6", color)} />
           </div>

@@ -102,9 +102,9 @@ export default function Announcements() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Announcements</h1>
           <p className="text-muted-foreground mt-1">
             Company-wide notices and updates for the team.
           </p>
@@ -119,7 +119,7 @@ export default function Announcements() {
 
       {/* Announcements List */}
       {sorted.length === 0 ? (
-        <div className="macos-card p-16 text-center">
+        <div className="macos-card p-8 sm:p-16 text-center">
           <Megaphone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground font-medium">No announcements yet</p>
           {isOwner && (

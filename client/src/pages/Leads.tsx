@@ -357,7 +357,7 @@ export default function Leads() {
 
       {/* Kanban Columns */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start h-[calc(100vh-220px)] min-h-[500px]">
+        <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start h-[calc(100vh-190px)] sm:h-[calc(100vh-220px)] min-h-[420px] sm:min-h-[500px]">
           {LEAD_STAGES.map((stage) => {
             const stageLeads = leadsByStage[stage];
             return (
@@ -776,8 +776,8 @@ export default function Leads() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2 space-y-2">
                 <Label htmlFor="convert-name">Company Name *</Label>
                 <Input
                   id="convert-name"
@@ -845,7 +845,7 @@ export default function Leads() {
                   onChange={(e) => setConvertForm(p => ({ ...p, expectedRevenue: e.target.value }))}
                 />
               </div>
-              <div className="col-span-2 space-y-2">
+              <div className="sm:col-span-2 space-y-2">
                 <Label htmlFor="convert-notes">Notes</Label>
                 <Textarea
                   id="convert-notes"

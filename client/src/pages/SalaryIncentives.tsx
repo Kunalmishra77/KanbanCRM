@@ -202,7 +202,7 @@ export default function SalaryIncentives() {
       {/* Employee card grid */}
       <div>
         <Label className="text-sm font-medium mb-3 block text-muted-foreground uppercase tracking-wide text-xs">Select Employee</Label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {(allUsers as any[]).map((u: any) => {
             const { name, title, initials } = getEmployeeDisplay(u);
             const isSelected = u.id === selectedEmployeeId;
@@ -308,7 +308,7 @@ export default function SalaryIncentives() {
           </Card>
 
           <Tabs defaultValue="salary">
-            <TabsList>
+            <TabsList className="w-full sm:w-auto">
               <TabsTrigger value="salary">Salary Records</TabsTrigger>
               <TabsTrigger value="incentives">Incentives & Bonuses</TabsTrigger>
             </TabsList>
@@ -452,7 +452,7 @@ export default function SalaryIncentives() {
             <DialogTitle>Add New Employee</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>First Name *</Label>
                 <Input placeholder="e.g. Rahul" value={empForm.firstName} onChange={e => setEmpForm(f => ({ ...f, firstName: e.target.value }))} />
@@ -492,7 +492,7 @@ export default function SalaryIncentives() {
             <DialogTitle>{salaryModal.record ? "Edit Salary Record" : "Add Salary Record"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Period (YYYY-MM) *</Label>
                 <Input placeholder="2025-03" value={salaryForm.period} onChange={e => setSalaryForm(f => ({ ...f, period: e.target.value }))} />
@@ -521,7 +521,7 @@ export default function SalaryIncentives() {
             <DialogTitle>{incentiveModal.record ? "Edit Incentive" : "Add Incentive"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Period (YYYY-MM) *</Label>
                 <Input placeholder="2025-03" value={incentiveForm.period} onChange={e => setIncentiveForm(f => ({ ...f, period: e.target.value }))} />

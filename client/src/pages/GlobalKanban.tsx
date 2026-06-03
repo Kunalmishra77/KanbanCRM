@@ -102,12 +102,12 @@ export default function GlobalKanban() {
 
   return (
     <div className="flex flex-col space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Global Board</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Global Board</h1>
           <p className="text-muted-foreground">Manage tasks across all active client accounts.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full sm:w-auto items-center gap-3">
           <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" className="macos-input bg-white/50 gap-2">
@@ -194,7 +194,7 @@ export default function GlobalKanban() {
             </PopoverContent>
           </Popover>
           <Button
-            className="gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
+            className="flex-1 sm:flex-none gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white"
             onClick={() => setIsCreateOpen(true)}
           >
             <Plus className="h-4 w-4" />
@@ -203,7 +203,7 @@ export default function GlobalKanban() {
         </div>
       </div>
 
-      <div className="overflow-x-auto pb-4 h-[calc(100vh-220px)] min-h-[500px]">
+      <div className="overflow-x-auto pb-4 h-[calc(100vh-190px)] sm:h-[calc(100vh-220px)] min-h-[420px] sm:min-h-[500px]">
         <KanbanBoard
           stories={filteredStories}
           onStoryMove={handleStoryMove}

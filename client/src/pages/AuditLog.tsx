@@ -51,7 +51,7 @@ export default function AuditLog() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Audit Log</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Audit Log</h1>
         <p className="text-muted-foreground mt-1">Complete trail of all actions and changes across the system.</p>
       </div>
 

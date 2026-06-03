@@ -21,8 +21,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
         <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
-          <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 scroll-smooth">
+          <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6 pb-20">
             {children}
           </div>
         </main>

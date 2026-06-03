@@ -57,8 +57,8 @@ export function GlobalSearch() {
         className="relative group cursor-pointer"
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-        <div className="macos-input pl-9 pr-4 py-2 w-full sm:w-[240px] md:w-[320px] rounded-full text-sm text-muted-foreground flex items-center justify-between border border-black/10 shadow-sm bg-white/40 group-hover:bg-white/60 transition-colors">
-          <span>Search everything...</span>
+        <div className="macos-input pl-9 pr-3 sm:pr-4 py-2 w-full sm:w-[240px] md:w-[320px] rounded-full text-sm text-muted-foreground flex items-center justify-between border border-black/10 shadow-sm bg-white/40 group-hover:bg-white/60 transition-colors">
+          <span className="truncate">Search everything...</span>
           <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
             <span className="text-xs">⌘</span>K
           </kbd>
@@ -95,9 +95,9 @@ export function GlobalSearch() {
                         onClick={() => navigateTo(`/?story=${s.id}`)}
                         className="p-2 hover:bg-muted rounded-md cursor-pointer flex justify-between items-center group"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-medium">{s.title}</p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[400px]">{s.description}</p>
+                          <p className="text-xs text-muted-foreground truncate max-w-[70vw] sm:max-w-[400px]">{s.description}</p>
                         </div>
                         <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">{s.status}</span>
                       </div>

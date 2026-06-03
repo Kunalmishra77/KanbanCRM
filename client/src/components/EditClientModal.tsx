@@ -149,7 +149,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="macos-panel border-none sm:max-w-[650px] p-0 overflow-hidden max-h-[90vh]">
-        <div className="p-6 border-b border-black/5 bg-white/50">
+        <div className="p-4 sm:p-6 border-b border-black/5 bg-white/50">
           <DialogHeader>
             <DialogTitle className="text-xl">Edit Client</DialogTitle>
             <DialogDescription>Update client details and contact information.</DialogDescription>
@@ -157,7 +157,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
         </div>
 
         <ScrollArea className="max-h-[60vh]">
-          <div className="p-6 space-y-5 bg-white/30">
+          <div className="p-4 sm:p-6 space-y-5 bg-white/30">
             <div className="space-y-2">
               <Label htmlFor="edit-client-name">Company Name *</Label>
               <Input
@@ -186,7 +186,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-contact-email" className="flex items-center gap-1">
                     <Mail className="h-3 w-3" />
@@ -218,7 +218,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Industry *</Label>
                 <Select value={industry} onValueChange={setIndustry}>
@@ -350,7 +350,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
           </div>
         </ScrollArea>
 
-        <DialogFooter className="p-6 border-t border-black/5 bg-white/50">
+        <DialogFooter className="p-4 sm:p-6 border-t border-black/5 bg-white/50">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}

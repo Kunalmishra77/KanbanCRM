@@ -21,11 +21,11 @@ export default function TeamPerformance() {
   const totalOverdue = teamStats?.reduce((acc: number, stat: any) => acc + stat.overdue, 0) || 0;
 
   return (
-    <div className="max-w-[1400px] mx-auto p-6 md:p-8 lg:p-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+    <div className="max-w-[1400px] mx-auto p-3 sm:p-6 md:p-8 lg:p-12 space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
           
           <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-gray-900">
                 Team Performance
               </h1>
               <p className="text-gray-500 text-lg">
@@ -69,7 +69,7 @@ export default function TeamPerformance() {
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 mt-8">
             {teamStats?.map((stat: any) => (
               <Card key={stat.user.id} className="macos-card border-none bg-white/80 hover:bg-white transition-colors duration-200">
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center gap-4 mb-6">
                     <Avatar className="h-12 w-12 rounded-full border-2 border-primary/10">
                       <AvatarImage src={stat.user.profileImageUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${stat.user.firstName}`} />
@@ -81,7 +81,7 @@ export default function TeamPerformance() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Assigned</p>
                       <p className="text-2xl font-semibold">{stat.totalAssigned}</p>

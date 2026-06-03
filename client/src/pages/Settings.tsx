@@ -53,9 +53,9 @@ export default function Settings() {
   ];
 
   return (
-    <div className="container max-w-4xl py-8 space-y-8" data-testid="page-settings">
+    <div className="container max-w-4xl py-4 sm:py-8 space-y-6 sm:space-y-8" data-testid="page-settings">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account settings and preferences.</p>
       </div>
 
@@ -100,7 +100,7 @@ export default function Settings() {
           <CardContent className="space-y-6">
             <div className="space-y-3">
               <Label className="text-sm font-medium">Theme</Label>
-              <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {themeOptions.map((option) => (
                   <Button
                     key={option.value}
@@ -140,14 +140,14 @@ export default function Settings() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Activity Notifications</Label>
                 <p className="text-xs text-muted-foreground">Get notified about story updates and comments</p>
               </div>
               <Switch defaultChecked data-testid="switch-activity-notifications" />
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Email Notifications</Label>
                 <p className="text-xs text-muted-foreground">Receive email updates for important changes</p>
@@ -168,7 +168,7 @@ export default function Settings() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium">Two-Factor Authentication</Label>
                 <p className="text-xs text-muted-foreground">Add an extra layer of security to your account</p>
@@ -192,7 +192,7 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-3">
               {(allUsers as any[]).map((u: any) => (
-                <div key={u.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-secondary/40 border border-black/5">
+                <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-secondary/40 border border-black/5">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={u.profileImageUrl || undefined} />
