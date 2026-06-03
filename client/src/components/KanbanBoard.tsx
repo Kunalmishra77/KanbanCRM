@@ -70,13 +70,13 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex h-full gap-4 overflow-x-auto pb-4 snap-x snap-mandatory no-scrollbar">
+      <div className="flex gap-4 overflow-auto pb-4 h-full items-start snap-x snap-mandatory no-scrollbar">
         {COLUMNS.map((status) => {
           const columnStories = localStories.filter((s: Story) => s.status === status);
 
           return (
-            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col snap-center shrink-0">
-              <div className="flex items-center justify-between mb-3 px-2">
+            <div key={status} className="min-w-[280px] w-[85vw] sm:w-[320px] flex flex-col snap-center shrink-0 bg-white/20 dark:bg-black/20 rounded-xl relative">
+              <div className="flex items-center justify-between p-3 sticky top-0 z-10 bg-white/40 dark:bg-black/40 backdrop-blur-md rounded-t-xl shadow-sm">
                 <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <span className={cn(
                     "w-2 h-2 rounded-full",
@@ -99,10 +99,8 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
                       {...provided.droppableProps}
                       ref={provided.innerRef}
                       className={cn(
-                        "flex-1 overflow-y-auto rounded-xl p-2 min-h-[200px]",
-                        snapshot.isDraggingOver
-                          ? "bg-primary/5"
-                          : "bg-white/20 dark:bg-black/20"
+                        "flex-1 p-2 min-h-[200px] rounded-b-xl transition-colors",
+                        snapshot.isDraggingOver && "bg-primary/5"
                       )}
                     >
                     <div className="flex flex-col gap-3">
