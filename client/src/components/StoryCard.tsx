@@ -144,13 +144,21 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
             snapshot.isDragging && "z-50 opacity-95"
           )}
           style={provided.draggableProps.style}
-          onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-          onMouseUp={(e) => handleEnd(e.clientX, e.clientY)}
+          onMouseDown={(e) => {
+            (provided.dragHandleProps as any)?.onMouseDown?.(e);
+            handleStart(e.clientX, e.clientY);
+          }}
+          onMouseUp={(e) => {
+            (provided.dragHandleProps as any)?.onMouseUp?.(e);
+            handleEnd(e.clientX, e.clientY);
+          }}
           onTouchStart={(e) => {
+            (provided.dragHandleProps as any)?.onTouchStart?.(e);
             const touch = e.touches[0];
             if (touch) handleStart(touch.clientX, touch.clientY);
           }}
           onTouchEnd={(e) => {
+            (provided.dragHandleProps as any)?.onTouchEnd?.(e);
             const touch = e.changedTouches[0];
             if (touch) handleEnd(touch.clientX, touch.clientY);
           }}

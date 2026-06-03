@@ -381,139 +381,151 @@ export default function Leads() {
                       {...provided.droppableProps}
                       ref={provided.innerRef}
                       className={cn(
-                        "rounded-xl p-2 min-h-[120px] transition-colors flex-1 overflow-y-auto no-scrollbar",
+                        "rounded-xl p-2 min-h-[120px] transition-colors flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3",
                         snapshot.isDraggingOver
                           ? "bg-primary/10 ring-2 ring-primary/20"
                           : "bg-white/20 dark:bg-black/20"
                       )}
                     >
-                      <div className="flex flex-col gap-3">
-                        {stageLeads.map((lead: Lead, index: number) => (
-                          <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                            {(provided, snapshot) => (
+                      {stageLeads.map((lead: Lead, index: number) => (
+                        <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              style={provided.draggableProps.style}
+                              className={cn(
+                                "mb-3 group outline-none",
+                                snapshot.isDragging && "z-50 opacity-95"
+                              )}
+                              onMouseDown={(e) => {
+                                (provided.dragHandleProps as any)?.onMouseDown?.(e);
+                                handleStart(e.clientX, e.clientY);
+                              }}
+                              onMouseUp={(e) => {
+                                (provided.dragHandleProps as any)?.onMouseUp?.(e);
+                                handleEnd(e.clientX, e.clientY, lead);
+                              }}
+                              onTouchStart={(e) => {
+                                (provided.dragHandleProps as any)?.onTouchStart?.(e);
+                                const touch = e.touches[0];
+                                if (touch) handleStart(touch.clientX, touch.clientY);
+                              }}
+                              onTouchEnd={(e) => {
+                                (provided.dragHandleProps as any)?.onTouchEnd?.(e);
+                                const touch = e.changedTouches[0];
+                                if (touch) handleEnd(touch.clientX, touch.clientY, lead);
+                              }}
+                            >
                               <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                style={provided.draggableProps.style}
-                                className="outline-none"
-                                onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
-                                onMouseUp={(e) => handleEnd(e.clientX, e.clientY, lead)}
-                                onTouchStart={(e) => {
-                                  const touch = e.touches[0];
-                                  if (touch) handleStart(touch.clientX, touch.clientY);
-                                }}
-                                onTouchEnd={(e) => {
-                                  const touch = e.changedTouches[0];
-                                  if (touch) handleEnd(touch.clientX, touch.clientY, lead);
-                                }}
+                                className={cn(
+                                  "macos-card p-3 space-y-2 relative group/card cursor-grab group-active:cursor-grabbing hover:border-primary/30 transition-colors",
+                                  snapshot.isDragging && "shadow-xl ring-2 ring-primary/30 bg-white"
+                                )}
                               >
-                                <div
-                                  className={`macos-card p-3 space-y-2 relative group/card cursor-pointer hover:border-primary/30 transition-colors ${snapshot.isDragging ? "shadow-2xl shadow-primary/20 scale-[1.02] rotate-1 z-50 ring-2 ring-primary border-transparent" : ""}`}
-                                >
-                                  {/* Won celebration badge */}
-                                  {lead.stage === "Won" && (
-                                    <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
-                                      <Trophy className="h-3 w-3" />
-                                      Won!
-                                    </div>
-                                  )}
+                                {/* Won celebration badge */}
+                                {lead.stage === "Won" && (
+                                  <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
+                                    <Trophy className="h-3 w-3" />
+                                    Won!
+                                  </div>
+                                )}
 
-                                  {/* Card header: company + menu */}
-                                  <div className="flex items-start justify-between gap-2">
-                                    <p className="font-semibold text-sm leading-tight">{lead.name}</p>
-                                    {isOwner && (
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 flex-shrink-0"
-                                            onClick={(e) => e.stopPropagation()}
-                                            onMouseDown={(e) => e.stopPropagation()}
-                                            onMouseUp={(e) => e.stopPropagation()}
-                                            onTouchStart={(e) => e.stopPropagation()}
-                                            onTouchEnd={(e) => e.stopPropagation()}
-                                          >
-                                            <MoreHorizontal className="h-3.5 w-3.5" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                          align="end"
-                                          className="macos-panel"
+                                {/* Card header: company + menu */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="font-semibold text-sm leading-tight">{lead.name}</p>
+                                  {isOwner && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 flex-shrink-0"
                                           onClick={(e) => e.stopPropagation()}
                                           onMouseDown={(e) => e.stopPropagation()}
                                           onMouseUp={(e) => e.stopPropagation()}
                                           onTouchStart={(e) => e.stopPropagation()}
                                           onTouchEnd={(e) => e.stopPropagation()}
                                         >
-                                          <DropdownMenuItem
-                                            className="cursor-pointer"
-                                            onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
-                                          >
-                                            <Pencil className="h-4 w-4 mr-2" />
-                                            Edit
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            className="cursor-pointer text-green-600 focus:text-green-700"
-                                            onClick={(e) => { e.stopPropagation(); openConvertModal(lead); }}
-                                          >
-                                            <ArrowRightLeft className="h-4 w-4 mr-2" />
-                                            Convert to Client
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem
-                                            className="text-destructive focus:text-destructive cursor-pointer"
-                                            onClick={(e) => { e.stopPropagation(); setLeadToDelete(lead); }}
-                                          >
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Delete
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    )}
+                                          <MoreHorizontal className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        align="end"
+                                        className="macos-panel"
+                                        onClick={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onMouseUp={(e) => e.stopPropagation()}
+                                        onTouchStart={(e) => e.stopPropagation()}
+                                        onTouchEnd={(e) => e.stopPropagation()}
+                                      >
+                                        <DropdownMenuItem
+                                          className="cursor-pointer"
+                                          onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
+                                        >
+                                          <Pencil className="h-4 w-4 mr-2" />
+                                          Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="cursor-pointer text-green-600 focus:text-green-700"
+                                          onClick={(e) => { e.stopPropagation(); openConvertModal(lead); }}
+                                        >
+                                          <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                          Convert to Client
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          className="text-destructive focus:text-destructive cursor-pointer"
+                                          onClick={(e) => { e.stopPropagation(); setLeadToDelete(lead); }}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                </div>
+
+                                {/* Contact info */}
+                                {lead.contactName && (
+                                  <p className="text-xs text-muted-foreground">{lead.contactName}</p>
+                                )}
+                                {lead.contactEmail && (
+                                  <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
+                                )}
+
+                                {/* Last Contacted Badge */}
+                                {lead.updatedAt && (
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
+                                    <MessageSquare className="h-3 w-3" />
+                                    Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
                                   </div>
+                                )}
 
-                                  {/* Contact info */}
-                                  {lead.contactName && (
-                                    <p className="text-xs text-muted-foreground">{lead.contactName}</p>
+                                {/* Bottom row: industry badge + value */}
+                                <div className="flex items-center justify-between gap-2 pt-1">
+                                  {lead.industry && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs px-1.5 py-0 h-4 border-0 bg-primary/5 text-primary"
+                                    >
+                                      {lead.industry}
+                                    </Badge>
                                   )}
-                                  {lead.contactEmail && (
-                                    <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
-                                  )}
-
-                                  {/* Last Contacted Badge */}
-                                  {lead.updatedAt && (
-                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
-                                      <MessageSquare className="h-3 w-3" />
-                                      Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
+                                  {lead.estimatedValue && (
+                                    <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
+                                      <IndianRupee className="h-3 w-3" />
+                                      {Number(lead.estimatedValue).toLocaleString("en-IN")}
                                     </div>
                                   )}
-
-                                  {/* Bottom row: industry badge + value */}
-                                  <div className="flex items-center justify-between gap-2 pt-1">
-                                    {lead.industry && (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-xs px-1.5 py-0 h-4 border-0 bg-primary/5 text-primary"
-                                      >
-                                        {lead.industry}
-                                      </Badge>
-                                    )}
-                                    {lead.estimatedValue && (
-                                      <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
-                                        <IndianRupee className="h-3 w-3" />
-                                        {Number(lead.estimatedValue).toLocaleString("en-IN")}
-                                      </div>
-                                    )}
-                                  </div>
                                 </div>
                               </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
                     </div>
                   )}
                 </Droppable>
