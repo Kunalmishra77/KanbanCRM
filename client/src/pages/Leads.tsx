@@ -173,12 +173,17 @@ export default function Leads() {
   const pendingMoves = useRef<Set<string>>(new Set());
 
   const clickStart = useRef({ x: 0, y: 0, time: 0 });
+  const isMouseDownOnCard = useRef(false);
 
   const handleStart = (clientX: number, clientY: number) => {
     clickStart.current = { x: clientX, y: clientY, time: Date.now() };
+    isMouseDownOnCard.current = true;
   };
 
   const handleEnd = (clientX: number, clientY: number, lead: Lead) => {
+    if (!isMouseDownOnCard.current) return;
+    isMouseDownOnCard.current = false;
+
     const deltaX = Math.abs(clientX - clickStart.current.x);
     const deltaY = Math.abs(clientY - clickStart.current.y);
     const deltaTime = Date.now() - clickStart.current.time;
@@ -314,7 +319,15 @@ export default function Leads() {
 
   const handleDelete = () => {
     if (!leadToDelete) return;
-    deleteLead(leadToDelete.id, { onSuccess: () => setLeadToDelete(null) });
+    deleteLead(leadToDelete.id, {
+      onSuccess: () => {
+        setLeadToDelete(null);
+        if (editingLead && editingLead.id === leadToDelete.id) {
+          setEditingLead(null);
+          setIsAddOpen(false);
+        }
+      }
+    });
   };
 
   if (isLoading) {

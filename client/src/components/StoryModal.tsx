@@ -12,7 +12,7 @@ import { Clock, Paperclip, Send, Wand2, Mail, X, FileUp, Loader2, Image, FileTex
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers, useStory } from "@/lib/queries";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,7 +56,9 @@ interface StoryModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function StoryModal({ story, client, open, onOpenChange }: StoryModalProps) {
+export function StoryModal({ story: initialStory, client, open, onOpenChange }: StoryModalProps) {
+  const { data: freshStory } = useStory(initialStory?.id || '');
+  const story = freshStory || initialStory;
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
@@ -395,7 +397,7 @@ export function StoryModal({ story, client, open, onOpenChange }: StoryModalProp
                 <div className="mt-auto">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tags</h4>
                   <div className="flex flex-wrap gap-2">
-                    {(story.tags || []).map(tag => (
+                    {(story.tags || []).map((tag: string) => (
                       <Badge key={tag} variant="secondary" className="text-xs bg-white/50 hover:bg-white/70 transition-colors">
                         {tag}
                       </Badge>
