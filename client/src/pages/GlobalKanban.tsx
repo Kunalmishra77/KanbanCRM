@@ -68,10 +68,11 @@ export default function GlobalKanban() {
     return clients.find((c: any) => c.id === selectedStory.clientId) || null;
   }, [selectedStory, clients]);
 
-  // Unique assignee names
+  // Unique assignee names from the internal team panel
   const uniqueAssigneeNames = useMemo(() => {
-    return Array.from(new Set(stories.map((s: Story) => s.person).filter(Boolean))) as string[];
-  }, [stories]);
+    const names = users.map((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim()).filter(Boolean);
+    return Array.from(new Set(names)) as string[];
+  }, [users]);
 
   // Count stories per client
   const storiesCountPerClient = useMemo(() => {
@@ -82,16 +83,38 @@ export default function GlobalKanban() {
     return counts;
   }, [stories]);
 
+  // Helper to check if a story matches a user's name case-insensitively
+  const matchesUser = (storyPerson: string | null | undefined, user: any) => {
+    if (!storyPerson) return false;
+    const personNorm = storyPerson.toLowerCase().replace(/\s+/g, ' ').trim();
+    const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
+    const userFirst = (user.firstName || '').toLowerCase().trim();
+    const userLast = (user.lastName || '').toLowerCase().trim();
+
+    if (personNorm === userFullName) return true;
+    if (personNorm === userFirst) return true;
+    if (userLast && personNorm === userLast) return true;
+    if (personNorm.includes(userFirst) && userFirst.length > 2) return true;
+    if (userFullName.includes(personNorm) && personNorm.length > 2) return true;
+    return false;
+  };
+
   // Count stories per assignee
   const storiesCountPerAssignee = useMemo(() => {
     const counts: Record<string, number> = {};
-    stories.forEach((s: Story) => {
-      if (s.person) {
-        counts[s.person] = (counts[s.person] || 0) + 1;
+    uniqueAssigneeNames.forEach((name) => {
+      const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
+      if (user) {
+        const matchingStories = stories.filter(s => 
+          s.assignedTo === user.id || matchesUser(s.person, user)
+        );
+        counts[name] = matchingStories.length;
+      } else {
+        counts[name] = 0;
       }
     });
     return counts;
-  }, [stories]);
+  }, [stories, uniqueAssigneeNames, users]);
 
   const filteredClientsList = useMemo(() => {
     return clients.filter((client: any) =>
@@ -109,10 +132,17 @@ export default function GlobalKanban() {
   const filteredStories = useMemo(() => {
     return stories.filter((story: Story) => {
       if (filterClientIds.length > 0 && !filterClientIds.includes(story.clientId)) return false;
-      if (filterAssigneeNames.length > 0 && (!story.person || !filterAssigneeNames.includes(story.person))) return false;
+      if (filterAssigneeNames.length > 0) {
+        const hasMatchingAssignee = filterAssigneeNames.some(name => {
+          const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
+          if (!user) return false;
+          return story.assignedTo === user.id || matchesUser(story.person, user);
+        });
+        if (!hasMatchingAssignee) return false;
+      }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames]);
+  }, [stories, filterClientIds, filterAssigneeNames, users]);
 
   // Count active filters
   const activeFilterCount = filterClientIds.length + filterAssigneeNames.length;
