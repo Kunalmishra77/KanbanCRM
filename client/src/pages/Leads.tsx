@@ -310,8 +310,8 @@ export default function Leads() {
       contactPhone: convertForm.contactPhone.trim() || null,
     }, {
       onSuccess: () => {
-        // Move lead to Won
-        updateLead({ id: convertingLead.id, data: { stage: 'Won' } });
+        // Delete lead since it is now a client
+        deleteLead(convertingLead.id);
         setConvertingLead(null);
         toast({ title: '🎉 Lead converted!', description: `${convertForm.name} is now a client.` });
       }
