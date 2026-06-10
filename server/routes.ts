@@ -21,8 +21,37 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Run DB schema adjustments
+  if (process.env.DATABASE_URL) {
+    try {
+      console.log("DB Migration: Dropping NOT NULL constraint on clients.owner_id...");
+      const { db } = await import("../db/index.js");
+      const { sql } = await import("drizzle-orm");
+      await db.execute(sql`ALTER TABLE clients ALTER COLUMN owner_id DROP NOT NULL`);
+      
+      try {
+        await db.execute(sql`
+          ALTER TABLE clients 
+          DROP CONSTRAINT IF EXISTS clients_owner_id_users_id_fk,
+          DROP CONSTRAINT IF EXISTS clients_owner_id_fkey;
+        `);
+        await db.execute(sql`
+          ALTER TABLE clients 
+          ADD CONSTRAINT clients_owner_id_users_id_fk 
+          FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
+        `);
+      } catch (err: any) {
+        console.warn("DB Migration Warning (adding FK constraint):", err.message);
+      }
+      console.log("DB Migration: clients.owner_id column check completed.");
+    } catch (e: any) {
+      console.error("DB Migration Failure (altering owner_id):", e.message);
+    }
+  }
+
   // Setup Google OAuth FIRST - this sets up session middleware
   await setupGoogleAuth(app);
+
 
   // Secure Upload Endpoint - MUST be after setupGoogleAuth for session/auth to work
   app.post("/api/upload", upload.single("file"), async (req: any, res) => {
@@ -65,10 +94,24 @@ export async function registerRoutes(
     }
   });
 
+  const isCoFounder = (user: any): boolean => {
+    if (!user) return false;
+    return user.userType === 'co-founder' || isCoFounderEmail(user.email);
+  };
+
   // Clients (all protected with authentication)
   app.get("/api/clients", isAuthenticated, async (req: any, res) => {
     try {
       const clientsList = await storage.getClients();
+      const userIsCoFounder = isCoFounder(req.user);
+      if (!userIsCoFounder) {
+        const sanitized = clientsList.map(c => ({
+          ...c,
+          expectedRevenue: "0",
+          revenueTotal: "0"
+        }));
+        return res.json(sanitized);
+      }
       res.json(clientsList);
     } catch (error) {
       console.error('Get clients error:', error);
@@ -81,6 +124,14 @@ export async function registerRoutes(
       const client = await storage.getClient(req.params.id);
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
+      }
+      const userIsCoFounder = isCoFounder(req.user);
+      if (!userIsCoFounder) {
+        return res.json({
+          ...client,
+          expectedRevenue: "0",
+          revenueTotal: "0"
+        });
       }
       res.json(client);
     } catch (error) {
@@ -137,6 +188,53 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Get timeline error:', error);
       res.status(500).json({ error: "Failed to fetch timeline" });
+    }
+  });
+
+  app.post("/api/clients/:id/convert-to-lead", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only co-founders can convert clients to leads." });
+      }
+
+      const client = await storage.getClient(req.params.id);
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      // Convert client back to lead
+      const leadData = {
+        name: client.name,
+        contactName: client.contactName || null,
+        contactEmail: client.contactEmail || null,
+        contactPhone: client.contactPhone || null,
+        industry: client.industry || null,
+        stage: "Hold", // Default to "Hold" or "New"
+        estimatedValue: client.expectedRevenue || "0",
+        notes: client.notes || null,
+        ownerId: client.ownerId || null,
+      };
+
+      const lead = await storage.createLead(leadData);
+
+      // Log activity
+      if (req.user?.id) {
+        await storage.createActivityLog({
+          entityType: 'lead',
+          entityId: lead.id,
+          action: 'created',
+          userId: req.user.id,
+          details: `Converted client "${client.name}" back into a lead.`,
+        });
+      }
+
+      // Delete the client
+      await storage.deleteClient(req.params.id);
+
+      res.status(201).json(lead);
+    } catch (error) {
+      console.error('Convert client to lead error:', error);
+      res.status(500).json({ error: "Failed to convert client to lead" });
     }
   });
 
@@ -601,6 +699,9 @@ export async function registerRoutes(
   // Invoices (all protected with authentication)
   app.get("/api/clients/:clientId/invoices", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      }
       const invoicesList = await storage.getInvoicesByClient(req.params.clientId);
       res.json(invoicesList);
     } catch (error) {
@@ -611,6 +712,9 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/invoices", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      }
       const data = insertInvoiceSchema.parse({
         ...req.body,
         clientId: req.params.clientId,
@@ -641,6 +745,9 @@ export async function registerRoutes(
 
   app.patch("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      }
       const data = updateInvoiceSchema.parse({
         ...req.body,
         issuedOn: req.body.issuedOn ? new Date(req.body.issuedOn) : undefined,
@@ -674,6 +781,9 @@ export async function registerRoutes(
 
   app.delete("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      }
       const invoice = await storage.getInvoice(req.params.id);
       const success = await storage.deleteInvoice(req.params.id);
       if (!success) {

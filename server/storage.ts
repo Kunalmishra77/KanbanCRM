@@ -194,31 +194,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string): Promise<void> {
-    // Pre-delete cleanup: nullify or remove all FK references to this user
-    // to avoid constraint violations (DB cascade may not match schema definition)
-    const cleanups = [
-      // activity_log.user_id is NOT NULL — must delete the log rows
-      db.execute(sql`DELETE FROM activity_log WHERE user_id = ${id}`),
-      // Nullable references — set to NULL
-      db.execute(sql`UPDATE stories SET assigned_to = NULL WHERE assigned_to = ${id}`),
-      db.execute(sql`UPDATE clients SET owner_id = NULL WHERE owner_id = ${id}`),
-      db.execute(sql`UPDATE leads SET owner_id = NULL WHERE owner_id = ${id}`),
-      db.execute(sql`UPDATE leads SET assigned_to = NULL WHERE assigned_to = ${id}`),
-      // Cascade rows — delete them outright (they belong to this user)
-      db.execute(sql`DELETE FROM founder_investments WHERE user_id = ${id}`),
-      db.execute(sql`DELETE FROM internal_documents WHERE uploaded_by_id = ${id}`),
-      db.execute(sql`DELETE FROM sent_emails WHERE sent_by_id = ${id}`),
-      db.execute(sql`DELETE FROM revenue_targets WHERE owner_id = ${id}`),
-      db.execute(sql`DELETE FROM salary_records WHERE employee_id = ${id}`),
-      db.execute(sql`DELETE FROM salary_records WHERE created_by = ${id}`),
-      db.execute(sql`DELETE FROM incentives WHERE employee_id = ${id}`),
-      db.execute(sql`DELETE FROM incentives WHERE created_by = ${id}`),
-    ];
+    // Drizzle ORM cleanup: delete or nullify dependent records to avoid constraint errors
+    await db.delete(activityLog).where(eq(activityLog.userId, id));
+    await db.update(stories).set({ assignedTo: null, person: 'Unassigned' }).where(eq(stories.assignedTo, id));
+    await db.update(clients).set({ ownerId: null }).where(eq(clients.ownerId, id));
+    await db.update(leads).set({ ownerId: null }).where(eq(leads.ownerId, id));
+    await db.update(leads).set({ assignedTo: null }).where(eq(leads.assignedTo, id));
+    await db.delete(founderInvestments).where(eq(founderInvestments.userId, id));
+    await db.delete(internalDocuments).where(eq(internalDocuments.uploadedById, id));
+    await db.delete(sentEmails).where(eq(sentEmails.sentById, id));
+    await db.delete(revenueTargets).where(eq(revenueTargets.ownerId, id));
+    await db.delete(salaryRecords).where(eq(salaryRecords.employeeId, id));
+    await db.delete(salaryRecords).where(eq(salaryRecords.createdBy, id));
+    await db.delete(incentives).where(eq(incentives.employeeId, id));
+    await db.delete(incentives).where(eq(incentives.createdBy, id));
 
-    // Run all cleanups, ignore individual failures (table may not exist or column may be nullable)
-    await Promise.allSettled(cleanups);
-
-    // Finally delete the user row
+    // Finally delete the user
     await db.delete(users).where(eq(users.id, id));
   }
 
@@ -354,7 +345,9 @@ export class DatabaseStorage implements IStorage {
 
   async recalculateClientRevenue(clientId: string): Promise<void> {
     const clientInvoices = await this.getInvoicesByClient(clientId);
-    const totalReceived = clientInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+    const totalReceived = clientInvoices
+      .filter(inv => inv.status === 'paid')
+      .reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
     await db.update(clients).set({ revenueTotal: totalReceived.toString(), updatedAt: new Date() }).where(eq(clients.id, clientId));
   }
 

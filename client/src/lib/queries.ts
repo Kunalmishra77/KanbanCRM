@@ -81,6 +81,24 @@ export function useDeleteClient() {
   });
 }
 
+export function useConvertToLead() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => clientsAPI.convertToLead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      toast({ title: "Client converted back to Lead successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to convert client to lead", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
 // Stories queries
 export function useStories(clientId?: string) {
   return useQuery({

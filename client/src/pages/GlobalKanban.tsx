@@ -1,11 +1,12 @@
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
+import { useSearch } from "wouter";
 import { useIsOwner } from "@/lib/auth";
 import {
   Popover,
@@ -49,10 +50,23 @@ export default function GlobalKanban() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
+  const searchString = useSearch();
+  const assigneeFilter = useMemo(() => {
+    const params = new URLSearchParams(searchString);
+    return params.get('assignee');
+  }, [searchString]);
+
   // Filter state
   const [filterClientId, setFilterClientId] = useState<string | null>(null);
   const [filterAssigneeId, setFilterAssigneeId] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Sync assignee filter from URL query param if present
+  useEffect(() => {
+    if (assigneeFilter) {
+      setFilterAssigneeId(assigneeFilter);
+    }
+  }, [assigneeFilter]);
 
   const selectedClient = useMemo(() => {
     if (!selectedStory) return null;

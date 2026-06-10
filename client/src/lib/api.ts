@@ -50,6 +50,9 @@ export const clientsAPI = {
   delete: (id: string) => fetchAPI(`/clients/${id}`, {
     method: 'DELETE',
   }),
+  convertToLead: (id: string) => fetchAPI(`/clients/${id}/convert-to-lead`, {
+    method: 'POST',
+  }),
 };
 
 // Stories API

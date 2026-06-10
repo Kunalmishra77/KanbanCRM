@@ -1,15 +1,14 @@
-import { useRoute } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2, FileText, Trash2, Pencil, Upload, X, Receipt, Phone, Video, Mail, MessageSquare, AlertTriangle } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2, FileText, Trash2, Pencil, Upload, X, Receipt, Phone, Video, Mail, MessageSquare, AlertTriangle, ArrowRightLeft } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { EntityTimeline } from "@/components/EntityTimeline";
-import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useCommunications, useCreateCommunication, useDeleteCommunication } from "@/lib/queries";
+import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useCommunications, useCreateCommunication, useDeleteCommunication, useConvertToLead } from "@/lib/queries";
 import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -52,6 +51,7 @@ type Invoice = {
 
 export default function ClientDetail() {
   const [, params] = useRoute("/clients/:id");
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const isOwner = useIsOwner();
   const isHROrOwner = useIsHROrOwner();
@@ -66,11 +66,13 @@ export default function ClientDetail() {
   const { mutate: deleteInvoice } = useDeleteInvoice();
   const { mutate: createCommunication, isPending: isCreatingComm } = useCreateCommunication();
   const { mutate: deleteCommunication } = useDeleteCommunication();
+  const { mutate: convertToLead, isPending: isConvertingToLead } = useConvertToLead();
 
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [isConvertLeadOpen, setIsConvertLeadOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -302,6 +304,18 @@ export default function ClientDetail() {
             {getContractEndDateBadge()}
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex gap-2 flex-shrink-0">
+            {isOwner && (
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto gap-2 border-primary/20 text-primary hover:bg-primary/5"
+                onClick={() => setIsConvertLeadOpen(true)}
+                disabled={isConvertingToLead}
+                data-testid="button-convert-client"
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+                Convert to Lead
+              </Button>
+            )}
             <Button
               className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateStoryOpen(true)}
@@ -469,116 +483,118 @@ export default function ClientDetail() {
           })()}
         </TabsContent>
 
-        <TabsContent value="invoices" className="flex-1 min-h-0 mt-4 overflow-auto">
-          <div className="space-y-4">
-            <div className="macos-card p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div>
-                  <h3 className="font-semibold">Revenue Tracking</h3>
-                  <p className="text-sm text-muted-foreground">
-                    ₹{receivedRevenue.toLocaleString('en-IN')} received of ₹{expectedRevenue.toLocaleString('en-IN')} expected
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-bold text-primary">{revenueProgress.toFixed(0)}%</span>
-                  <p className="text-xs text-muted-foreground">collected</p>
-                </div>
-              </div>
-              <Progress value={revenueProgress} className="h-2" />
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="font-semibold">Invoices</h3>
-              <Button onClick={openAddInvoiceModal} size="sm" className="gap-2" data-testid="button-add-invoice">
-                <Plus className="h-4 w-4" />
-                Add Invoice
-              </Button>
-            </div>
-
-            {isLoadingInvoices ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : invoices.length === 0 ? (
-              <div className="macos-card p-6 sm:p-8 text-center">
-                <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No invoices yet</p>
-                <p className="text-sm text-muted-foreground">Add invoices to track your revenue collection</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {invoices.map((invoice: Invoice) => (
-                  <div key={invoice.id} className="macos-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4" data-testid={`invoice-${invoice.id}`}>
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <FileText className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium">{invoice.label}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {format(new Date(invoice.issuedOn), 'MMM d, yyyy')}
-                          {invoice.notes && ` • ${invoice.notes}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                      {invoice.status === 'paid' ? (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Paid</span>
-                      ) : new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? (
-                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Overdue</span>
-                      ) : (
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
-                      )}
-                      <span className="font-semibold text-lg">₹{parseFloat(invoice.amount).toLocaleString('en-IN')}</span>
-                      <div className="flex gap-1">
-                        {invoice.status !== 'paid' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-green-600 hover:text-green-700 hover:bg-green-50 text-xs px-2"
-                            onClick={() => updateInvoice({ id: invoice.id, data: { status: 'paid' } })}
-                            data-testid={`mark-paid-${invoice.id}`}
-                          >
-                            Mark Paid
-                          </Button>
-                        )}
-                        {invoice.fileData && (
-                          <Button variant="ghost" size="sm" onClick={() => downloadInvoiceFile(invoice)} data-testid={`download-invoice-${invoice.id}`}>
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => openEditInvoiceModal(invoice)} data-testid={`edit-invoice-${invoice.id}`}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" data-testid={`delete-invoice-${invoice.id}`}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{invoice.label}"? This will also update the total received revenue for this client.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
+        {isOwner && (
+          <TabsContent value="invoices" className="flex-1 min-h-0 mt-4 overflow-auto">
+            <div className="space-y-4">
+              <div className="macos-card p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="font-semibold">Revenue Tracking</h3>
+                    <p className="text-sm text-muted-foreground">
+                      ₹{receivedRevenue.toLocaleString('en-IN')} received of ₹{expectedRevenue.toLocaleString('en-IN')} expected
+                    </p>
                   </div>
-                ))}
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-primary">{revenueProgress.toFixed(0)}%</span>
+                    <p className="text-xs text-muted-foreground">collected</p>
+                  </div>
+                </div>
+                <Progress value={revenueProgress} className="h-2" />
               </div>
-            )}
-          </div>
-        </TabsContent>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-semibold">Invoices</h3>
+                <Button onClick={openAddInvoiceModal} size="sm" className="gap-2" data-testid="button-add-invoice">
+                  <Plus className="h-4 w-4" />
+                  Add Invoice
+                </Button>
+              </div>
+
+              {isLoadingInvoices ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="macos-card p-6 sm:p-8 text-center">
+                  <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No invoices yet</p>
+                  <p className="text-sm text-muted-foreground">Add invoices to track your revenue collection</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {invoices.map((invoice: Invoice) => (
+                    <div key={invoice.id} className="macos-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4" data-testid={`invoice-${invoice.id}`}>
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium">{invoice.label}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(invoice.issuedOn), 'MMM d, yyyy')}
+                            {invoice.notes && ` • ${invoice.notes}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                        {invoice.status === 'paid' ? (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Paid</span>
+                        ) : new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? (
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Overdue</span>
+                        ) : (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
+                        )}
+                        <span className="font-semibold text-lg">₹{parseFloat(invoice.amount).toLocaleString('en-IN')}</span>
+                        <div className="flex gap-1">
+                          {invoice.status !== 'paid' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 text-xs px-2"
+                              onClick={() => updateInvoice({ id: invoice.id, data: { status: 'paid' } })}
+                              data-testid={`mark-paid-${invoice.id}`}
+                            >
+                              Mark Paid
+                            </Button>
+                          )}
+                          {invoice.fileData && (
+                            <Button variant="ghost" size="sm" onClick={() => downloadInvoiceFile(invoice)} data-testid={`download-invoice-${invoice.id}`}>
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => openEditInvoiceModal(invoice)} data-testid={`edit-invoice-${invoice.id}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" data-testid={`delete-invoice-${invoice.id}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{invoice.label}"? This will also update the total received revenue for this client.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={isInvoiceModalOpen} onOpenChange={setIsInvoiceModalOpen}>
@@ -762,6 +778,36 @@ export default function ClientDetail() {
         onOpenChange={setIsCreateStoryOpen}
         defaultClientId={params?.id}
       />
+
+      <AlertDialog open={isConvertLeadOpen} onOpenChange={setIsConvertLeadOpen}>
+        <AlertDialogContent className="macos-panel">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert Client to Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to convert this client back to a lead? Converting will delete the client and all associated stories, tasks, comments, and invoices. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-primary text-primary-foreground hover:bg-primary/95"
+              onClick={() => {
+                if (params?.id) {
+                  convertToLead(params.id, {
+                    onSuccess: () => {
+                      setLocation('/clients');
+                    }
+                  });
+                  setIsConvertLeadOpen(false);
+                }
+              }}
+              data-testid="button-confirm-convert-client"
+            >
+              Convert to Lead
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

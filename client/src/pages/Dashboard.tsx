@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useClients, useStories, useActivityLog, useUsers, useRevenueTargets, useUpsertRevenueTarget } from "@/lib/queries";
+import { useClients, useStories, useActivityLog, useUsers, useRevenueTargets, useUpsertRevenueTarget, useLeads } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Legend } from "recharts";
 import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil, Gift, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const { data: clients = [], isLoading: isLoadingClients } = useClients() as { data: Client[], isLoading: boolean };
   const { data: stories = [], isLoading: isLoadingStories } = useStories() as { data: Story[], isLoading: boolean };
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog() as { data: ActivityLog[], isLoading: boolean };
+  const { data: leads = [], isLoading: isLoadingLeads } = useLeads() as { data: any[], isLoading: boolean };
   const { data: users = [] } = useUsers();
   const { data: revenueTargets = [] } = useRevenueTargets({ enabled: isOwner });
   const { mutate: upsertTarget } = useUpsertRevenueTarget();
@@ -58,7 +59,7 @@ export default function Dashboard() {
     .filter((r: any) => r.period === currentPeriod)
     .reduce((s: number, r: any) => s + parseFloat(r.amount || 0), 0);
 
-  if (isLoadingClients || isLoadingStories || isLoadingActivity) {
+  if (isLoadingClients || isLoadingStories || isLoadingActivity || isLoadingLeads) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -70,6 +71,8 @@ export default function Dashboard() {
   const totalReceived = clients.reduce((acc, c) => acc + Number(c.revenueTotal || 0), 0);
   const totalStories = stories.length;
   const totalClients = clients.length;
+  const totalLeads = leads.length;
+  const activeLeads = leads.filter(l => l.stage !== 'Won' && l.stage !== 'Lost').length;
   const activeClients = clients.filter(c => c.stage !== 'Dropped').length;
   const completedStories = stories.filter(s => s.status === 'Done').length;
   const completionRate = Math.round((completedStories / totalStories) * 100) || 0;
@@ -100,7 +103,7 @@ export default function Dashboard() {
       </div>
 
       {/* Hero Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {isOwner && (
           <Card
             className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
@@ -159,6 +162,34 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card
+          className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
+          onClick={() => setLocation('/leads')}
+          data-testid="stat-card-leads"
+        >
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 rounded-xl bg-orange-100/50">
+                <Users className="h-6 w-6 text-orange-600" />
+              </div>
+              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+                <ArrowUpRight className="h-3 w-3" />
+                Pipeline
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Leads</h3>
+                <div className="text-2xl font-bold tracking-tight text-foreground">{totalLeads}</div>
+              </div>
+              <div className="h-px bg-border" />
+              <div>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Leads</h3>
+                <div className="text-xl font-semibold tracking-tight text-orange-600">{activeLeads}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <StatCard 
           title="Pending Stories" 
           value={(totalStories - completedStories).toString()} 
@@ -167,7 +198,7 @@ export default function Dashboard() {
           trendUp={false}
           color="text-orange-600"
           bgColor="bg-orange-100/50"
-          onClick={() => setLocation('/insights/stories')}
+          onClick={() => setLocation('/global-kanban')}
         />
         <StatCard 
           title="Completion Rate" 
@@ -369,8 +400,8 @@ export default function Dashboard() {
         );
       })()}
 
-      {/* Owner-only: Overdue Tasks + Employee Workload */}
-      {isOwner && (() => {
+      {/* HR/Owner: Overdue Tasks + Employee Workload */}
+      {isHROrOwner && (() => {
         const overdueTasks = stories.filter((s: Story) => s.dueDate && s.status !== 'Done' && new Date(s.dueDate as any as string) < new Date());
         const workload = users.map((u: any) => ({
           name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
@@ -425,7 +456,11 @@ export default function Dashboard() {
                 {workload.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No tasks assigned yet.</p>
                 ) : workload.map((u: any) => (
-                  <div key={u.name} className="space-y-1">
+                  <div
+                    key={u.name}
+                    className="space-y-1 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-1 rounded-lg transition-colors"
+                    onClick={() => setLocation(`/global-kanban?assignee=${encodeURIComponent(u.name)}`)}
+                  >
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">{u.name}</span>
                       <span className="text-muted-foreground text-xs">{u.active} active · {u.done} done</span>
@@ -443,6 +478,42 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* HR/Owner: Leads Pipeline Summary */}
+      {isHROrOwner && (
+        <div className="space-y-4 animate-in fade-in duration-500">
+          <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Leads Pipeline Summary
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {['New', 'Contacted', 'Proposal Sent', 'Negotiation'].map(stage => {
+              const stageLeads = leads.filter(l => l.stage === stage);
+              const totalValue = stageLeads.reduce((acc, l) => acc + Number(l.estimatedValue || 0), 0);
+              return (
+                <Card
+                  key={stage}
+                  className="macos-card border-none hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
+                  onClick={() => setLocation(`/leads`)}
+                >
+                  <CardContent className="p-4 flex flex-col justify-between h-32">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{stage}</span>
+                      <span className="text-xs bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-medium">
+                        {stageLeads.length} leads
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-2xl font-bold">₹{totalValue.toLocaleString('en-IN')}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">estimated value</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* HR/Owner: Payroll Summary */}
       {isHROrOwner && (

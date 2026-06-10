@@ -1,9 +1,9 @@
-import { useClients, useDeleteClient, useStories } from "@/lib/queries";
-import { useAuth, useIsHROrOwner } from "@/lib/auth";
+import { useClients, useDeleteClient, useStories, useConvertToLead } from "@/lib/queries";
+import { useAuth, useIsHROrOwner, useIsOwner } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Briefcase, MoreHorizontal, Loader2, Trash2, Receipt, X, Pencil } from "lucide-react";
+import { Plus, Briefcase, MoreHorizontal, Loader2, Trash2, Receipt, X, Pencil, ArrowRightLeft } from "lucide-react";
 import { Link, useLocation, useSearch } from "wouter";
 import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
@@ -69,9 +69,12 @@ export default function Clients() {
   const { data: clients = [], isLoading } = useClients();
   const { data: stories = [] } = useStories();
   const { mutate: deleteClient } = useDeleteClient();
+  const { mutate: convertToLead } = useConvertToLead();
   const isHROrOwner = useIsHROrOwner();
+  const isOwner = useIsOwner();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const [clientToConvert, setClientToConvert] = useState<string | null>(null);
   const [clientToEdit, setClientToEdit] = useState<ClientData | null>(null);
   const [, setLocation] = useLocation();
   const searchString = useSearch();
@@ -179,7 +182,7 @@ export default function Clients() {
                   
                   <CardContent>
                     <div className="space-y-4">
-                      {isHROrOwner && (
+                      {isOwner && (
                         <>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground flex items-center gap-1">
@@ -240,6 +243,19 @@ export default function Clients() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="macos-panel">
+                  {isOwner && (
+                    <DropdownMenuItem
+                      className="cursor-pointer text-orange-600 focus:text-orange-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setClientToConvert(client.id);
+                      }}
+                      data-testid={`button-convert-client-${client.id}`}
+                    >
+                      <ArrowRightLeft className="h-4 w-4 mr-2" />
+                      Convert to Lead
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={(e) => {
@@ -291,6 +307,32 @@ export default function Clients() {
               data-testid="button-confirm-delete-client"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!clientToConvert} onOpenChange={(open) => !open && setClientToConvert(null)}>
+        <AlertDialogContent className="macos-panel">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convert Client to Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to convert this client back to a lead? Converting will delete the client and all associated stories, tasks, comments, and invoices. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-primary text-primary-foreground hover:bg-primary/95"
+              onClick={() => {
+                if (clientToConvert) {
+                  convertToLead(clientToConvert);
+                  setClientToConvert(null);
+                }
+              }}
+              data-testid="button-confirm-convert-client"
+            >
+              Convert to Lead
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
