@@ -102,7 +102,7 @@ export default function Internal() {
   }
 
   const coFounders = users.filter(u => u.userType === 'co-founder');
-  const employees = users.filter(u => u.userType === 'employee');
+  const employees = users.filter(u => u.userType === 'employee' || u.userType === 'hr');
 
   const totalInvestment = investments.reduce((acc, inv) => acc + Number(inv.amount || 0), 0);
   const totalShareholding = coFounders.reduce((acc, u) => acc + Number(u.shareholdingPercent || 0), 0);
@@ -126,7 +126,7 @@ export default function Internal() {
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team Size</h3>
               <div className="text-2xl font-bold tracking-tight text-foreground">{users.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {coFounders.length} co-founder{coFounders.length !== 1 ? 's' : ''}, {employees.length} employee{employees.length !== 1 ? 's' : ''}
+                {coFounders.length} co-founder{coFounders.length !== 1 ? 's' : ''}, {users.filter(u => u.userType === 'hr').length > 0 ? `${users.filter(u => u.userType === 'hr').length} HR, ` : ''}{users.filter(u => u.userType === 'employee').length} employee{users.filter(u => u.userType === 'employee').length !== 1 ? 's' : ''}
               </p>
             </div>
           </CardContent>
@@ -280,6 +280,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="co-founder">Co-founder (Admin)</SelectItem>
+                    <SelectItem value="hr">HR</SelectItem>
                     <SelectItem value="employee">Employee</SelectItem>
                   </SelectContent>
                 </Select>
@@ -360,6 +361,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="co-founder">Co-founder</SelectItem>
+                            <SelectItem value="hr">HR</SelectItem>
                             <SelectItem value="employee">Employee</SelectItem>
                           </SelectContent>
                         </Select>
@@ -437,7 +439,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-foreground truncate">{user.firstName} {user.lastName}</h4>
                       <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                      <Badge variant="outline" className="text-xs mt-2">Employee</Badge>
+                      <Badge variant="outline" className="text-xs mt-2">
+                        {user.userType === 'hr' ? 'HR' : 'Employee'}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-3">
@@ -471,6 +475,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="co-founder">Co-founder</SelectItem>
+                              <SelectItem value="hr">HR</SelectItem>
                               <SelectItem value="employee">Employee</SelectItem>
                             </SelectContent>
                           </Select>

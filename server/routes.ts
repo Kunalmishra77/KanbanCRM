@@ -952,7 +952,7 @@ export async function registerRoutes(
   // Founder Investments (verified by email allowlist)
   app.get("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can view investments" });
       }
 
@@ -966,7 +966,7 @@ export async function registerRoutes(
 
   app.post("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can add investments" });
       }
 
@@ -988,7 +988,7 @@ export async function registerRoutes(
 
   app.patch("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can update investments" });
       }
 
@@ -1014,7 +1014,7 @@ export async function registerRoutes(
 
   app.delete("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can delete investments" });
       }
 
@@ -1033,7 +1033,7 @@ export async function registerRoutes(
   // Internal Documents (co-founders only)
   app.get("/api/internal-documents", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can view documents" });
       }
 
@@ -1047,7 +1047,7 @@ export async function registerRoutes(
 
   app.post("/api/internal-documents", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can add documents" });
       }
 
@@ -1068,7 +1068,7 @@ export async function registerRoutes(
 
   app.patch("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can update documents" });
       }
 
@@ -1091,7 +1091,7 @@ export async function registerRoutes(
 
   app.delete("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can delete documents" });
       }
 
@@ -1133,7 +1133,7 @@ export async function registerRoutes(
 
   app.post("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can create leads" });
       }
       const data = insertLeadSchema.parse({ ...req.body, ownerId: req.user.id });
@@ -1161,7 +1161,7 @@ export async function registerRoutes(
 
   app.patch("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can update leads" });
       }
       const data = updateLeadSchema.parse(req.body);
@@ -1181,7 +1181,7 @@ export async function registerRoutes(
 
   app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can delete leads" });
       }
       const success = await storage.deleteLead(req.params.id);
@@ -1198,7 +1198,7 @@ export async function registerRoutes(
   // Revenue Targets (co-founders only)
   app.get("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can view revenue targets" });
       }
       const targets = await storage.getRevenueTargets();
@@ -1211,7 +1211,7 @@ export async function registerRoutes(
 
   app.post("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can set revenue targets" });
       }
       const data = insertRevenueTargetSchema.parse({
@@ -1284,7 +1284,7 @@ export async function registerRoutes(
 
   app.post("/api/announcements", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can post announcements" });
       }
       const data = insertAnnouncementSchema.parse({
@@ -1304,7 +1304,7 @@ export async function registerRoutes(
 
   app.patch("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can update announcements" });
       }
       const data = updateAnnouncementSchema.parse(req.body);
@@ -1324,7 +1324,7 @@ export async function registerRoutes(
 
   app.delete("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounderEmail(req.user?.email)) {
+      if (!isCoFounder(req.user)) {
         return res.status(403).json({ error: "Only co-founders can delete announcements" });
       }
       const success = await storage.deleteAnnouncement(req.params.id);
