@@ -13,7 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, MoreHorizontal, Trash2, Pencil, Loader2, Trophy, IndianRupee, ArrowRightLeft, Send, MessageSquare } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, MoreHorizontal, Trash2, Pencil, Loader2, Trophy, IndianRupee, ArrowRightLeft, Send, MessageSquare, Briefcase, List, LayoutGrid, Mail, Phone, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +158,18 @@ export default function Leads() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [activeStage, setActiveStage] = useState<LeadStage>('New');
+
+  const borderColors: Record<LeadStage, string> = {
+    New: "#3b82f6",
+    Contacted: "#a855f7",
+    "Proposal Sent": "#f97316",
+    Negotiation: "#eab308",
+    Hold: "#f59e0b",
+    Won: "#22c55e",
+    Lost: "#9ca3af",
+  };
   const [convertingLead, setConvertingLead] = useState<Lead | null>(null);
   const [form, setForm] = useState<LeadForm>(defaultForm);
   const [convertForm, setConvertForm] = useState({
@@ -340,200 +353,400 @@ export default function Leads() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Lead Pipeline</h1>
           <p className="text-muted-foreground mt-1">
             Track your leads from first contact to close. {leads.length} total leads.
           </p>
         </div>
-        {isOwner && (
-          <Button className="gap-2 shadow-lg shadow-primary/20" onClick={openAddModal}>
-            <Plus className="h-4 w-4" />
-            Add Lead
-          </Button>
-        )}
+        <div className="flex w-full sm:w-auto items-center gap-3">
+          
+          {/* VIEW MODE TOGGLE */}
+          <div className="flex border border-border rounded-lg p-0.5 bg-muted/30 shrink-0">
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 px-3 gap-1.5 text-xs font-medium"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">List</span>
+            </Button>
+            <Button
+              variant={viewMode === 'board' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('board')}
+              className="h-8 px-3 gap-1.5 text-xs font-medium"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Board</span>
+            </Button>
+          </div>
+
+          {isOwner && (
+            <Button className="gap-2 shadow-lg shadow-primary/20 shrink-0" onClick={openAddModal}>
+              <Plus className="h-4 w-4" />
+              Add Lead
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Kanban Columns */}
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start h-[calc(100vh-190px)] sm:h-[calc(100vh-220px)] min-h-[420px] sm:min-h-[500px]">
-          {LEAD_STAGES.map((stage) => {
-            const stageLeads = leadsByStage[stage];
-            return (
-              <div
-                key={stage}
-                className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 h-full`}
-              >
-                {/* Column Header */}
-                <div className="px-4 py-3 flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{stage}</span>
-                    <Badge variant="outline" className="text-xs h-5 px-1.5">
-                      {stageLeads.length}
-                    </Badge>
-                  </div>
-                </div>
+      {/* RENDER VIEW */}
+      {viewMode === 'list' ? (
+        <Tabs value={activeStage} onValueChange={(val) => setActiveStage(val as LeadStage)} className="w-full space-y-4">
+          <TabsList className="mb-2 bg-muted/40 w-full overflow-x-auto justify-start h-auto p-1 gap-1">
+            {LEAD_STAGES.map(stage => {
+              const count = leadsByStage[stage]?.length || 0;
+              return (
+                <TabsTrigger key={stage} value={stage} className="data-[state=active]:bg-background py-1.5 px-3 text-xs sm:text-sm font-medium rounded-md gap-2 shrink-0">
+                  {stage}
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-muted/80 text-muted-foreground font-normal rounded-full">
+                    {count}
+                  </Badge>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-                <Droppable droppableId={stage}>
-                  {(provided, snapshot) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className={cn(
-                        "rounded-xl p-2 min-h-[120px] transition-colors flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3",
-                        snapshot.isDraggingOver
-                          ? "bg-primary/10 ring-2 ring-primary/20"
-                          : "bg-white/20 dark:bg-black/20"
-                      )}
-                    >
-                      {stageLeads.map((lead: Lead, index: number) => (
-                        <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              style={provided.draggableProps.style}
-                              className={cn(
-                                "mb-3 group outline-none",
-                                snapshot.isDragging && "z-50 opacity-95"
-                              )}
-                              onMouseDown={(e) => {
-                                (provided.dragHandleProps as any)?.onMouseDown?.(e);
-                                handleStart(e.clientX, e.clientY);
-                              }}
-                              onMouseUp={(e) => {
-                                (provided.dragHandleProps as any)?.onMouseUp?.(e);
-                                handleEnd(e.clientX, e.clientY, lead);
-                              }}
-                              onTouchStart={(e) => {
-                                (provided.dragHandleProps as any)?.onTouchStart?.(e);
-                                const touch = e.touches[0];
-                                if (touch) handleStart(touch.clientX, touch.clientY);
-                              }}
-                              onTouchEnd={(e) => {
-                                (provided.dragHandleProps as any)?.onTouchEnd?.(e);
-                                const touch = e.changedTouches[0];
-                                if (touch) handleEnd(touch.clientX, touch.clientY, lead);
-                              }}
-                            >
-                              <div
-                                className={cn(
-                                  "macos-card p-3 space-y-2 relative group/card cursor-grab group-active:cursor-grabbing hover:border-primary/30 transition-colors",
-                                  snapshot.isDragging && "shadow-xl ring-2 ring-primary/30 bg-white"
-                                )}
-                              >
-                                {/* Won celebration badge */}
-                                {lead.stage === "Won" && (
-                                  <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
-                                    <Trophy className="h-3 w-3" />
-                                    Won!
+          {LEAD_STAGES.map(stage => {
+            const stageLeads = leadsByStage[stage] || [];
+            return (
+              <TabsContent key={stage} value={stage} className="space-y-3 focus-visible:outline-none">
+                {stageLeads.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 border border-dashed rounded-xl bg-muted/5">
+                    <Trophy className="h-8 w-8 text-muted-foreground/60 mb-2" />
+                    <p className="text-sm font-medium text-muted-foreground">No leads in this stage</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4 w-full">
+                    {stageLeads.map(lead => {
+                      const borderColor = borderColors[stage as LeadStage];
+                      return (
+                        <Card 
+                          key={lead.id} 
+                          className="overflow-hidden transition-all duration-200 hover:shadow-md border border-border/80"
+                          style={{ borderLeftColor: borderColor, borderLeftWidth: '4px' }}
+                        >
+                          <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                            
+                            {/* Lead Identity & Industry */}
+                            <div className="flex items-center gap-4 min-w-[240px] max-w-[340px] shrink-0">
+                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/15 to-violet-500/15 flex items-center justify-center border border-white/20 shrink-0">
+                                <Briefcase className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="space-y-1 truncate">
+                                <div className="flex items-center gap-2">
+                                  <h3 
+                                    onClick={() => openEditModal(lead)}
+                                    className="font-bold text-base text-foreground truncate hover:text-primary cursor-pointer hover:underline transition-all"
+                                  >
+                                    {lead.name}
+                                  </h3>
+                                  {lead.stage === "Won" && (
+                                    <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] font-semibold gap-1">
+                                      <Trophy className="h-2.5 w-2.5" />
+                                      Won
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {lead.industry && (
+                                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-0 bg-primary/5 text-primary font-semibold">
+                                      {lead.industry}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Contact Details */}
+                            <div className="flex-1 min-w-[220px] max-w-[400px] flex flex-col sm:flex-row gap-4 sm:gap-6">
+                              <div className="space-y-1.5">
+                                {lead.contactName && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <User className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                    <span className="font-semibold text-foreground truncate">{lead.contactName}</span>
                                   </div>
                                 )}
+                                {lead.contactEmail && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Mail className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                    <span className="truncate text-foreground">{lead.contactEmail}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-1.5">
+                                {lead.contactPhone && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Phone className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                                    <span className="text-foreground">{lead.contactPhone}</span>
+                                  </div>
+                                )}
+                                {lead.updatedAt && (
+                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground bg-muted/60 w-fit px-2 py-0.5 rounded-full font-medium">
+                                    <MessageSquare className="h-3 w-3 text-primary/70 shrink-0" />
+                                    <span>Last Contact: {new Date(lead.updatedAt).toLocaleDateString()}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
 
-                                {/* Card header: company + menu */}
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="font-semibold text-sm leading-tight">{lead.name}</p>
-                                  {isOwner && (
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6 flex-shrink-0"
+                            {/* Estimated Value */}
+                            <div className="min-w-[150px] shrink-0">
+                              {lead.estimatedValue ? (
+                                <div className="space-y-0.5">
+                                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Est. Value</span>
+                                  <div className="flex items-center text-base sm:text-lg font-bold text-green-600">
+                                    <IndianRupee className="h-4 w-4 mr-0.5" />
+                                    {Number(lead.estimatedValue).toLocaleString("en-IN")}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground italic">No value set</div>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center justify-end gap-2 shrink-0 lg:ml-auto">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-8 text-xs px-3"
+                                onClick={() => openEditModal(lead)}
+                              >
+                                View Details & Notes
+                              </Button>
+                              {isOwner && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 hover:bg-muted/80"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="macos-panel">
+                                    <DropdownMenuItem
+                                      className="cursor-pointer"
+                                      onClick={() => openEditModal(lead)}
+                                    >
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="cursor-pointer text-green-600 focus:text-green-700"
+                                      onClick={() => openConvertModal(lead)}
+                                    >
+                                      <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                      Convert to Client
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive cursor-pointer"
+                                      onClick={() => setLeadToDelete(lead)}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
+
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      ) : (
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory no-scrollbar items-start h-[calc(100vh-190px)] sm:h-[calc(100vh-220px)] min-h-[420px] sm:min-h-[500px]">
+            {LEAD_STAGES.map((stage) => {
+              const stageLeads = leadsByStage[stage];
+              return (
+                <div
+                  key={stage}
+                  className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 h-full`}
+                >
+                  {/* Column Header */}
+                  <div className="px-4 py-3 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{stage}</span>
+                      <Badge variant="outline" className="text-xs h-5 px-1.5">
+                        {stageLeads.length}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <Droppable droppableId={stage}>
+                    {(provided, snapshot) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className={cn(
+                          "rounded-xl p-2 min-h-[120px] transition-colors flex-1 overflow-y-auto no-scrollbar flex flex-col gap-3",
+                          snapshot.isDraggingOver
+                            ? "bg-primary/10 ring-2 ring-primary/20"
+                            : "bg-white/20 dark:bg-black/20"
+                        )}
+                      >
+                        {stageLeads.map((lead: Lead, index: number) => (
+                          <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                style={provided.draggableProps.style}
+                                className={cn(
+                                  "mb-3 group outline-none",
+                                  snapshot.isDragging && "z-50 opacity-95"
+                                )}
+                                onMouseDown={(e) => {
+                                  (provided.dragHandleProps as any)?.onMouseDown?.(e);
+                                  handleStart(e.clientX, e.clientY);
+                                }}
+                                onMouseUp={(e) => {
+                                  (provided.dragHandleProps as any)?.onMouseUp?.(e);
+                                  handleEnd(e.clientX, e.clientY, lead);
+                                }}
+                                onTouchStart={(e) => {
+                                  (provided.dragHandleProps as any)?.onTouchStart?.(e);
+                                  const touch = e.touches[0];
+                                  if (touch) handleStart(touch.clientX, touch.clientY);
+                                }}
+                                onTouchEnd={(e) => {
+                                  (provided.dragHandleProps as any)?.onTouchEnd?.(e);
+                                  const touch = e.changedTouches[0];
+                                  if (touch) handleEnd(touch.clientX, touch.clientY, lead);
+                                }}
+                              >
+                                <div
+                                  className={cn(
+                                    "macos-card p-3 space-y-2 relative group/card cursor-grab group-active:cursor-grabbing hover:border-primary/30 transition-colors",
+                                    snapshot.isDragging && "shadow-xl ring-2 ring-primary/30 bg-white"
+                                  )}
+                                >
+                                  {/* Won celebration badge */}
+                                  {lead.stage === "Won" && (
+                                    <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
+                                      <Trophy className="h-3 w-3" />
+                                      Won!
+                                    </div>
+                                  )}
+
+                                  {/* Card header: company + menu */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="font-semibold text-sm leading-tight">{lead.name}</p>
+                                    {isOwner && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 flex-shrink-0"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onMouseUp={(e) => e.stopPropagation()}
+                                            onTouchStart={(e) => e.stopPropagation()}
+                                            onTouchEnd={(e) => e.stopPropagation()}
+                                          >
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                          align="end"
+                                          className="macos-panel"
                                           onClick={(e) => e.stopPropagation()}
                                           onMouseDown={(e) => e.stopPropagation()}
                                           onMouseUp={(e) => e.stopPropagation()}
                                           onTouchStart={(e) => e.stopPropagation()}
                                           onTouchEnd={(e) => e.stopPropagation()}
                                         >
-                                          <MoreHorizontal className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent
-                                        align="end"
-                                        className="macos-panel"
-                                        onClick={(e) => e.stopPropagation()}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        onMouseUp={(e) => e.stopPropagation()}
-                                        onTouchStart={(e) => e.stopPropagation()}
-                                        onTouchEnd={(e) => e.stopPropagation()}
-                                      >
-                                        <DropdownMenuItem
-                                          className="cursor-pointer"
-                                          onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
-                                        >
-                                          <Pencil className="h-4 w-4 mr-2" />
-                                          Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="cursor-pointer text-green-600 focus:text-green-700"
-                                          onClick={(e) => { e.stopPropagation(); openConvertModal(lead); }}
-                                        >
-                                          <ArrowRightLeft className="h-4 w-4 mr-2" />
-                                          Convert to Client
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          className="text-destructive focus:text-destructive cursor-pointer"
-                                          onClick={(e) => { e.stopPropagation(); setLeadToDelete(lead); }}
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-2" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  )}
-                                </div>
-
-                                {/* Contact info */}
-                                {lead.contactName && (
-                                  <p className="text-xs text-muted-foreground">{lead.contactName}</p>
-                                )}
-                                {lead.contactEmail && (
-                                  <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
-                                )}
-
-                                {/* Last Contacted Badge */}
-                                {lead.updatedAt && (
-                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
-                                    <MessageSquare className="h-3 w-3" />
-                                    Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
+                                          <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={(e) => { e.stopPropagation(); openEditModal(lead); }}
+                                          >
+                                            <Pencil className="h-4 w-4 mr-2" />
+                                            Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            className="cursor-pointer text-green-600 focus:text-green-700"
+                                            onClick={(e) => { e.stopPropagation(); openConvertModal(lead); }}
+                                          >
+                                            <ArrowRightLeft className="h-4 w-4 mr-2" />
+                                            Convert to Client
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            className="text-destructive focus:text-destructive cursor-pointer"
+                                            onClick={(e) => { e.stopPropagation(); setLeadToDelete(lead); }}
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )}
                                   </div>
-                                )}
 
-                                {/* Bottom row: industry badge + value */}
-                                <div className="flex items-center justify-between gap-2 pt-1">
-                                  {lead.industry && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs px-1.5 py-0 h-4 border-0 bg-primary/5 text-primary"
-                                    >
-                                      {lead.industry}
-                                    </Badge>
+                                  {/* Contact info */}
+                                  {lead.contactName && (
+                                    <p className="text-xs text-muted-foreground">{lead.contactName}</p>
                                   )}
-                                  {lead.estimatedValue && (
-                                    <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
-                                      <IndianRupee className="h-3 w-3" />
-                                      {Number(lead.estimatedValue).toLocaleString("en-IN")}
+                                  {lead.contactEmail && (
+                                    <p className="text-xs text-muted-foreground truncate">{lead.contactEmail}</p>
+                                  )}
+
+                                  {/* Last Contacted Badge */}
+                                  {lead.updatedAt && (
+                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
+                                      <MessageSquare className="h-3 w-3" />
+                                      Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
                                     </div>
                                   )}
+
+                                  {/* Bottom row: industry badge + value */}
+                                  <div className="flex items-center justify-between gap-2 pt-1">
+                                    {lead.industry && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs px-1.5 py-0 h-4 border-0 bg-primary/5 text-primary"
+                                      >
+                                        {lead.industry}
+                                      </Badge>
+                                    )}
+                                    {lead.estimatedValue && (
+                                      <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
+                                        <IndianRupee className="h-3 w-3" />
+                                        {Number(lead.estimatedValue).toLocaleString("en-IN")}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </div>
-            );
-          })}
-        </div>
-      </DragDropContext>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              );
+            })}
+          </div>
+        </DragDropContext>
+      )}
 
       {/* Add / Edit Modal */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
