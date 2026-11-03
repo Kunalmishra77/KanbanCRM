@@ -70,6 +70,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             variant="ghost"
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
+            aria-label="Collapse sidebar"
             className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 hidden sm:flex"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -80,6 +81,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           variant="ghost"
           size="icon"
           onClick={onMobileClose}
+          aria-label="Close menu"
           className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 sm:hidden"
         >
           <X className="h-4 w-4" />
@@ -91,6 +93,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             variant="ghost"
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
+            aria-label="Expand sidebar"
             className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 mx-auto"
           >
             <ChevronRight className="h-4 w-4" />
@@ -187,6 +190,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           variant="ghost"
           size="icon"
           onClick={onMenuClick}
+          aria-label="Open menu"
           className="sm:hidden h-9 w-9 flex-shrink-0"
         >
           <Menu className="h-5 w-5" />
@@ -203,7 +207,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="rounded-full h-9 w-9 p-0 ring-2 ring-white/50 shadow-sm hover:ring-primary/20 transition-all ml-1">
+            <Button variant="ghost" aria-label="Account menu" className="rounded-full h-9 w-9 p-0 ring-2 ring-white/50 shadow-sm hover:ring-primary/20 transition-all ml-1">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={user?.profileImageUrl || undefined} />
                 <AvatarFallback>{user?.firstName?.charAt(0) || 'U'}</AvatarFallback>

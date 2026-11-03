@@ -42,7 +42,7 @@ async function run() {
     console.log(upsert || upsertErr);
 
     console.log('\n=== Testing Auth again ===');
-    const payload = JSON.stringify({ identity: "aiagentix2025@gmail.com", password: "AGENTiX@2025" });
+    const payload = JSON.stringify({ identity: "aiagentix2025@gmail.com", password: process.env.PB_ADMIN_PASSWORD });
     const { out: auth1 } = await exec(conn, `docker exec kanban-crm wget -q -O- --timeout=10 --post-data='${payload}' --header="Content-Type: application/json" "http://pocketbase-jkc4oswoc00sw84wkgcsgk0c:8080/api/collections/_superusers/auth-with-password" 2>&1 || echo "FAILED"`);
     console.log('Superusers:', auth1);
   }

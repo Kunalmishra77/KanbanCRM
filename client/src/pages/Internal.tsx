@@ -955,7 +955,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
     if (doc.fileData) {
       // Check if it's a URL (starts with http) or base64 (starts with data:)
       if (doc.fileData.startsWith('http')) {
-        window.open(doc.fileData, '_blank');
+        window.open(doc.fileData, '_blank', 'noopener,noreferrer');
       } else {
         const link = document.createElement('a');
         link.href = doc.fileData;
@@ -965,7 +965,15 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
         document.body.removeChild(link);
       }
     } else if (doc.externalLink) {
-      window.open(doc.externalLink, '_blank');
+      // Only http(s) links are opened; blocks javascript:/data: schemes
+      try {
+        const url = new URL(doc.externalLink);
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+          window.open(url.toString(), '_blank', 'noopener,noreferrer');
+        }
+      } catch {
+        /* invalid URL - ignore */
+      }
     }
   };
 

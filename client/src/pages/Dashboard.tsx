@@ -87,6 +87,19 @@ export default function Dashboard() {
   }));
 
   const droppedClients = clients.filter(c => c.stage === 'Dropped').length;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const newClientsLast30Days = clients.filter(c => c.createdAt && Date.now() - new Date(c.createdAt as any as string).getTime() <= 30 * DAY_MS).length;
+  const storiesDueSoon = stories.filter(s => {
+    if (!s.dueDate || s.status === 'Done') return false;
+    const diff = new Date(s.dueDate as any as string).getTime() - Date.now();
+    return diff >= 0 && diff <= 7 * DAY_MS;
+  }).length;
+  // Compact rupee formatting for chart axes (₹0, ₹500, ₹1.5k, ₹2L)
+  const formatAxisRupees = (v: number) => {
+    if (v >= 100000) return `₹${+(v / 100000).toFixed(1)}L`;
+    if (v >= 1000) return `₹${+(v / 1000).toFixed(1)}k`;
+    return `₹${v}`;
+  };
   
   const statusDistribution = [
     { name: 'Hot', value: clients.filter(c => c.stage === 'Hot').length, color: 'hsl(var(--chart-1))' },
@@ -146,7 +159,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
                 <ArrowUpRight className="h-3 w-3" />
-                +2 new
+                +{newClientsLast30Days} new (30d)
               </div>
             </div>
             <div className="space-y-3">
@@ -194,7 +207,7 @@ export default function Dashboard() {
           title="Pending Stories" 
           value={(totalStories - completedStories).toString()} 
           icon={Clock} 
-          trend="5 due soon"
+          trend={`${storiesDueSoon} due in 7 days`}
           trendUp={false}
           color="text-orange-600"
           bgColor="bg-orange-100/50"
@@ -204,7 +217,7 @@ export default function Dashboard() {
           title="Completion Rate" 
           value={`${completionRate}%`} 
           icon={CheckCircle2} 
-          trend="+4%"
+          trend={`${completedStories}/${totalStories} done`}
           trendUp={true}
           color="text-purple-600"
           bgColor="bg-purple-100/50"
@@ -267,7 +280,7 @@ export default function Dashboard() {
                     fontSize={12} 
                     tickLine={false} 
                     axisLine={false} 
-                    tickFormatter={(value) => `₹${value/1000}k`} 
+                    tickFormatter={formatAxisRupees} 
                     dx={-10}
                   />
                   <Tooltip 
@@ -581,7 +594,7 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="period" fontSize={12} tickLine={false} axisLine={false} stroke="#888" dy={8} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888" dx={-8} tickFormatter={v => `₹${v >= 1000 ? (v/1000)+'k' : v}`} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888" dx={-8} tickFormatter={formatAxisRupees} />
                     <Tooltip
                       cursor={{ fill: 'rgba(0,0,0,0.04)' }}
                       contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.95)', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', padding: '12px' }}

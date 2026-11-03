@@ -44,6 +44,7 @@ export function NotificationsDropdown() {
           size="icon" 
           className="rounded-full hover:bg-black/5 relative h-9 w-9"
           data-testid="button-notifications"
+          aria-label="Notifications"
         >
           <Bell className="h-5 w-5 text-muted-foreground" />
           {unreadCount > 0 && (

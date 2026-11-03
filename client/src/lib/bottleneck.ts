@@ -2,6 +2,7 @@ export type BottleneckType = 'Blocked' | 'Stale' | 'Overdue' | 'Stuck' | null;
 
 export interface BottleneckInfo {
   type: NonNullable<BottleneckType>;
+  severity: 'high' | 'medium' | 'low';
   days: number; // Days since created, updated, or due
   description: string;
   color: string;
@@ -22,6 +23,7 @@ export function getStoryBottleneck(story: any): BottleneckInfo | null {
   if (story.status === 'Blocked') {
     return {
       type: 'Blocked',
+      severity: 'high',
       days: daysSinceUpdate,
       description: `Blocked for ${daysSinceUpdate} days`,
       color: 'border-red-500 bg-red-50 text-red-700'
@@ -33,6 +35,7 @@ export function getStoryBottleneck(story: any): BottleneckInfo | null {
     const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
     return {
       type: 'Overdue',
+      severity: 'high',
       days: daysOverdue,
       description: `Overdue by ${daysOverdue} days`,
       color: 'border-rose-500 bg-rose-50 text-rose-700'
@@ -43,6 +46,7 @@ export function getStoryBottleneck(story: any): BottleneckInfo | null {
   if (daysSinceUpdate >= 7) {
     return {
       type: 'Stale',
+      severity: 'medium',
       days: daysSinceUpdate,
       description: `No updates in ${daysSinceUpdate} days`,
       color: 'border-orange-500 bg-orange-50 text-orange-700'
@@ -53,6 +57,7 @@ export function getStoryBottleneck(story: any): BottleneckInfo | null {
   if (story.status === 'In Progress' && daysSinceUpdate >= 5) {
     return {
       type: 'Stuck',
+      severity: 'low',
       days: daysSinceUpdate,
       description: `Stuck in progress for ${daysSinceUpdate} days`,
       color: 'border-yellow-500 bg-yellow-50 text-yellow-700'

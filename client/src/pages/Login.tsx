@@ -7,6 +7,7 @@ import agentixLogo from '../assets/agentix-full-logo.png';
 
 export default function Login() {
   const { login, isLoading } = useAuth();
+  const loginError = new URLSearchParams(window.location.search).get("error");
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden font-sans selection:bg-primary/30 selection:text-primary-foreground">
@@ -32,6 +33,17 @@ export default function Login() {
             <CardDescription>Sign in with your preferred account to continue</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
+            {loginError && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                data-testid="login-error"
+              >
+                {loginError === "not_registered"
+                  ? "This Google account isn't registered for this workspace. Ask an admin to add your email."
+                  : "Sign-in failed. Please try again."}
+              </div>
+            )}
             <Button
               className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
               disabled={isLoading}

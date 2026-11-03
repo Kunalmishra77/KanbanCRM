@@ -2,11 +2,32 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import { createServer } from "http";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 console.log("App: Initializing Express app...");
 
 const app = express();
 const httpServer = createServer(app);
+
+// Security headers. CSP is left to the reverse proxy because the Vite dev server and
+// Google Fonts need inline styles/scripts.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api", apiLimiter);
+app.use(["/api/login", "/api/auth/google"], authLimiter);
 
 declare module "http" {
   interface IncomingMessage {
@@ -16,34 +37,23 @@ declare module "http" {
 
 app.use(
   express.json({
-    limit: '50mb',
+    limit: '10mb',
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
   }),
 );
 
-app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+      const logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       console.log(`${new Date().toLocaleTimeString()} [express] ${logLine}`);
     }
   });
@@ -52,21 +62,8 @@ app.use((req, res, next) => {
 });
 
 // Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    message: "Server is running",
-    environment: {
-      DATABASE_URL: !!process.env.DATABASE_URL,
-      GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
-      GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
-      SESSION_SECRET: !!process.env.SESSION_SECRET,
-      VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      VERCEL: !!process.env.VERCEL,
-      NODE_ENV: process.env.NODE_ENV
-    }
-  });
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok" });
 });
 
 // Initialization wrapper to ensure routes are registered only once
@@ -82,9 +79,10 @@ export async function initApp() {
     // Global Error Handler
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
+      // Never leak internal error details for server errors
+      const message = status >= 500 ? "Internal Server Error" : (err.message || "Request failed");
 
-      console.error("VERCEL GLOBAL ERROR HANDLER:", {
+      console.error("Global error handler:", {
         message: err.message,
         stack: err.stack,
         status,

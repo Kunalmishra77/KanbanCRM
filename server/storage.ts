@@ -30,7 +30,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   upsertUserFromGoogle(user: UpsertUser): Promise<User>;
   updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
-  deleteUser(id: string): Promise<void>;
+  deleteUser(id: string, reassignOwnerTo?: string): Promise<void>;
   
   // Clients
   getClients(): Promise<Client[]>;
@@ -38,6 +38,7 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: string, client: UpdateClient): Promise<Client | undefined>;
   deleteClient(id: string): Promise<boolean>;
+  convertClientToLead(clientId: string, fallbackOwnerId: string): Promise<Lead | undefined>;
   
   // Stories
   getStories(): Promise<Story[]>;
@@ -136,7 +137,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db.select().from(users).where(sql`lower(${users.email}) = lower(${email})`);
     return user;
   }
 
@@ -172,7 +173,7 @@ export class DatabaseStorage implements IStorage {
         lastName: userData.lastName,
         profileImageUrl: userData.profileImageUrl,
         updatedAt: new Date(),
-      }).where(eq(users.email, userData.email || '')).returning();
+      }).where(eq(users.id, existingByEmail.id)).returning();
       return user;
     }
 
@@ -193,24 +194,29 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async deleteUser(id: string): Promise<void> {
+  async deleteUser(id: string, reassignOwnerTo?: string): Promise<void> {
+    await db.transaction(async (tx: typeof db) => {
     // Drizzle ORM cleanup: delete or nullify dependent records to avoid constraint errors
-    await db.delete(activityLog).where(eq(activityLog.userId, id));
-    await db.update(stories).set({ assignedTo: null, person: 'Unassigned' }).where(eq(stories.assignedTo, id));
-    await db.update(clients).set({ ownerId: null }).where(eq(clients.ownerId, id));
-    await db.update(leads).set({ ownerId: null }).where(eq(leads.ownerId, id));
-    await db.update(leads).set({ assignedTo: null }).where(eq(leads.assignedTo, id));
-    await db.delete(founderInvestments).where(eq(founderInvestments.userId, id));
-    await db.delete(internalDocuments).where(eq(internalDocuments.uploadedById, id));
-    await db.delete(sentEmails).where(eq(sentEmails.sentById, id));
-    await db.delete(revenueTargets).where(eq(revenueTargets.ownerId, id));
-    await db.delete(salaryRecords).where(eq(salaryRecords.employeeId, id));
-    await db.delete(salaryRecords).where(eq(salaryRecords.createdBy, id));
-    await db.delete(incentives).where(eq(incentives.employeeId, id));
-    await db.delete(incentives).where(eq(incentives.createdBy, id));
+    await tx.delete(activityLog).where(eq(activityLog.userId, id));
+    await tx.update(stories).set({ assignedTo: null, person: 'Unassigned' }).where(eq(stories.assignedTo, id));
+    await tx.update(clients).set({ ownerId: null }).where(eq(clients.ownerId, id));
+    // leads.owner_id is NOT NULL, so hand the leads to the acting admin instead of nulling them
+    if (reassignOwnerTo && reassignOwnerTo !== id) {
+      await tx.update(leads).set({ ownerId: reassignOwnerTo }).where(eq(leads.ownerId, id));
+    }
+    await tx.update(leads).set({ assignedTo: null }).where(eq(leads.assignedTo, id));
+    await tx.delete(founderInvestments).where(eq(founderInvestments.userId, id));
+    await tx.delete(internalDocuments).where(eq(internalDocuments.uploadedById, id));
+    await tx.delete(sentEmails).where(eq(sentEmails.sentById, id));
+    await tx.delete(revenueTargets).where(eq(revenueTargets.ownerId, id));
+    await tx.delete(salaryRecords).where(eq(salaryRecords.employeeId, id));
+    await tx.delete(salaryRecords).where(eq(salaryRecords.createdBy, id));
+    await tx.delete(incentives).where(eq(incentives.employeeId, id));
+    await tx.delete(incentives).where(eq(incentives.createdBy, id));
 
     // Finally delete the user
-    await db.delete(users).where(eq(users.id, id));
+    await tx.delete(users).where(eq(users.id, id));
+    });
   }
 
   async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined> {
@@ -244,6 +250,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clients.id, id))
       .returning();
     return client;
+  }
+
+  async convertClientToLead(clientId: string, fallbackOwnerId: string): Promise<Lead | undefined> {
+    return db.transaction(async (tx: typeof db) => {
+      const [client] = await tx.select().from(clients).where(eq(clients.id, clientId));
+      if (!client) return undefined;
+
+      // leads.owner_id is NOT NULL in the database, while clients.owner_id is nullable
+      const [lead] = await tx.insert(leads).values({
+        name: client.name,
+        contactName: client.contactName || null,
+        contactEmail: client.contactEmail || null,
+        contactPhone: client.contactPhone || null,
+        industry: client.industry || null,
+        stage: "Hold",
+        estimatedValue: client.expectedRevenue || "0",
+        notes: client.notes || null,
+        ownerId: client.ownerId || fallbackOwnerId,
+      }).returning();
+
+      await tx.delete(clients).where(eq(clients.id, clientId));
+      return lead;
+    });
   }
 
   async deleteClient(id: string): Promise<boolean> {

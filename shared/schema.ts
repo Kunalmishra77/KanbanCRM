@@ -213,7 +213,8 @@ export const leads = pgTable("leads", {
   stage: text("stage").notNull().default('New'),
   estimatedValue: numeric("estimated_value").default('0'),
   notes: text("notes"),
-  ownerId: varchar("owner_id", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
+  // NOT NULL in the production database; a lead must always have an owner
+  ownerId: varchar("owner_id", { length: 255 }).notNull().references(() => users.id),
   assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

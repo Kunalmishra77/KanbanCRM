@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { Story, USERS } from "@/lib/mockData";
+import type { Story } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { format, differenceInHours } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
@@ -96,7 +96,8 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
 };
 
 export function StoryCard({ story, index, onClick, clientName }: StoryCardProps) {
-  const assignee = USERS.find(u => u.id === story.assignedTo);
+  // Real user records aren't loaded on the board; fall back to the point-of-contact name
+  const assignee = story.person ? { name: story.person, avatarUrl: undefined as string | undefined } : undefined;
   const status = getDeadlineStatus(story);
   const styles = DEADLINE_STYLES[status];
 
@@ -104,7 +105,7 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
     Low: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Low" },
     Medium: { color: "bg-yellow-100 text-yellow-700 border-yellow-200", label: "Med" },
     High: { color: "bg-red-100 text-red-700 border-red-200", label: "High" },
-  }[story.priority];
+  }[story.priority as 'Low' | 'Medium' | 'High'] ?? { color: "bg-gray-100 text-gray-700 border-gray-200", label: story.priority || "—" };
   
   const bottleneck = getStoryBottleneck(story);
   const bottleneckBorderColor = bottleneck ? 

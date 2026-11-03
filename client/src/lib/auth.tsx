@@ -26,15 +26,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     retry: false,
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000,
   });
 
   const login = () => {
     window.location.href = "/api/login";
   };
 
-  const logout = () => {
-    window.location.href = "/api/logout";
+  const logout = async () => {
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    } finally {
+      window.location.href = "/auth";
+    }
   };
 
   return (

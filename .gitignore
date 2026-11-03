@@ -8,3 +8,9 @@ server/public
 .vercel
 .env*.local
 tmp/
+
+# Local/agent state and secrets must never be committed
+.local
+.claude
+Secrets
+push_err.txt

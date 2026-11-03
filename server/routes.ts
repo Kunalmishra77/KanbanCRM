@@ -10,12 +10,41 @@ import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 import multer from "multer";
 import { uploadFile } from "./lib/pocketbaseStorage.js";
 
+const ALLOWED_UPLOAD_TYPES: Record<string, string[]> = {
+  ".pdf": ["application/pdf"],
+  ".doc": ["application/msword"],
+  ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ".xls": ["application/vnd.ms-excel"],
+  ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+  ".ppt": ["application/vnd.ms-powerpoint"],
+  ".pptx": ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+  ".txt": ["text/plain"],
+  ".csv": ["text/csv", "text/plain", "application/vnd.ms-excel"],
+  ".png": ["image/png"],
+  ".jpg": ["image/jpeg"],
+  ".jpeg": ["image/jpeg"],
+  ".webp": ["image/webp"],
+  ".gif": ["image/gif"],
+};
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 1,
+  },
+  fileFilter: (_req, file, cb) => {
+    const ext = ("." + (file.originalname.split(".").pop() || "")).toLowerCase();
+    const allowedMimes = ALLOWED_UPLOAD_TYPES[ext];
+    if (!allowedMimes || !allowedMimes.includes(file.mimetype)) {
+      return cb(new Error("File type not allowed"));
+    }
+    cb(null, true);
   },
 });
+
+const sanitizeFileName = (name: string) =>
+  name.replace(/[^A-Za-z0-9._ -]/g, "_").replace(/\.{2,}/g, ".").slice(0, 120) || "file";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -52,12 +81,31 @@ export async function registerRoutes(
   // Setup Google OAuth FIRST - this sets up session middleware
   await setupGoogleAuth(app);
 
+  const isCoFounder = (user: any): boolean => {
+    if (!user) return false;
+    return user.userType === 'co-founder' || isCoFounderEmail(user.email);
+  };
+
+  // Revenue fields are co-founder only; everyone else's writes to them are dropped
+  const stripRevenueFields = (body: any, user: any) => {
+    if (isCoFounder(user) || !body || typeof body !== 'object') return body;
+    const { expectedRevenue, revenueTotal, ...rest } = body;
+    return rest;
+  };
+
 
   // Secure Upload Endpoint - MUST be after setupGoogleAuth for session/auth to work
-  app.post("/api/upload", upload.single("file"), async (req: any, res) => {
+  app.post("/api/upload", (req: any, res, next) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Unauthorized" });
     }
+    next();
+  }, (req: any, res, next) => {
+    upload.single("file")(req, res, (err: any) => {
+      if (err) return res.status(400).json({ error: err.message || "Invalid upload" });
+      next();
+    });
+  }, async (req: any, res) => {
 
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
@@ -68,10 +116,15 @@ export async function registerRoutes(
       return res.status(400).json({ error: "Invalid or missing bucket name" });
     }
 
+    // Invoices and internal documents are co-founder only, matching their API routes
+    if ((bucket === 'invoices' || bucket === 'documents') && !isCoFounder(req.user)) {
+      return res.status(403).json({ error: "Access denied for this bucket" });
+    }
+
     try {
       const result = await uploadFile({
         bucket,
-        fileName: req.file.originalname,
+        fileName: sanitizeFileName(req.file.originalname),
         mimeType: req.file.mimetype,
         buffer: req.file.buffer,
         uploadedBy: req.user?.id,
@@ -80,7 +133,7 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       console.error('Upload error:', error);
-      res.status(500).json({ error: "Failed to upload file to storage", details: error.message });
+      res.status(500).json({ error: "Failed to upload file to storage" });
     }
   });
 
@@ -93,11 +146,6 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
-
-  const isCoFounder = (user: any): boolean => {
-    if (!user) return false;
-    return user.userType === 'co-founder' || isCoFounderEmail(user.email);
-  };
 
   // Clients (all protected with authentication)
   app.get("/api/clients", isAuthenticated, async (req: any, res) => {
@@ -144,9 +192,10 @@ export async function registerRoutes(
     try {
       const clientId = req.params.id;
       
+      const canSeeFinance = isCoFounder(req.user);
       const [clientStories, clientInvoices, clientComms, allActivity] = await Promise.all([
         storage.getStoriesByClient(clientId),
-        storage.getInvoicesByClient(clientId),
+        canSeeFinance ? storage.getInvoicesByClient(clientId) : Promise.resolve([]),
         storage.getCommunicationsByClient(clientId),
         storage.getActivityLog(1000) // fetch more for timeline
       ]);
@@ -172,6 +221,7 @@ export async function registerRoutes(
       
       // Add relevant activity
       allActivity.forEach(a => {
+        if (!canSeeFinance && a.entityType === 'invoice') return;
         if (
           (a.entityType === 'client' && a.entityId === clientId) ||
           (a.entityType === 'story' && storyIds.has(a.entityId)) ||
@@ -202,45 +252,30 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Client not found" });
       }
 
-      // Convert client back to lead
-      const leadData = {
-        name: client.name,
-        contactName: client.contactName || null,
-        contactEmail: client.contactEmail || null,
-        contactPhone: client.contactPhone || null,
-        industry: client.industry || null,
-        stage: "Hold", // Default to "Hold" or "New"
-        estimatedValue: client.expectedRevenue || "0",
-        notes: client.notes || null,
-        ownerId: client.ownerId || null,
-      };
-
-      const lead = await storage.createLead(leadData);
-
-      // Log activity
-      if (req.user?.id) {
-        await storage.createActivityLog({
-          entityType: 'lead',
-          entityId: lead.id,
-          action: 'created',
-          userId: req.user.id,
-          details: `Converted client "${client.name}" back into a lead.`,
-        });
+      // Lead creation and client removal happen in one transaction so a failure can't leave duplicates
+      const lead = await storage.convertClientToLead(req.params.id, req.user.id);
+      if (!lead) {
+        return res.status(404).json({ error: "Client not found" });
       }
 
-      // Delete the client
-      await storage.deleteClient(req.params.id);
+      await storage.createActivityLog({
+        entityType: 'lead',
+        entityId: lead.id,
+        action: 'created',
+        userId: req.user.id,
+        details: `Converted client "${client.name}" back into a lead.`,
+      });
 
       res.status(201).json(lead);
     } catch (error) {
       console.error('Convert client to lead error:', error);
-      res.status(500).json({ error: "Failed to convert client to lead" });
+      res.status(500).json({ error: "Failed to convert client to lead. Please try again." });
     }
   });
 
   app.post("/api/clients", isAuthenticated, async (req: any, res) => {
     try {
-      const data = insertClientSchema.parse(req.body);
+      const data = insertClientSchema.parse(stripRevenueFields(req.body, req.user));
       const client = await storage.createClient(data);
 
       // Log activity using server-side user from session
@@ -266,7 +301,7 @@ export async function registerRoutes(
 
   app.patch("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const data = updateClientSchema.parse(req.body);
+      const data = updateClientSchema.parse(stripRevenueFields(req.body, req.user));
       const client = await storage.updateClient(req.params.id, data);
 
       if (!client) {
@@ -295,10 +330,21 @@ export async function registerRoutes(
 
   app.delete("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only co-founders can delete clients." });
+      }
+      const existing = await storage.getClient(req.params.id);
       const success = await storage.deleteClient(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Client not found" });
       }
+      await storage.createActivityLog({
+        entityType: 'client',
+        entityId: req.params.id,
+        action: 'deleted',
+        userId: req.user.id,
+        details: `Deleted client: ${existing?.name || req.params.id}`,
+      });
       res.status(204).send();
     } catch (error) {
       console.error('Delete client error:', error);
@@ -397,10 +443,21 @@ export async function registerRoutes(
 
   app.delete("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isOwnerOrHRUser(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only admins can delete stories." });
+      }
+      const existing = await storage.getStory(req.params.id);
       const success = await storage.deleteStory(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Story not found" });
       }
+      await storage.createActivityLog({
+        entityType: 'story',
+        entityId: req.params.id,
+        action: 'deleted',
+        userId: req.user.id,
+        details: `Deleted story: ${existing?.title || req.params.id}`,
+      });
       res.status(204).send();
     } catch (error) {
       console.error('Delete story error:', error);
@@ -417,7 +474,15 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied. Admin role required to delete employees." });
       }
 
-      await storage.deleteUser(req.params.id);
+      if (req.params.id === req.user.id) {
+        return res.status(400).json({ error: "You cannot delete your own account." });
+      }
+      const target = await storage.getUser(req.params.id);
+      if (target && isCoFounder(target) && !isCoFounder(user)) {
+        return res.status(403).json({ error: "Only co-founders can delete co-founders." });
+      }
+
+      await storage.deleteUser(req.params.id, req.user.id);
 
       if (req.user?.id) {
         await storage.createActivityLog({
@@ -432,8 +497,7 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error: any) {
       console.error('Delete user error:', error?.message || error);
-      console.error('Delete user error stack:', error?.stack);
-      res.status(500).json({ error: "Failed to delete user", detail: error?.message });
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 
@@ -616,8 +680,11 @@ export async function registerRoutes(
     try {
       const { proposalText, clientName } = req.body;
 
-      if (!proposalText || !clientName) {
+      if (typeof proposalText !== 'string' || typeof clientName !== 'string' || !proposalText || !clientName) {
         return res.status(400).json({ error: "proposalText and clientName are required" });
+      }
+      if (proposalText.length > 30000 || clientName.length > 200) {
+        return res.status(400).json({ error: "Input too long" });
       }
 
       const analysis = await analyzeProposal(proposalText, clientName);
@@ -634,8 +701,11 @@ export async function registerRoutes(
       const { clientId } = req.params;
       const { tasks } = req.body;
 
-      if (!Array.isArray(tasks) || tasks.length === 0) {
-        return res.status(400).json({ error: "tasks array is required" });
+      if (!Array.isArray(tasks) || tasks.length === 0 || tasks.length > 50) {
+        return res.status(400).json({ error: "tasks array is required (max 50)" });
+      }
+      if (!(await storage.getClient(clientId))) {
+        return res.status(404).json({ error: "Client not found" });
       }
 
       const createdStories = [];
@@ -687,7 +757,8 @@ export async function registerRoutes(
   // Activity Log (protected)
   app.get("/api/activity", isAuthenticated, async (req: any, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const parsedLimit = parseInt(req.query.limit as string, 10);
+      const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 200) : 10;
       const logs = await storage.getActivityLog(limit);
       res.json(logs);
     } catch (error) {
@@ -863,6 +934,12 @@ export async function registerRoutes(
       }
       const roleMap: Record<string, string> = { 'co-founder': 'admin', 'hr': 'hr', 'employee': 'editor' };
       const type = userType || 'employee';
+      if (!roleMap[type]) {
+        return res.status(400).json({ error: "Invalid userType" });
+      }
+      if (type === 'co-founder' && !isCoFounder(req.user)) {
+        return res.status(403).json({ error: "Only co-founders can create co-founders." });
+      }
       const user = await storage.createEmployee({
         firstName,
         lastName,
@@ -877,45 +954,6 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/seed-users-tmp", async (req: any, res) => {
-    try {
-      const seedUsers = [
-        { email: 'support@ai-agentix.com', firstName: 'Support', lastName: 'Team', userType: 'employee', role: 'editor' },
-        { email: 'anant@ai-agentix.com', firstName: 'Anant', lastName: 'Admin', userType: 'co-founder', role: 'admin' },
-        { email: 'aiagentix2025@gmail.com', firstName: 'AI', lastName: 'Agentix', userType: 'employee', role: 'editor' },
-        { email: 'agentixoffice@gmail.com', firstName: 'Agentix', lastName: 'Office', userType: 'employee', role: 'editor' },
-        { email: 'rachitsrivastava792@gmail.com', firstName: 'Rachit', lastName: 'Srivastava', userType: 'employee', role: 'editor' },
-        { email: 'tiwarivimlendra@gmail.com', firstName: 'Vimlendra', lastName: 'Tiwari', userType: 'co-founder', role: 'admin' },
-        { email: 'vitalsaigorrela@gmail.com', firstName: 'Vital', lastName: 'Saigorrela', userType: 'co-founder', role: 'admin' },
-        { email: 'anantsanadhya@gmail.com', firstName: 'Anant', lastName: 'Sanadhya', userType: 'co-founder', role: 'admin' },
-        { email: 'myai@ai-agentix.com', firstName: 'MyAI', lastName: 'Admin', userType: 'co-founder', role: 'admin' },
-      ];
-      
-      const { db } = await import("../db/index.js");
-      const { users } = await import("../shared/schema.js");
-      const { eq } = await import("drizzle-orm");
-      const { randomUUID } = await import("crypto");
-
-      for (const u of seedUsers) {
-        const existing = await db.select().from(users).where(eq(users.email, u.email));
-        if (existing.length === 0) {
-          await db.insert(users).values({
-            id: randomUUID(),
-            ...u
-          });
-        } else {
-          await db.update(users).set({
-            userType: u.userType,
-            role: u.role
-          }).where(eq(users.email, u.email));
-        }
-      }
-      res.json({ success: true, message: "Seeded users successfully" });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
   app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
       if (!isOwnerOrHRUser(req.user)) {
@@ -923,6 +961,14 @@ export async function registerRoutes(
       }
 
       const data = updateUserProfileSchema.parse(req.body);
+
+      // Promoting to, or changing, a co-founder is reserved for co-founders (HR must not self-escalate)
+      if (!isCoFounder(req.user)) {
+        const target = await storage.getUser(req.params.id);
+        if (data.userType === 'co-founder' || (target && isCoFounder(target)) || data.shareholdingPercent !== undefined) {
+          return res.status(403).json({ error: "Only co-founders can change co-founder status or shareholding." });
+        }
+      }
       const user = await storage.updateUserProfile(req.params.id, data);
 
       if (!user) {
@@ -1260,6 +1306,9 @@ export async function registerRoutes(
 
   app.delete("/api/communications/:id", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isOwnerOrHRUser(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only admins can delete communication logs." });
+      }
       const success = await storage.deleteClientCommunication(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Communication not found" });
@@ -1440,7 +1489,10 @@ export async function registerRoutes(
     try {
       // Verify cron secret to prevent unauthorized calls
       const cronSecret = process.env.CRON_SECRET;
-      if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+      if (!cronSecret) {
+        return res.status(503).json({ error: "Cron is disabled: CRON_SECRET is not configured" });
+      }
+      if (req.headers.authorization !== `Bearer ${cronSecret}`) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       const result = await sendDeadlineReminders();

@@ -18,23 +18,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, differenceInHours } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
+import type { Client, Story } from "@shared/schema";
 
 type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
 
-type Story = {
-  id: string;
-  clientId: string;
-  title: string;
-  description?: string | null;
-  assignedTo?: string | null;
-  priority: string;
-  estimatedEffortHours?: number | null;
-  dueDate?: Date | string | null;
-  status: string;
-  progressPercent?: number | null;
-  person?: string | null;
-  tags?: string[] | null;
-};
 
 type DeadlineStatus = 'done' | 'none' | 'overdue' | 'critical' | 'warning' | 'safe';
 
@@ -118,8 +105,8 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
 const BOARD_COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Review', 'Done'];
 
 export default function GlobalKanban() {
-  const { data: stories = [], isLoading } = useStories();
-  const { data: clients = [] } = useClients();
+  const { data: stories = [], isLoading } = useStories() as { data: Story[]; isLoading: boolean };
+  const { data: clients = [] } = useClients() as { data: Client[] };
   const { data: users = [] } = useUsers();
   const { mutate: updateStory } = useUpdateStory();
   const { toast } = useToast();

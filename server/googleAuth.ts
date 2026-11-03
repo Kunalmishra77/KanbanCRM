@@ -3,16 +3,20 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
+import { randomBytes } from "crypto";
 import { storage } from "./storage.js";
 
-// Allowlist of emails that are co-founders with admin access
-const CO_FOUNDER_EMAILS = [
-  'vitalsaigorrela@gmail.com',
-  'anantsanadhya@gmail.com',
-  'myai@ai-agentix.com',
-  'anant@ai-agentix.com',
-  'tiwarivimlendra@gmail.com',
-];
+const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+
+// Allowlist of emails that are co-founders with admin access.
+// Override with CO_FOUNDER_EMAILS="a@x.com,b@y.com" so changes don't need a redeploy of code.
+const CO_FOUNDER_EMAILS = (
+  process.env.CO_FOUNDER_EMAILS ||
+  'vitalsaigorrela@gmail.com,anantsanadhya@gmail.com,myai@ai-agentix.com,anant@ai-agentix.com,tiwarivimlendra@gmail.com'
+)
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 export function isCoFounderEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -40,21 +44,21 @@ export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const secret = process.env.SESSION_SECRET;
   
-  console.log("Auth: Initializing session middleware...");
+  if (!secret && isProd) {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
   if (!secret) {
-    console.error("CRITICAL AUTH ERROR: SESSION_SECRET is missing from environment variables! Login will likely fail or be insecure.");
-  } else {
-    console.log("Auth: SESSION_SECRET check passed.");
+    console.warn("Auth: SESSION_SECRET missing - using a random per-process secret (sessions reset on restart).");
   }
 
   const sessionOptions: session.SessionOptions = {
-    secret: secret || "kanban-crm-temporary-fallback-secret-12345",
+    secret: secret || randomBytes(32).toString("hex"),
     resave: false,
     saveUninitialized: false,
     name: 'kanban.sid',
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production" || !!process.env.VERCEL,
+      secure: isProd,
       maxAge: sessionTtl,
       sameSite: 'lax',
     },
@@ -62,7 +66,6 @@ export function getSession() {
 
   if (process.env.DATABASE_URL) {
     try {
-      console.log("Auth: Attempting to initialize PostgreSQL session store with connect-pg-simple...");
       const pgStore = connectPg(session);
       const store = new pgStore({
         conString: process.env.DATABASE_URL,
@@ -76,13 +79,15 @@ export function getSession() {
       });
 
       sessionOptions.store = store;
-      console.log("Auth: PostgreSQL session store initialized successfully.");
     } catch (storeErr) {
       console.error("Auth: CRITICAL ERROR initializing PostgreSQL session store:", storeErr);
-      console.warn("Auth: Falling back to MemoryStore due to session store initialization failure.");
+      if (isProd) throw storeErr;
+      console.warn("Auth: Falling back to MemoryStore (development only).");
     }
+  } else if (isProd) {
+    throw new Error("DATABASE_URL must be set in production for the session store");
   } else {
-    console.warn("Auth: DATABASE_URL missing! Sessions will be stored in-memory (NOT RECOMMENDED FOR PRODUCTION).");
+    console.warn("Auth: DATABASE_URL missing - using in-memory sessions (development only).");
   }
 
   return session(sessionOptions);
@@ -132,8 +137,19 @@ export async function setupGoogleAuth(app: Express) {
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
-            const email = profile.emails?.[0]?.value || null;
-            console.log(`Auth Callback: Google profile received. Email: ${email}, ID: ${profile.id}`);
+            const emailObj = profile.emails?.[0];
+            const email = emailObj?.value || null;
+
+            if (!email || (emailObj as any)?.verified === false) {
+              return done(null, false, { message: "unverified_email" });
+            }
+
+            // Only pre-registered users (created by an admin/HR) or co-founders may sign in.
+            const existing = await storage.getUserByEmail(email);
+            if (!existing && !isCoFounderEmail(email)) {
+              console.warn("Auth Callback: rejected sign-in from unregistered account");
+              return done(null, false, { message: "not_registered" });
+            }
 
             const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
             const lastName = profile.name?.familyName || null;
@@ -143,7 +159,6 @@ export async function setupGoogleAuth(app: Express) {
             const userType = isCoFounder ? 'co-founder' : 'employee';
             const role = isCoFounder ? 'admin' : 'editor';
 
-            console.log(`Auth Callback: Pre-upsertUserFromGoogle for ID: ${profile.id}`);
             const user = await storage.upsertUserFromGoogle({
               id: profile.id,
               email,
@@ -153,8 +168,6 @@ export async function setupGoogleAuth(app: Express) {
               userType,
               role,
             });
-
-            console.log(`Auth Callback: User upserted successfully: ${user.id}`);
 
             done(null, user);
           } catch (error) {
@@ -171,13 +184,11 @@ export async function setupGoogleAuth(app: Express) {
   }
 
   passport.serializeUser((user: any, done) => {
-    console.log(`Auth: Serializing user ID: ${user.id}`);
     done(null, user.id);
   });
 
   passport.deserializeUser(async (id: string, done) => {
     try {
-      console.log(`Auth: Deserializing user ID: ${id}`);
       const user = await storage.getUser(id);
       if (!user) {
         console.warn(`Auth: Deserialization failed - user not found for ID: ${id}`);
@@ -190,7 +201,6 @@ export async function setupGoogleAuth(app: Express) {
   });
 
   app.get("/api/login", (req, res, next) => {
-    console.log("Auth Route: /api/login hit. Redirecting to Google...");
     passport.authenticate("google", { 
       scope: ["profile", "email"],
       prompt: "select_account"
@@ -200,10 +210,8 @@ export async function setupGoogleAuth(app: Express) {
   app.get(
     "/api/auth/google/callback",
     (req, res, next) => {
-      console.log("Auth Route: /api/auth/google/callback hit.");
-      
       passport.authenticate("google", {
-        failureRedirect: "/auth",
+        session: false,
       }, (err, user, info) => {
         if (err) {
           console.error("Auth Callback Route: Passport authentication error:", err);
@@ -211,27 +219,24 @@ export async function setupGoogleAuth(app: Express) {
         }
         
         if (!user) {
-          console.warn("Auth Callback Route: No user returned from Google:", info);
-          return res.redirect("/auth");
+          const reason = (info as any)?.message === "not_registered" ? "not_registered" : "failed";
+          return res.redirect(`/auth?error=${reason}`);
         }
         
-        console.log(`Auth Callback Route: Passport validated user ${user.id}. Attempting req.logIn...`);
         req.logIn(user, (loginErr) => {
           if (loginErr) {
             console.error("Auth Callback Route: req.logIn error:", loginErr);
             return next(loginErr);
           }
           
-          console.log(`Auth Callback Route: Session established for user ${user.id}. Redirecting home.`);
           res.redirect("/");
         });
       })(req, res, next);
     }
   );
 
-  app.get("/api/logout", (req, res) => {
+  app.post("/api/logout", (req, res) => {
     const userId = (req.user as any)?.id;
-    console.log(`Auth Route: /api/logout hit for user ${userId}`);
 
     // Prevent browser/proxy from caching this redirect
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -249,13 +254,11 @@ export async function setupGoogleAuth(app: Express) {
             console.error("Auth Route: Session destroy error:", destroyErr);
           }
           res.clearCookie("kanban.sid");
-          console.log(`Auth Route: User ${userId} logged out successfully.`);
-          res.redirect("/auth");
+          res.status(204).end();
         });
       } else {
         res.clearCookie("kanban.sid");
-        console.log(`Auth Route: User ${userId} logged out (no session).`);
-        res.redirect("/auth");
+        res.status(204).end();
       }
     });
   });

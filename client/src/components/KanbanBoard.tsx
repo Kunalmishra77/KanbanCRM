@@ -1,5 +1,7 @@
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
-import { KanbanStatus, Story } from "@/lib/mockData";
+import type { Story } from "@shared/schema";
+
+export type KanbanStatus = 'To Do' | 'In Progress' | 'Blocked' | 'Review' | 'Done';
 import { StoryCard } from "./StoryCard";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect, useRef } from "react";
