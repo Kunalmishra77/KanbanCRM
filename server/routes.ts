@@ -8,7 +8,7 @@ import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
 import multer from "multer";
-import { saveFile, resolveStoredFile, originalNameOf, isUploadBucket } from "./lib/fileStorage.js";
+import { saveFile, createDownloadUrl, isValidStoredName, originalNameOf, isUploadBucket } from "./lib/fileStorage.js";
 
 const ALLOWED_UPLOAD_TYPES: Record<string, string[]> = {
   ".pdf": ["application/pdf"],
@@ -94,6 +94,7 @@ export async function registerRoutes(
       const result = await saveFile({
         bucket,
         fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
         buffer: req.file.buffer,
       });
 
@@ -104,28 +105,29 @@ export async function registerRoutes(
     }
   });
 
-  // Authenticated file download. Files are never served statically, so the same role rules apply as for uploads.
-  app.get("/api/files/:bucket/:file", isAuthenticated, (req: any, res) => {
+  // Authenticated file download. Buckets are private: after the role check we redirect to a 60-second signed URL.
+  app.get("/api/files/:bucket/:file", isAuthenticated, async (req: any, res) => {
     const { bucket, file } = req.params;
 
+    if (!isUploadBucket(bucket) || !isValidStoredName(file)) {
+      return res.status(404).json({ error: "File not found" });
+    }
     if ((bucket === 'invoices' || bucket === 'documents') && !isCoFounder(req.user)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const fullPath = resolveStoredFile(bucket, file);
-    if (!fullPath) {
-      return res.status(404).json({ error: "File not found" });
+    try {
+      const inlineOk = /\.(pdf|png|jpe?g|gif|webp)$/i.test(originalNameOf(file));
+      const url = await createDownloadUrl(bucket, file, !inlineOk);
+      if (!url) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      res.setHeader("Cache-Control", "private, no-store");
+      res.redirect(302, url);
+    } catch (error) {
+      console.error('File download error:', error);
+      res.status(500).json({ error: "Failed to open the file" });
     }
-
-    const name = originalNameOf(file);
-    const inlineOk = /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
-    res.setHeader("Content-Disposition", `${inlineOk ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name)}`);
-    res.setHeader("Cache-Control", "private, no-store");
-    // Stored files must never run scripts, even if opened directly
-    res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
-    res.sendFile(fullPath, (err) => {
-      if (err && !res.headersSent) res.status(404).json({ error: "File not found" });
-    });
   });
 
   // Auth routes - get current user

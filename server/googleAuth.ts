@@ -3,6 +3,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
+import pg from "pg";
+import { dbSsl } from "../db/index.js";
 import { randomBytes } from "crypto";
 import { storage } from "./storage.js";
 
@@ -62,8 +64,14 @@ export function getSession() {
   if (process.env.DATABASE_URL) {
     try {
       const pgStore = connectPg(session);
+      // Same verified TLS settings as the main database connection
+      const pool = new pg.Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: dbSsl(process.env.DATABASE_URL),
+        max: 3,
+      });
       const store = new pgStore({
-        conString: process.env.DATABASE_URL,
+        pool,
         createTableIfMissing: false, 
         ttl: sessionTtl / 1000,
         tableName: "sessions",

@@ -19,20 +19,19 @@ npm start
 
 The Dockerfile does the same. See `.env.example` for all settings.
 
-## File uploads
+## Supabase
 
-Uploaded files are stored on disk in `STORAGE_DIR` (default `./storage`), one folder per bucket:
+The app uses Supabase for everything it stores.
+
+**Database:** set `DATABASE_URL` to the Supabase *Transaction pooler* connection string. The connection is encrypted and verified against Supabase's root CA. After the tables exist, run once:
 
 ```
-storage/uploads/invoices/
-storage/uploads/documents/
-storage/uploads/proposals/
-storage/uploads/attachments/
+npm run db:secure
 ```
 
-Files are only served through the authenticated `/api/files/:bucket/:file` route; `invoices` and `documents` are co-founder only.
+This turns on row level security for every table and removes all access for the public `anon`/`authenticated` keys, so the data is reachable only through this server.
 
-**Deploying with Docker/Coolify:** mount a persistent volume at `/app/storage`, otherwise uploaded files disappear on every rebuild. Include that folder in your backups.
+**Files:** uploads go to four private Supabase Storage buckets (S3-compatible): `invoices`, `documents`, `proposals`, `attachments`. They are created automatically on the first upload. Nothing is public: `/api/files/:bucket/:file` checks the signed-in user's role (`invoices` and `documents` are co-founder only) and then redirects to a 60-second signed link. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (server only). Files are limited to 5 MB and a fixed list of types.
 
 ## Scheduled jobs
 

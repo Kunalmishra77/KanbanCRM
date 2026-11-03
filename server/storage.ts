@@ -196,7 +196,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string, reassignOwnerTo?: string): Promise<void> {
-    await db.transaction(async (tx: typeof db) => {
+    await db.transaction(async (tx) => {
     // Drizzle ORM cleanup: delete or nullify dependent records to avoid constraint errors
     await tx.delete(activityLog).where(eq(activityLog.userId, id));
     await tx.update(stories).set({ assignedTo: null, person: 'Unassigned' }).where(eq(stories.assignedTo, id));
@@ -254,7 +254,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async convertClientToLead(clientId: string, fallbackOwnerId: string): Promise<Lead | undefined> {
-    return db.transaction(async (tx: typeof db) => {
+    return db.transaction(async (tx) => {
       const [client] = await tx.select().from(clients).where(eq(clients.id, clientId));
       if (!client) return undefined;
 
