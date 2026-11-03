@@ -50,34 +50,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Run DB schema adjustments
-  if (process.env.DATABASE_URL) {
-    try {
-      console.log("DB Migration: Dropping NOT NULL constraint on clients.owner_id...");
-      const { db } = await import("../db/index.js");
-      const { sql } = await import("drizzle-orm");
-      await db.execute(sql`ALTER TABLE clients ALTER COLUMN owner_id DROP NOT NULL`);
-      
-      try {
-        await db.execute(sql`
-          ALTER TABLE clients 
-          DROP CONSTRAINT IF EXISTS clients_owner_id_users_id_fk,
-          DROP CONSTRAINT IF EXISTS clients_owner_id_fkey;
-        `);
-        await db.execute(sql`
-          ALTER TABLE clients 
-          ADD CONSTRAINT clients_owner_id_users_id_fk 
-          FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
-        `);
-      } catch (err: any) {
-        console.warn("DB Migration Warning (adding FK constraint):", err.message);
-      }
-      console.log("DB Migration: clients.owner_id column check completed.");
-    } catch (e: any) {
-      console.error("DB Migration Failure (altering owner_id):", e.message);
-    }
-  }
-
   // Setup Google OAuth FIRST - this sets up session middleware
   await setupGoogleAuth(app);
 
@@ -193,11 +165,15 @@ export async function registerRoutes(
       const clientId = req.params.id;
       
       const canSeeFinance = isCoFounder(req.user);
-      const [clientStories, clientInvoices, clientComms, allActivity] = await Promise.all([
+      const [clientStories, clientInvoices, clientComms] = await Promise.all([
         storage.getStoriesByClient(clientId),
         canSeeFinance ? storage.getInvoicesByClient(clientId) : Promise.resolve([]),
         storage.getCommunicationsByClient(clientId),
-        storage.getActivityLog(1000) // fetch more for timeline
+      ]);
+      const allActivity = await storage.getActivityLogByEntities([
+        clientId,
+        ...clientStories.map(s => s.id),
+        ...clientInvoices.map(i => i.id),
       ]);
 
       const storyIds = new Set(clientStories.map(s => s.id));

@@ -10,7 +10,19 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  app.use(
+    express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        const base = path.basename(filePath);
+        if (base === "sw.js" || base === "index.html" || base === "manifest.json" || base === "offline.html") {
+          // Must always revalidate so new deployments and service workers roll out immediately
+          res.setHeader("Cache-Control", "no-cache");
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }),
+  );
 
   // fall through to index.html for non-API routes (SPA client-side routing)
   // IMPORTANT: Never intercept /api/* routes — those must be handled by Express

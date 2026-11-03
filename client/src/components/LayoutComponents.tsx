@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp } from "lucide-react";
 import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -46,10 +47,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     return true;
   });
 
-  const sidebarContent = (
+  const renderSidebar = (collapsed: boolean) => (
     <aside
       className={cn(
-        "h-screen flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] macos-sidebar",
+        "h-dvh flex flex-col transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] macos-sidebar",
         collapsed ? "w-[70px]" : "w-[260px]"
       )}
     >
@@ -131,7 +132,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Bottom Actions */}
-      <div className="p-4 border-t border-black/5 space-y-2">
+      <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-black/5 space-y-2">
         <Link href="/settings" onClick={onMobileClose}>
           <div
             className={cn(
@@ -150,8 +151,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <>
       {/* Desktop sidebar - always visible */}
-      <div className="hidden sm:block sticky top-0 left-0 z-50 h-screen">
-        {sidebarContent}
+      <div className="hidden sm:block sticky top-0 left-0 z-50 h-dvh">
+        {renderSidebar(collapsed)}
       </div>
 
       {/* Mobile overlay + drawer */}
@@ -161,10 +162,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           <div
             className="fixed inset-0 bg-black/40 backdrop-blur-sm"
             onClick={onMobileClose}
+            aria-hidden="true"
           />
           {/* Drawer */}
-          <div className="relative z-10 h-full">
-            {sidebarContent}
+          <div className="relative z-10 h-full max-w-[85vw]" role="dialog" aria-modal="true" aria-label="Navigation menu">
+            {renderSidebar(false)}
           </div>
         </div>
       )}
@@ -181,9 +183,10 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
 
   return (
-    <header className="h-14 sticky top-0 z-40 flex items-center justify-between gap-2 px-3 sm:px-6 transition-all duration-200 bg-transparent">
+    <header className="h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] sticky top-0 z-40 flex items-center justify-between gap-2 px-3 sm:px-6 transition-all duration-200 bg-transparent">
       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
         {/* Mobile hamburger */}
         <Button
@@ -203,6 +206,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <InstallAppButton />
         <NotificationsDropdown />
 
         <DropdownMenu>
@@ -222,10 +226,16 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-black/5" />
-            <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
+            <DropdownMenuItem
+              className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary"
+              onClick={() => setLocation("/settings")}
+            >
               Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
+            <DropdownMenuItem
+              className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary"
+              onClick={() => setLocation("/settings")}
+            >
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-black/5" />

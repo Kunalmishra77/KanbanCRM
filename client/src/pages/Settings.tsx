@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Moon, Sun, Monitor, User, Palette, Bell, Shield, Users } from "lucide-react";
+import { Moon, Sun, Monitor, User, Palette, Bell, Shield, Users, MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 import { CreateEmployeeModal } from "@/components/CreateEmployeeModal";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { useState } from "react";
 
 const USER_TYPE_LABELS: Record<string, string> = {
@@ -60,6 +61,21 @@ export default function Settings() {
       </div>
 
       <div className="grid gap-6">
+        <Card className="macos-card" data-testid="card-install-app">
+          <CardHeader className="flex flex-row items-center gap-4 pb-4">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <MonitorSmartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Desktop &amp; mobile app</CardTitle>
+              <CardDescription>Install AGENTiX for one-click access in its own window</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <InstallAppButton variant="card" />
+          </CardContent>
+        </Card>
+
         <Card className="macos-card">
           <CardHeader className="flex flex-row items-center gap-4 pb-4">
             <div className="p-2 rounded-lg bg-primary/10">

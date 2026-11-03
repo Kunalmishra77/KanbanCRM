@@ -19,7 +19,7 @@ import {
   leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -54,6 +54,7 @@ export interface IStorage {
   
   // Activity Log
   getActivityLog(limit?: number): Promise<ActivityLog[]>;
+  getActivityLogByEntities(entityIds: string[], limit?: number): Promise<ActivityLog[]>;
   createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
   
   // Invoices
@@ -324,6 +325,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Activity Log
+  async getActivityLogByEntities(entityIds: string[], limit: number = 500): Promise<ActivityLog[]> {
+    if (entityIds.length === 0) return [];
+    return db.select().from(activityLog).where(inArray(activityLog.entityId, entityIds)).orderBy(desc(activityLog.createdAt)).limit(limit);
+  }
+
   async getActivityLog(limit: number = 10): Promise<ActivityLog[]> {
     return db.select().from(activityLog).orderBy(desc(activityLog.createdAt)).limit(limit);
   }

@@ -10,9 +10,32 @@ console.log("App: Initializing Express app...");
 const app = express();
 const httpServer = createServer(app);
 
-// Security headers. CSP is left to the reverse proxy because the Vite dev server and
-// Google Fonts need inline styles/scripts.
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// Security headers. The strict CSP is production-only because the Vite dev server needs inline/eval scripts.
+const isProduction = process.env.NODE_ENV === "production";
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: isProduction
+      ? {
+          useDefaults: false,
+          directives: {
+            "default-src": ["'self'"],
+            "script-src": ["'self'"],
+            "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+            "img-src": ["'self'", "data:", "blob:", "https:"],
+            "connect-src": ["'self'"],
+            "worker-src": ["'self'"],
+            "manifest-src": ["'self'"],
+            "object-src": ["'none'"],
+            "base-uri": ["'self'"],
+            "form-action": ["'self'", "https://accounts.google.com"],
+            "frame-ancestors": ["'none'"],
+          },
+        }
+      : false,
+  }),
+);
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,

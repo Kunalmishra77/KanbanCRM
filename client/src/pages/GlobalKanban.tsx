@@ -535,6 +535,8 @@ export default function GlobalKanban() {
                     const deadlineStatus = getDeadlineStatus(story);
                     const deadlineStyle = DEADLINE_STYLES[deadlineStatus];
                     const bottleneck = getStoryBottleneck(story);
+                    // The deadline badge already says "Overdue"; don't show the same thing twice
+                    const visibleBottleneck = bottleneck && !(bottleneck.type === 'Overdue' && deadlineStyle.badge) ? bottleneck : null;
 
                     // Find user profile details
                     const matchedUser = users.find((u: any) => 
@@ -589,7 +591,7 @@ export default function GlobalKanban() {
                           <div className="flex flex-wrap items-center gap-4 lg:gap-6 shrink-0 min-w-0">
                             
                             {/* Health Alerts / Bottlenecks */}
-                            {(bottleneck || deadlineStyle.badge) && (
+                            {(visibleBottleneck || deadlineStyle.badge) && (
                               <div className="flex items-center gap-2">
                                 {deadlineStyle.badge && (
                                   <Badge variant="outline" className={`text-[10px] font-semibold h-6 ${deadlineStyle.badge.className}`}>
@@ -597,17 +599,17 @@ export default function GlobalKanban() {
                                     {deadlineStyle.badge.label}
                                   </Badge>
                                 )}
-                                {bottleneck && (
+                                {visibleBottleneck && (
                                   <Badge 
                                     variant="outline" 
                                     className={`text-[10px] font-semibold h-6 gap-1 ${
-                                      bottleneck.severity === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
-                                      bottleneck.severity === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                      visibleBottleneck.severity === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
+                                      visibleBottleneck.severity === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
                                       'bg-blue-100 text-blue-700 border-blue-200'
                                     }`}
                                   >
                                     <AlertTriangle className="h-3 w-3" />
-                                    {bottleneck.type}
+                                    {visibleBottleneck.type}
                                   </Badge>
                                 )}
                               </div>

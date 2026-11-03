@@ -6,7 +6,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background overflow-hidden relative font-sans selection:bg-primary/30 selection:text-primary-foreground">
+    <div className="flex min-h-dvh bg-background overflow-hidden relative font-sans selection:bg-primary/30 selection:text-primary-foreground">
       {/* Background Wallpaper Layer - Fixed and Subtle */}
       <div
         className="fixed inset-0 z-0 opacity-30 pointer-events-none saturate-150"
@@ -19,9 +19,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
+      <div className="flex-1 min-w-0 flex flex-col h-dvh overflow-hidden relative z-10">
         <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 scroll-smooth">
+        <main className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-6 scroll-smooth">
           <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6 pb-20">
             {children}
           </div>
