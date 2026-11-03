@@ -1,10 +1,12 @@
 import { useTeamAnalytics } from "@/lib/queries";
+import { useIsHROrOwner } from "@/lib/auth";
+import { RestrictedNotice } from "@/components/RestrictedNotice";
 
 import { Loader2, Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export default function TeamPerformance() {
+function TeamPerformanceContent() {
   const { data: teamStats, isLoading } = useTeamAnalytics();
 
   if (isLoading) {
@@ -120,4 +122,10 @@ export default function TeamPerformance() {
           
     </div>
   );
+}
+
+export default function TeamPerformance() {
+  const canView = useIsHROrOwner();
+  if (!canView) return <RestrictedNotice message="Team performance is available to owners and HR only." />;
+  return <TeamPerformanceContent />;
 }

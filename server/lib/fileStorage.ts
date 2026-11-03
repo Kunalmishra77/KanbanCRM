@@ -108,3 +108,22 @@ export async function createDownloadUrl(bucket: UploadBucket, storedName: string
   if (error || !data?.signedUrl) return null;
   return data.signedUrl;
 }
+
+/**
+ * Deletes the stored objects behind app file URLs (/api/files/<bucket>/<name>).
+ * Best effort: a failure is logged, never thrown, so deleting a record can't be blocked by storage.
+ */
+export async function removeStoredFiles(urls: Array<string | null | undefined>) {
+  const byBucket = new Map<UploadBucket, string[]>();
+  for (const url of urls) {
+    const m = /^\/api\/files\/([a-z]+)\/([^/?#]+)$/.exec(url ?? "");
+    if (!m || !isUploadBucket(m[1])) continue;
+    const name = decodeURIComponent(m[2]);
+    if (!isValidStoredName(name)) continue;
+    byBucket.set(m[1], [...(byBucket.get(m[1]) ?? []), name]);
+  }
+  for (const [bucket, names] of Array.from(byBucket)) {
+    const { error } = await getClient().storage.from(bucket).remove(names);
+    if (error) console.error(`Could not remove stored files from ${bucket}:`, error.message);
+  }
+}

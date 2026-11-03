@@ -16,10 +16,11 @@ function getEmployeeDisplay(u: any): { name: string; title: string; initials: st
   const override = u.email ? EMPLOYEE_DISPLAY[u.email.toLowerCase()] : null;
   const name = override?.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
   const title = override?.title || (u.userType === 'co-founder' ? 'Co-Founder' : u.userType === 'hr' ? 'HR' : 'Employee');
-  const parts = name.split(' ');
+  const parts = name.split(/\s+/).filter(Boolean);
   const initials = parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
   return { name, title, initials: initials.toUpperCase() };
 }
+import { RestrictedNotice } from "@/components/RestrictedNotice";
 import {
   useSalaryRecords, useCreateSalaryRecord, useUpdateSalaryRecord, useDeleteSalaryRecord,
   useIncentives, useCreateIncentive, useUpdateIncentive, useDeleteIncentive,
@@ -101,11 +102,7 @@ export default function SalaryIncentives() {
   const [incentiveForm, setIncentiveForm] = useState({ amount: "", type: "bonus", description: "", period: getCurrentPeriod(), notes: "" });
 
   if (!isHROrOwner) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Access restricted to Owner and HR only.</p>
-      </div>
-    );
+    return <RestrictedNotice message="Salary and incentives are available to owners and HR only." />;
   }
 
   // --- Add Employee ---
@@ -280,6 +277,11 @@ export default function SalaryIncentives() {
             </CardHeader>
             <CardContent>
               <div className="h-56">
+                {chartData.every((d) => d.salary === 0 && d.incentive === 0) ? (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground" data-testid="compensation-chart-empty">
+                    No salary or incentive records in the last 6 months.
+                  </div>
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                     <defs>
@@ -303,6 +305,7 @@ export default function SalaryIncentives() {
                     <Bar dataKey="incentive" name="Incentive" fill="url(#incentiveGrad)" radius={[4,4,0,0]} barSize={18} />
                   </BarChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -495,7 +498,7 @@ export default function SalaryIncentives() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Period (YYYY-MM) *</Label>
-                <Input placeholder="2025-03" value={salaryForm.period} onChange={e => setSalaryForm(f => ({ ...f, period: e.target.value }))} />
+                <Input type="month" placeholder="2025-03" value={salaryForm.period} onChange={e => setSalaryForm(f => ({ ...f, period: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Base Salary (₹) *</Label>
@@ -524,7 +527,7 @@ export default function SalaryIncentives() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Period (YYYY-MM) *</Label>
-                <Input placeholder="2025-03" value={incentiveForm.period} onChange={e => setIncentiveForm(f => ({ ...f, period: e.target.value }))} />
+                <Input type="month" placeholder="2025-03" value={incentiveForm.period} onChange={e => setIncentiveForm(f => ({ ...f, period: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Amount (₹) *</Label>

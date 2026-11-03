@@ -255,6 +255,12 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="pl-0">
             <div className="h-[300px] w-full">
+              {revenueData.every(d => d.expected === 0 && d.received === 0) ? (
+                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground gap-1" data-testid="revenue-chart-empty">
+                  <p className="font-medium text-foreground">No revenue recorded yet</p>
+                  <p className="text-sm">Add an expected revenue to a client, or log a paid invoice, to see it here.</p>
+                </div>
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
@@ -311,6 +317,7 @@ export default function Dashboard() {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>}

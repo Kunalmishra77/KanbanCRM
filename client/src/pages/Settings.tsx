@@ -3,14 +3,13 @@ import { useAuth, useIsOwner } from "@/lib/auth";
 import { useUsers, useUpdateUser } from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Moon, Sun, Monitor, User, Palette, Bell, Shield, Users, MonitorSmartphone } from "lucide-react";
+import { Moon, Sun, Monitor, User, Palette, Users, MonitorSmartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -144,56 +143,6 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="macos-card">
-          <CardHeader className="flex flex-row items-center gap-4 pb-4">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Bell className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>Configure notification preferences</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Activity Notifications</Label>
-                <p className="text-xs text-muted-foreground">Get notified about story updates and comments</p>
-              </div>
-              <Switch defaultChecked data-testid="switch-activity-notifications" />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Email Notifications</Label>
-                <p className="text-xs text-muted-foreground">Receive email updates for important changes</p>
-              </div>
-              <Switch data-testid="switch-email-notifications" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="macos-card">
-          <CardHeader className="flex flex-row items-center gap-4 pb-4">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Shield className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>Security</CardTitle>
-              <CardDescription>Manage your security settings</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Two-Factor Authentication</Label>
-                <p className="text-xs text-muted-foreground">Add an extra layer of security to your account</p>
-              </div>
-              <Switch data-testid="switch-2fa" />
-            </div>
-          </CardContent>
-        </Card>
-
         {isOwner && (
           <Card className="macos-card">
             <CardHeader className="flex flex-row items-center gap-4 pb-4">

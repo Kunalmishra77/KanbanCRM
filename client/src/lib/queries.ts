@@ -68,7 +68,8 @@ export function useDeleteClient() {
 
   return useMutation({
     mutationFn: (id: string) => clientsAPI.delete(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: ['clients', id] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'stories' });
       queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'comments' });
@@ -87,7 +88,8 @@ export function useConvertToLead() {
 
   return useMutation({
     mutationFn: (id: string) => clientsAPI.convertToLead(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: ['clients', id] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
@@ -153,7 +155,8 @@ export function useDeleteStory() {
 
   return useMutation({
     mutationFn: (id: string) => storiesAPI.delete(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: ['stories', id] });
       queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'stories' });
       queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'comments' });
       queryClient.invalidateQueries({ queryKey: ['activity'] });

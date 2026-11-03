@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock, Paperclip, Send, Wand2, Mail, X, FileUp, Loader2, Image, FileText, Trash2, History, Pencil, Check } from "lucide-react";
+import { Clock, Paperclip, Send, Wand2, Mail, X, Loader2, Image, FileText, Trash2, History, Pencil, Check } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -68,7 +68,6 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const [draftBody, setDraftBody] = useState("");
   const [emailNotes, setEmailNotes] = useState("");
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
-  const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
   const [showTimeLog, setShowTimeLog] = useState(false);
   const [timeLogHours, setTimeLogHours] = useState("");
   const [timeLogNote, setTimeLogNote] = useState("");
@@ -126,7 +125,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
         });
 
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload attachment');
+          const body = await uploadResponse.json().catch(() => ({}));
+          throw new Error(body.error || 'Failed to upload attachment');
         }
 
         const { publicUrl, fileName } = await uploadResponse.json();
@@ -270,17 +270,6 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
     setShowTimeLog(false);
   };
 
-  const handleAttachmentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      toast({
-        title: "File attached",
-        description: `${files[0].name} has been attached to this story.`
-      });
-      setShowAttachmentUpload(false);
-    }
-  };
-
   const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'User';
 
   const startEditing = () => {
@@ -335,9 +324,9 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 [&>button]:hidden">
-          <div className="flex h-full overflow-hidden">
-            {/* Left Sidebar: Meta & Status */}
-            <ScrollArea className="w-72 bg-muted/30 border-r border-white/10">
+          <div className="flex flex-col md:flex-row h-full overflow-hidden">
+            {/* Meta & Status: a scrolling strip on top for phones, a left sidebar from md up */}
+            <div className="w-full md:w-72 shrink-0 max-h-[24%] md:max-h-none overflow-y-auto bg-muted/30 border-b md:border-b-0 md:border-r border-white/10">
               <div className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-6">
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status</h4>
@@ -405,12 +394,12 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                   </div>
                 </div>
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 min-h-0">
               <div className="p-4 sm:p-6 border-b border-white/10">
-                <DialogHeader>
+                <DialogHeader className="text-left">
                   <div className="flex items-start justify-between gap-4">
                     <DialogTitle className="text-2xl font-bold leading-tight pr-2">
                       {isEditing ? (
@@ -453,6 +442,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             className="rounded-full h-8 w-8 text-primary hover:bg-primary/10 hover:border-primary"
                             onClick={startEditing}
                             data-testid="button-edit-story"
+                            aria-label="Edit story"
                             title="Edit story"
                           >
                             <Pencil className="h-4 w-4" />
@@ -460,19 +450,10 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           <Button
                             variant="outline"
                             size="icon"
-                            className={cn("rounded-full h-8 w-8", showAttachmentUpload && "bg-primary/10 border-primary")}
-                            onClick={() => setShowAttachmentUpload(!showAttachmentUpload)}
-                            data-testid="button-attachment"
-                            title="Attach file"
-                          >
-                            <Paperclip className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
                             className={cn("rounded-full h-8 w-8", showTimeLog && "bg-primary/10 border-primary")}
                             onClick={() => setShowTimeLog(!showTimeLog)}
                             data-testid="button-time-log"
+                            aria-label="Log time"
                             title="Log time"
                           >
                             <Clock className="h-4 w-4" />
@@ -483,6 +464,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             className="rounded-full h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive"
                             onClick={() => setShowDeleteConfirm(true)}
                             data-testid="button-delete-story"
+                            aria-label="Delete story"
                             title="Delete story"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -493,6 +475,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             className="rounded-full h-8 w-8 ml-1"
                             onClick={() => onOpenChange(false)}
                             data-testid="button-close-story"
+                            aria-label="Close"
                             title="Close"
                           >
                             <X className="h-4 w-4" />
@@ -508,27 +491,6 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     )}
                   </DialogDescription>
                 </DialogHeader>
-
-                {/* Attachment Upload Panel */}
-                {showAttachmentUpload && (
-                  <div className="mt-4 p-4 rounded-lg bg-white/40 border border-white/20 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <FileUp className="h-4 w-4" />
-                        Attach File
-                      </h4>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAttachmentUpload(false)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <Input
-                      type="file"
-                      onChange={handleAttachmentSelect}
-                      className="bg-white/60"
-                      data-testid="input-attachment"
-                    />
-                  </div>
-                )}
 
                 {/* Time Log Panel */}
                 {showTimeLog && (

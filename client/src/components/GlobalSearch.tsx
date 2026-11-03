@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Search, Loader2 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useStories, useLeads, useClients } from "@/lib/queries";
 import { useLocation } from "wouter";
@@ -67,6 +67,7 @@ export function GlobalSearch() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden gap-0 bg-background border shadow-xl">
+          <DialogTitle className="sr-only">Search stories, leads and clients</DialogTitle>
           <div className="flex items-center border-b px-3">
             <Search className="h-5 w-5 text-muted-foreground shrink-0" />
             <Input
@@ -92,14 +93,14 @@ export function GlobalSearch() {
                     {filteredStories.map((s: any) => (
                       <div 
                         key={s.id} 
-                        onClick={() => navigateTo(`/?story=${s.id}`)}
+                        onClick={() => navigateTo(`/global-kanban?story=${s.id}`)}
                         className="p-2 hover:bg-muted rounded-md cursor-pointer flex justify-between items-center group"
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-medium">{s.title}</p>
                           <p className="text-xs text-muted-foreground truncate max-w-[70vw] sm:max-w-[400px]">{s.description}</p>
                         </div>
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">{s.status}</span>
+                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full whitespace-nowrap shrink-0 ml-2">{s.status}</span>
                       </div>
                     ))}
                   </div>
@@ -130,7 +131,7 @@ export function GlobalSearch() {
                     {filteredClients.map((c: any) => (
                       <div 
                         key={c.id} 
-                        onClick={() => navigateTo(`/clients`)}
+                        onClick={() => navigateTo(`/clients/${c.id}`)}
                         className="p-2 hover:bg-muted rounded-md cursor-pointer flex justify-between items-center"
                       >
                         <div>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useCreateClient, useLeadComments, useCreateLeadComment } from "@/lib/queries";
 import { useIsOwner, useAuth } from "@/lib/auth";
@@ -137,7 +137,7 @@ function LeadCommentsTab({ leadId }: { leadId: string }) {
             }
           }}
         />
-        <Button onClick={handlePost} disabled={isPending || !newComment.trim()} className="h-[60px] w-[60px] shrink-0 rounded-xl">
+        <Button onClick={handlePost} disabled={isPending || !newComment.trim()} aria-label="Add note" className="h-[60px] w-[60px] shrink-0 rounded-xl">
           {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
         </Button>
       </div>
@@ -146,7 +146,9 @@ function LeadCommentsTab({ leadId }: { leadId: string }) {
 }
 
 export default function Leads() {
-  const { data: leads = [], isLoading } = useLeads();
+  const { data: leadsData, isLoading } = useLeads();
+  // A fresh `[]` default every render would retrigger the sync effect below forever while loading
+  const leads = useMemo(() => (leadsData ?? []) as Lead[], [leadsData]);
   const { mutate: createLead, isPending: isCreating } = useCreateLead();
   const { mutate: updateLead, isPending: isUpdating } = useUpdateLead();
   const { mutate: deleteLead } = useDeleteLead();

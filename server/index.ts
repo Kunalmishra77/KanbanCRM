@@ -1,8 +1,12 @@
 import 'dotenv/config';
 import app, { initApp } from "./app.js";
 import { serveStatic } from "./static.js";
+import { createServer } from "http";
 
 console.log("Server: index.ts loaded");
+
+// One HTTP server for everything, so Vite's HMR websocket attaches to the server that actually listens
+const httpServer = createServer(app);
 
 (async () => {
   try {
@@ -15,14 +19,12 @@ console.log("Server: index.ts loaded");
       // In Dev, we need to setup Vite
       // This is dynamic to avoid loading Vite in production
       const { setupVite } = await import("./vite.js");
-      const { createServer } = await import("http");
-      const httpServer = createServer(app);
       await setupVite(httpServer, app);
     }
 
     if (process.env.NODE_ENV !== "test") {
       const port = parseInt(process.env.PORT || "5000", 10);
-      app.listen(port, "0.0.0.0", () => {
+      httpServer.listen(port, "0.0.0.0", () => {
         console.log(`${new Date().toLocaleTimeString()} [express] serving on port ${port}`);
       });
     }

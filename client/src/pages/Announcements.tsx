@@ -150,7 +150,8 @@ export default function Announcements() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`h-7 w-7 ${ann.isPinned ? "text-primary" : "text-muted-foreground"}`}
+                      aria-label={ann.isPinned ? "Unpin announcement" : "Pin announcement"}
+                      className={`h-9 w-9 sm:h-7 sm:w-7 ${ann.isPinned ? "text-primary" : "text-muted-foreground"}`}
                       onClick={() => handleTogglePin(ann)}
                       title={ann.isPinned ? "Unpin" : "Pin"}
                     >
@@ -159,7 +160,8 @@ export default function Announcements() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-muted-foreground"
+                      aria-label="Edit announcement"
+                      className="h-9 w-9 sm:h-7 sm:w-7 text-muted-foreground"
                       onClick={() => openEditModal(ann)}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -167,7 +169,8 @@ export default function Announcements() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      aria-label="Delete announcement"
+                      className="h-9 w-9 sm:h-7 sm:w-7 text-destructive hover:text-destructive"
                       onClick={() => setToDelete(ann)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

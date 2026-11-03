@@ -237,6 +237,18 @@ export default function GlobalKanban() {
     });
   };
 
+  // Deep link from the global search: /global-kanban?story=<id> opens that story
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("story");
+    if (!id || stories.length === 0) return;
+    const match = stories.find((s) => s.id === id);
+    if (match) {
+      setSelectedStory(match);
+      setIsDetailsOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [stories]);
+
   const handleStoryClick = (story: Story) => {
     setSelectedStory(story);
     setIsDetailsOpen(true);

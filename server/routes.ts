@@ -8,7 +8,7 @@ import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
 import multer from "multer";
-import { saveFile, createDownloadUrl, isValidStoredName, originalNameOf, isUploadBucket } from "./lib/fileStorage.js";
+import { saveFile, createDownloadUrl, isValidStoredName, originalNameOf, isUploadBucket, removeStoredFiles } from "./lib/fileStorage.js";
 
 const ALLOWED_UPLOAD_TYPES: Record<string, string[]> = {
   ".pdf": ["application/pdf"],
@@ -53,6 +53,18 @@ export async function registerRoutes(
   const isCoFounder = (user: any): boolean => {
     if (!user) return false;
     return user.userType === 'co-founder' || isCoFounderEmail(user.email);
+  };
+
+  // File URLs that belong to a client (proposal, invoice files, story comment attachments).
+  // Gathered before a client is removed, because their database rows disappear with it.
+  const collectClientFileUrls = async (clientId: string) => {
+    const [client, invoices, clientStories] = await Promise.all([
+      storage.getClient(clientId),
+      storage.getInvoicesByClient(clientId),
+      storage.getStoriesByClient(clientId),
+    ]);
+    const attachments = (await Promise.all(clientStories.map((st) => storage.getCommentsByStory(st.id)))).flat().map((c) => c.attachmentData);
+    return [client?.proposalFileData, ...invoices.map((i) => i.fileData), ...attachments];
   };
 
   // Revenue fields are co-founder only; everyone else's writes to them are dropped
@@ -250,10 +262,12 @@ export async function registerRoutes(
       }
 
       // Lead creation and client removal happen in one transaction so a failure can't leave duplicates
+      const fileUrls = await collectClientFileUrls(req.params.id);
       const lead = await storage.convertClientToLead(req.params.id, req.user.id);
       if (!lead) {
         return res.status(404).json({ error: "Client not found" });
       }
+      await removeStoredFiles(fileUrls);
 
       await storage.createActivityLog({
         entityType: 'lead',
@@ -331,10 +345,13 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied. Only co-founders can delete clients." });
       }
       const existing = await storage.getClient(req.params.id);
+      // Collect file URLs first: the database rows cascade away with the client
+      const fileUrls = await collectClientFileUrls(req.params.id);
       const success = await storage.deleteClient(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Client not found" });
       }
+      await removeStoredFiles(fileUrls);
       await storage.createActivityLog({
         entityType: 'client',
         entityId: req.params.id,
@@ -444,10 +461,12 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied. Only admins can delete stories." });
       }
       const existing = await storage.getStory(req.params.id);
+      const storyComments = await storage.getCommentsByStory(req.params.id);
       const success = await storage.deleteStory(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Story not found" });
       }
+      await removeStoredFiles(storyComments.map((c) => c.attachmentData));
       await storage.createActivityLog({
         entityType: 'story',
         entityId: req.params.id,
@@ -756,7 +775,11 @@ export async function registerRoutes(
     try {
       const parsedLimit = parseInt(req.query.limit as string, 10);
       const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 200) : 10;
-      const logs = await storage.getActivityLog(limit);
+      let logs = await storage.getActivityLog(limit);
+      // Invoice entries carry amounts: co-founders only
+      if (!isCoFounder(req.user)) {
+        logs = (await storage.getActivityLog(limit * 3)).filter((l) => l.entityType !== 'invoice').slice(0, limit);
+      }
       res.json(logs);
     } catch (error) {
       console.error('Get activity error:', error);
@@ -857,6 +880,7 @@ export async function registerRoutes(
       if (!success) {
         return res.status(404).json({ error: "Invoice not found" });
       }
+      await removeStoredFiles([invoice?.fileData]);
 
       if (req.user?.id && invoice) {
         const client = await storage.getClient(invoice.clientId);
@@ -1138,10 +1162,12 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Only co-founders can delete documents" });
       }
 
+      const doc = await storage.getInternalDocument(req.params.id);
       const success = await storage.deleteInternalDocument(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Document not found" });
       }
+      await removeStoredFiles([doc?.fileData]);
 
       res.status(204).send();
     } catch (error) {

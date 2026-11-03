@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { userFullName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -389,7 +390,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="mt-3 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+                    <Button variant="ghost" size="icon" aria-label="Remove team member" className="mt-3 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
@@ -503,7 +504,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="mt-3 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+                      <Button variant="ghost" size="icon" aria-label="Remove team member" className="mt-3 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -563,7 +564,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
 
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
-    return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+    return user ? userFullName(user) || 'Unknown' : 'Unknown';
   };
 
   const investmentsByUser = coFounders.map(user => ({
@@ -700,7 +701,8 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => deleteInvestment.mutate(inv.id)}
+                      onClick={() => { if (window.confirm("Delete this investment record? This cannot be undone.")) deleteInvestment.mutate(inv.id); }}
+                      aria-label="Delete investment"
                       data-testid={`delete-investment-${inv.id}`}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -721,7 +723,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
 
   const shareholdingData = [
     ...coFounders.map((user, index) => ({
-      name: `${user.firstName} ${user.lastName}`,
+      name: userFullName(user),
       value: Number(user.shareholdingPercent || 0),
       color: COLORS[index % COLORS.length],
     })),
@@ -808,7 +810,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
 function ActivitySection({ activityLog, users }: { activityLog: ActivityLog[], users: User[] }) {
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
-    return user ? `${user.firstName} ${user.lastName}` : 'Unknown User';
+    return user ? userFullName(user) || 'Unknown User' : 'Unknown User';
   };
 
   const getActionColor = (action: string) => {
@@ -879,7 +881,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
 
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
-    return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+    return user ? userFullName(user) || 'Unknown' : 'Unknown';
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1124,7 +1126,8 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    onClick={() => deleteDocument.mutate(doc.id)}
+                    onClick={() => { if (window.confirm("Delete this document? This cannot be undone.")) deleteDocument.mutate(doc.id); }}
+                    aria-label="Delete document"
                     data-testid={`button-delete-document-${doc.id}`}
                   >
                     <Trash2 className="h-4 w-4" />

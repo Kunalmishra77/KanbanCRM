@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useIsHROrOwner } from "@/lib/auth";
+import { RestrictedNotice } from "@/components/RestrictedNotice";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,7 +13,7 @@ import { Activity, Search, Filter, Loader2, Download } from "lucide-react";
 import { activityAPI } from "@/lib/api";
 import { useUsers } from "@/lib/queries";
 
-export default function AuditLog() {
+function AuditLogContent() {
   const { user } = useAuth();
   const { data: users = [] } = useUsers();
   const [filterUser, setFilterUser] = useState<string>("all");
@@ -147,4 +149,10 @@ export default function AuditLog() {
       </Card>
     </div>
   );
+}
+
+export default function AuditLog() {
+  const canView = useIsHROrOwner();
+  if (!canView) return <RestrictedNotice message="The audit log is available to owners and HR only." />;
+  return <AuditLogContent />;
 }

@@ -29,11 +29,13 @@ const INDUSTRIES = [
 const STAGES = ["Hot", "Warm", "Cold", "Hold", "Dropped"];
 
 interface CreateClientModalProps {
+  /** Called with the new client's stage so the list can switch to the tab it landed in */
+  onCreated?: (stage: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps) {
+export function CreateClientModal({ open, onOpenChange, onCreated }: CreateClientModalProps) {
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [stage, setStage] = useState("Warm");
@@ -116,6 +118,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
           });
           resetForm();
           onOpenChange(false);
+          onCreated?.(stage);
         }
       });
     } catch (error: any) {
@@ -199,7 +202,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
                     id="contact-phone"
                     data-testid="input-contact-phone"
                     type="tel"
-                    placeholder="+1 (555) 123-4567"
+                    placeholder="+91 98765 43210"
                     className="macos-input"
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}

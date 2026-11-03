@@ -75,7 +75,7 @@ export function RevenueInsight() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation('/')} data-testid="button-back">
+        <Button variant="ghost" size="icon" onClick={() => setLocation('/')} data-testid="button-back" aria-label="Back to dashboard">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -250,7 +250,7 @@ export function ClientsInsight() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation('/')} data-testid="button-back">
+        <Button variant="ghost" size="icon" onClick={() => setLocation('/')} data-testid="button-back" aria-label="Back to dashboard">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>

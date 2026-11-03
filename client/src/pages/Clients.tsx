@@ -247,6 +247,7 @@ export default function Clients() {
                                     className="h-8 w-8 hover:bg-muted/80"
                                     onClick={(e) => e.stopPropagation()}
                                     data-testid={`button-client-menu-${client.id}`}
+                                    aria-label={`Actions for ${client.name}`}
                                   >
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
@@ -358,6 +359,7 @@ export default function Clients() {
       <CreateClientModal
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
+        onCreated={(stage) => setLocation(`/clients?stage=${stage}`)}
       />
 
       <EditClientModal
