@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
-import generatedImage from '@assets/generated_images/abstract_apple-style_wallpaper_with_soft_gradients.png';
+import generatedImage from '@/assets/wallpaper.png';
 import agentixLogo from '../assets/agentix-full-logo.png';
 
 export default function Login() {

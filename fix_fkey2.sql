@@ -1,1 +1,0 @@
-ALTER TABLE activity_log DROP CONSTRAINT IF EXISTS activity_log_user_id_fkey; ALTER TABLE activity_log ADD CONSTRAINT activity_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;

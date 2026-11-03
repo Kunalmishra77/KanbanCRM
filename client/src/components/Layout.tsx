@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Sidebar, TopBar } from "./LayoutComponents";
-import generatedImage from '@assets/generated_images/abstract_apple-style_wallpaper_with_soft_gradients.png';
+import generatedImage from '@/assets/wallpaper.png';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

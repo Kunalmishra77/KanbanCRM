@@ -71,7 +71,7 @@ export function CreateClientModal({ open, onOpenChange }: CreateClientModalProps
     let proposalFileName: string | null = null;
 
     try {
-      // Upload proposal file to Supabase if provided
+      // Upload proposal file to local file storage if provided
       if (proposalFile) {
         const formData = new FormData();
         formData.append('file', proposalFile);

@@ -8,7 +8,7 @@ import { ZodError } from "zod";
 import { analyzeProposal, generateStatusEmail } from "./gemini.js";
 
 import multer from "multer";
-import { uploadFile } from "./lib/pocketbaseStorage.js";
+import { saveFile, resolveStoredFile, originalNameOf, isUploadBucket } from "./lib/fileStorage.js";
 
 const ALLOWED_UPLOAD_TYPES: Record<string, string[]> = {
   ".pdf": ["application/pdf"],
@@ -42,9 +42,6 @@ const upload = multer({
     cb(null, true);
   },
 });
-
-const sanitizeFileName = (name: string) =>
-  name.replace(/[^A-Za-z0-9._ -]/g, "_").replace(/\.{2,}/g, ".").slice(0, 120) || "file";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -84,7 +81,7 @@ export async function registerRoutes(
     }
 
     const { bucket } = req.body;
-    if (!bucket || !['invoices', 'documents', 'proposals', 'attachments'].includes(bucket)) {
+    if (!isUploadBucket(bucket)) {
       return res.status(400).json({ error: "Invalid or missing bucket name" });
     }
 
@@ -94,19 +91,41 @@ export async function registerRoutes(
     }
 
     try {
-      const result = await uploadFile({
+      const result = await saveFile({
         bucket,
-        fileName: sanitizeFileName(req.file.originalname),
-        mimeType: req.file.mimetype,
+        fileName: req.file.originalname,
         buffer: req.file.buffer,
-        uploadedBy: req.user?.id,
       });
 
       res.json(result);
     } catch (error: any) {
       console.error('Upload error:', error);
-      res.status(500).json({ error: "Failed to upload file to storage" });
+      res.status(500).json({ error: "Failed to store the uploaded file" });
     }
+  });
+
+  // Authenticated file download. Files are never served statically, so the same role rules apply as for uploads.
+  app.get("/api/files/:bucket/:file", isAuthenticated, (req: any, res) => {
+    const { bucket, file } = req.params;
+
+    if ((bucket === 'invoices' || bucket === 'documents') && !isCoFounder(req.user)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const fullPath = resolveStoredFile(bucket, file);
+    if (!fullPath) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    const name = originalNameOf(file);
+    const inlineOk = /\.(pdf|png|jpe?g|gif|webp)$/i.test(name);
+    res.setHeader("Content-Disposition", `${inlineOk ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name)}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    // Stored files must never run scripts, even if opened directly
+    res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+    res.sendFile(fullPath, (err) => {
+      if (err && !res.headersSent) res.status(404).json({ error: "File not found" });
+    });
   });
 
   // Auth routes - get current user

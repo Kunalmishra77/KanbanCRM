@@ -111,7 +111,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
     let attachmentName: string | null = null;
     let attachmentType: string | null = null;
 
-    // Upload attachment to Supabase storage if provided
+    // Upload attachment to local file storage if provided
     if (commentAttachment) {
       setIsUploadingAttachment(true);
       try {
@@ -822,8 +822,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                         ) : (
                                           <a
                                             href={comment.attachmentData}
-                                            target={comment.attachmentData.startsWith('http') ? '_blank' : undefined}
-                                            download={!comment.attachmentData.startsWith('http') ? comment.attachmentName : undefined}
+                                            target={/^(https?:\/\/|\/api\/files\/)/.test(comment.attachmentData) ? '_blank' : undefined}
+                                            download={!/^(https?:\/\/|\/api\/files\/)/.test(comment.attachmentData) ? comment.attachmentName : undefined}
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary text-sm"
                                           >

@@ -954,7 +954,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
   const handleDownload = (doc: InternalDocument) => {
     if (doc.fileData) {
       // Check if it's a URL (starts with http) or base64 (starts with data:)
-      if (doc.fileData.startsWith('http')) {
+      if (/^(https?:\/\/|\/api\/files\/)/.test(doc.fileData)) {
         window.open(doc.fileData, '_blank', 'noopener,noreferrer');
       } else {
         const link = document.createElement('a');

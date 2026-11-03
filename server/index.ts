@@ -10,10 +10,7 @@ console.log("Server: index.ts loaded");
     await initApp();
 
     if (process.env.NODE_ENV === "production") {
-      // Static serving only if not on Vercel
-      if (!process.env.VERCEL) {
-        serveStatic(app);
-      }
+      serveStatic(app);
     } else {
       // In Dev, we need to setup Vite
       // This is dynamic to avoid loading Vite in production
@@ -23,8 +20,7 @@ console.log("Server: index.ts loaded");
       await setupVite(httpServer, app);
     }
 
-    // Only start server manually if NOT on Vercel
-    if (!process.env.VERCEL && process.env.NODE_ENV !== "test") {
+    if (process.env.NODE_ENV !== "test") {
       const port = parseInt(process.env.PORT || "5000", 10);
       app.listen(port, "0.0.0.0", () => {
         console.log(`${new Date().toLocaleTimeString()} [express] serving on port ${port}`);

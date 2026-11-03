@@ -6,4 +6,4 @@ dist
 .env*.local
 tmp
 *.tar.gz
-push_err.txt
+storage

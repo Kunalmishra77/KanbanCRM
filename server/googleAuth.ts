@@ -6,7 +6,7 @@ import connectPg from "connect-pg-simple";
 import { randomBytes } from "crypto";
 import { storage } from "./storage.js";
 
-const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+const isProd = process.env.NODE_ENV === "production";
 
 // Allowlist of emails that are co-founders with admin access.
 // Override with CO_FOUNDER_EMAILS="a@x.com,b@y.com" so changes don't need a redeploy of code.
@@ -30,11 +30,6 @@ function getCallbackURL() {
   const appUrl = process.env.APP_URL || process.env.PUBLIC_URL;
   if (appUrl) {
     return `${appUrl.replace(/\/+$/, "")}/api/auth/google/callback`;
-  }
-
-  const isVercel = process.env.VERCEL === '1' || !!process.env.VERCEL;
-  if (isVercel && process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api/auth/google/callback`;
   }
 
   return `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`;
