@@ -14,3 +14,8 @@ tmp/
 .claude
 Secrets
 push_err.txt
+
+# Test output
+e2e/shots/
+e2e/shots-ui/
+e2e/report-*.json

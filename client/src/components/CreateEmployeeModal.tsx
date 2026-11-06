@@ -1,3 +1,4 @@
+import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,9 +78,9 @@ export function CreateEmployeeModal({ open, onOpenChange }: { open: boolean; onO
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="employee">Employee</SelectItem>
-                <SelectItem value="hr">HR</SelectItem>
-                <SelectItem value="co-founder">Owner / Admin</SelectItem>
+                {ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

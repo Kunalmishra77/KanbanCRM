@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, ArrowLeft, TrendingUp, IndianRupee, Loader2, FileText, Trash2, Pencil, Upload, X, Receipt, Phone, Video, Mail, MessageSquare, AlertTriangle, ArrowRightLeft } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { ProposalAnalyzer } from "@/components/ProposalAnalyzer";
 import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { EntityTimeline } from "@/components/EntityTimeline";
 import { useClient, useStories, useUpdateStory, useInvoices, useCreateInvoice, useUpdateInvoice, useDeleteInvoice, useCommunications, useCreateCommunication, useDeleteCommunication, useConvertToLead } from "@/lib/queries";
-import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
+import { useIsFounder, useCanViewFinance, useCanManageTeam } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,8 +54,9 @@ export default function ClientDetail() {
   const [, params] = useRoute("/clients/:id");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const isOwner = useIsOwner();
-  const isHROrOwner = useIsHROrOwner();
+  const isFounder = useIsFounder();
+  const canViewFinance = useCanViewFinance();
+  const canManageTeam = useCanManageTeam();
 
   const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
   const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
@@ -303,8 +305,8 @@ export default function ClientDetail() {
             </Badge>
             {getContractEndDateBadge()}
           </div>
-          <div className="w-full sm:w-auto sm:ml-auto flex gap-2 flex-shrink-0">
-            {isOwner && (
+          <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap gap-2">
+            {isFounder && (
               <Button
                 variant="outline"
                 className="w-full sm:w-auto gap-2 border-primary/20 text-primary hover:bg-primary/5"
@@ -316,6 +318,7 @@ export default function ClientDetail() {
                 Convert to Lead
               </Button>
             )}
+            <ProposalAnalyzer clientId={client.id} clientName={client.name} />
             <Button
               className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateStoryOpen(true)}
@@ -328,7 +331,7 @@ export default function ClientDetail() {
         </div>
 
         <div className="flex flex-wrap gap-4 text-sm">
-          {isOwner && (
+          {canViewFinance && (
             <>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <IndianRupee className="h-4 w-4 text-green-500" />
@@ -350,7 +353,7 @@ export default function ClientDetail() {
       <Tabs defaultValue="kanban" className="flex-1 min-h-0 flex flex-col">
         <TabsList className="w-full sm:w-fit overflow-x-auto">
           <TabsTrigger value="kanban" data-testid="tab-kanban">Kanban Board</TabsTrigger>
-          {isOwner && (
+          {canViewFinance && (
             <TabsTrigger value="invoices" data-testid="tab-invoices">
               Invoices ({invoices.length})
             </TabsTrigger>
@@ -448,7 +451,7 @@ export default function ClientDetail() {
                             <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{comm.summary}</p>
                           </div>
                         </div>
-                        {isHROrOwner && (
+                        {canManageTeam && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive flex-shrink-0">
@@ -483,7 +486,7 @@ export default function ClientDetail() {
           })()}
         </TabsContent>
 
-        {isOwner && (
+        {canViewFinance && (
           <TabsContent value="invoices" className="flex-1 min-h-0 mt-4 overflow-auto">
             <div className="space-y-4">
               <div className="macos-card p-4">

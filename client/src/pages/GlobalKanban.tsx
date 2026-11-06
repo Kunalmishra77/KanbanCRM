@@ -1,5 +1,6 @@
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { useState, useMemo, useEffect } from "react";
+import { isAssignedTo, assigneeName } from "@/lib/assignee";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, Loader2, X, Search, List, LayoutGrid, Clock, AlertTriangle, CheckCircle2, User, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -7,7 +8,7 @@ import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
 import { useSearch } from "wouter";
-import { useIsOwner } from "@/lib/auth";
+import { useIsFounder } from "@/lib/auth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -110,12 +111,20 @@ export default function GlobalKanban() {
   const { data: users = [] } = useUsers();
   const { mutate: updateStory } = useUpdateStory();
   const { toast } = useToast();
-  const isOwner = useIsOwner();
+  const isFounder = useIsFounder();
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
   const [activeStatusTab, setActiveStatusTab] = useState<KanbanStatus>('In Progress');
+  const pickedInitialTab = useRef(false);
+  useEffect(() => {
+    if (pickedInitialTab.current || stories.length === 0) return;
+    pickedInitialTab.current = true;
+    const order: KanbanStatus[] = ['In Progress', 'To Do', 'Blocked', 'Review', 'Done'];
+    const first = order.find((status) => stories.some((s) => s.status === status));
+    if (first) setActiveStatusTab(first);
+  }, [stories]);
 
   const clientMap = useMemo(() => {
     return new Map(clients.map((c: any) => [c.id, c.name]));
@@ -162,22 +171,6 @@ export default function GlobalKanban() {
     return counts;
   }, [stories]);
 
-  // Helper to check if a story matches a user's name case-insensitively
-  const matchesUser = (storyPerson: string | null | undefined, user: any) => {
-    if (!storyPerson) return false;
-    const personNorm = storyPerson.toLowerCase().replace(/\s+/g, ' ').trim();
-    const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
-    const userFirst = (user.firstName || '').toLowerCase().trim();
-    const userLast = (user.lastName || '').toLowerCase().trim();
-
-    if (personNorm === userFullName) return true;
-    if (personNorm === userFirst) return true;
-    if (userLast && personNorm === userLast) return true;
-    if (personNorm.includes(userFirst) && userFirst.length > 2) return true;
-    if (userFullName.includes(personNorm) && personNorm.length > 2) return true;
-    return false;
-  };
-
   // Count stories per assignee
   const storiesCountPerAssignee = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -185,7 +178,7 @@ export default function GlobalKanban() {
       const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
       if (user) {
         const matchingStories = stories.filter(s => 
-          s.assignedTo === user.id || matchesUser(s.person, user)
+          isAssignedTo(s, user)
         );
         counts[name] = matchingStories.length;
       } else {
@@ -215,7 +208,7 @@ export default function GlobalKanban() {
         const hasMatchingAssignee = filterAssigneeNames.some(name => {
           const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
           if (!user) return false;
-          return story.assignedTo === user.id || matchesUser(story.person, user);
+          return isAssignedTo(story, user);
         });
         if (!hasMatchingAssignee) return false;
       }
@@ -552,7 +545,7 @@ export default function GlobalKanban() {
 
                     // Find user profile details
                     const matchedUser = users.find((u: any) => 
-                      story.assignedTo === u.id || matchesUser(story.person, u)
+                      isAssignedTo(story, u)
                     );
 
                     const clientName = clientMap.get(story.clientId) || "Unknown Client";
@@ -687,7 +680,7 @@ export default function GlobalKanban() {
                                   </Avatar>
                                   <div className="text-left">
                                     <p className="text-xs font-medium text-muted-foreground">
-                                      {story.person || "Unassigned"}
+                                      {assigneeName(story, users)}
                                     </p>
                                     <p className="text-[10px] text-muted-foreground leading-tight">
                                       Legacy Name

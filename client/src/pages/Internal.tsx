@@ -1,3 +1,4 @@
+import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,7 +47,9 @@ import {
   useActivityLog,
   useInternalDocuments,
   useCreateInternalDocument,
-  useDeleteInternalDocument
+  useDeleteInternalDocument,
+  useUpdateFounderInvestment,
+  useUpdateInternalDocument
 } from "@/lib/queries";
 import { useAuth } from "@/lib/auth";
 import {
@@ -66,7 +69,8 @@ import {
   Upload,
   Link as LinkIcon,
   Download,
-  ExternalLink
+  ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { format } from "date-fns";
@@ -80,7 +84,7 @@ export default function Internal() {
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog(20) as { data: ActivityLog[], isLoading: boolean };
   const { data: documents = [], isLoading: isLoadingDocuments } = useInternalDocuments() as { data: InternalDocument[], isLoading: boolean };
 
-  const isCoFounder = currentUser?.userType === 'co-founder';
+  const isCoFounder = roleOf(currentUser) === 'founder';
 
   if (!isCoFounder) {
     return (
@@ -88,7 +92,7 @@ export default function Internal() {
         <Shield className="h-16 w-16 text-muted-foreground/50" />
         <h2 className="text-2xl font-semibold text-foreground">Access Restricted</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          This internal dashboard is exclusively for co-founders. Please contact your administrator if you believe you should have access.
+          This internal dashboard is exclusively for founders. Please contact your administrator if you believe you should have access.
         </p>
       </div>
     );
@@ -102,8 +106,8 @@ export default function Internal() {
     );
   }
 
-  const coFounders = users.filter(u => u.userType === 'co-founder');
-  const employees = users.filter(u => u.userType === 'employee' || u.userType === 'hr');
+  const coFounders = users.filter(u => roleOf(u) === 'founder');
+  const employees = users.filter(u => roleOf(u) !== 'founder');
 
   const totalInvestment = investments.reduce((acc, inv) => acc + Number(inv.amount || 0), 0);
   const totalShareholding = coFounders.reduce((acc, u) => acc + Number(u.shareholdingPercent || 0), 0);
@@ -112,10 +116,10 @@ export default function Internal() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Internal Dashboard</h1>
-        <p className="text-muted-foreground">Co-founder exclusive view of team, investments, and shareholding.</p>
+        <p className="text-muted-foreground">Founder-exclusive view of team, investments, and shareholding.</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-3">
         <Card className="macos-card border-none" data-testid="stat-card-team">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
@@ -127,7 +131,7 @@ export default function Internal() {
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team Size</h3>
               <div className="text-2xl font-bold tracking-tight text-foreground">{users.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {coFounders.length} co-founder{coFounders.length !== 1 ? 's' : ''}, {users.filter(u => u.userType === 'hr').length > 0 ? `${users.filter(u => u.userType === 'hr').length} HR, ` : ''}{users.filter(u => u.userType === 'employee').length} employee{users.filter(u => u.userType === 'employee').length !== 1 ? 's' : ''}
+                {ROLES.map((r) => `${users.filter(u => roleOf(u) === r).length} ${ROLE_LABELS[r]}`).join(', ')}
               </p>
             </div>
           </CardContent>
@@ -222,6 +226,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
   const createEmployee = useCreateEmployee();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userType, setUserType] = useState<string>('');
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
   const [shareholding, setShareholding] = useState<string>('');
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', userType: 'employee' });
@@ -231,6 +237,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
     updateUser.mutate({
       id: editingUser.id,
       data: {
+        firstName: editFirstName.trim() || editingUser.firstName,
+        lastName: editLastName.trim(),
         userType,
         shareholdingPercent: shareholding,
       }
@@ -244,7 +252,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <Building2 className="h-5 w-5 text-primary" />
-          Co-Founders ({coFounders.length})
+          Founders ({coFounders.length})
         </h3>
         <Dialog open={isAddingUser} onOpenChange={setIsAddingUser}>
           <DialogTrigger asChild>
@@ -256,7 +264,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
           <DialogContent className="macos-panel">
             <DialogHeader>
               <DialogTitle>Add Team Member</DialogTitle>
-              <DialogDescription>Pre-register an employee or co-founder so they can access the CRM when they log in.</DialogDescription>
+              <DialogDescription>Pre-register a team member so they can access the CRM when they log in.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -280,9 +288,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="co-founder">Co-founder (Admin)</SelectItem>
-                    <SelectItem value="hr">HR</SelectItem>
-                    <SelectItem value="employee">Employee</SelectItem>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -309,7 +317,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
         </Dialog>
       </div>
       <div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {coFounders.map(user => (
             <Card key={user.id} className="macos-card border-none" data-testid={`user-card-${user.id}`}>
               <CardContent className="p-4">
@@ -321,7 +329,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold text-foreground truncate">{user.firstName} {user.lastName}</h4>
-                      <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">Co-founder</Badge>
+                      <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">Founder</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                     <div className="flex items-center gap-2 mt-2">
@@ -341,6 +349,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                       onClick={() => {
                         setEditingUser(user);
                         setUserType(user.userType || 'employee');
+                        setEditFirstName(user.firstName || '');
+                        setEditLastName(user.lastName || '');
                         setShareholding(user.shareholdingPercent?.toString() || '0');
                       }}
                       data-testid={`edit-user-${user.id}`}
@@ -351,9 +361,19 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                   <DialogContent className="macos-panel">
                     <DialogHeader>
                       <DialogTitle>Edit Team Member</DialogTitle>
-                      <DialogDescription>Update role and shareholding for {user.firstName} {user.lastName}</DialogDescription>
+                      <DialogDescription>Update name, role and shareholding for {user.firstName} {user.lastName}</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>First name</Label>
+                          <Input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Last name</Label>
+                          <Input value={editLastName} onChange={e => setEditLastName(e.target.value)} />
+                        </div>
+                      </div>
                       <div className="space-y-2">
                         <Label>Role</Label>
                         <Select value={userType} onValueChange={setUserType}>
@@ -361,9 +381,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="co-founder">Co-founder</SelectItem>
-                            <SelectItem value="hr">HR</SelectItem>
-                            <SelectItem value="employee">Employee</SelectItem>
+                            {ROLES.map((r) => (
+                              <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -428,7 +448,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {employees.map(user => (
               <Card key={user.id} className="macos-card border-none" data-testid={`user-card-${user.id}`}>
                 <CardContent className="p-4">
@@ -441,7 +461,7 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                       <h4 className="font-semibold text-foreground truncate">{user.firstName} {user.lastName}</h4>
                       <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                       <Badge variant="outline" className="text-xs mt-2">
-                        {user.userType === 'hr' ? 'HR' : 'Employee'}
+                        {ROLE_LABELS[roleOf(user)]}
                       </Badge>
                     </div>
                   </div>
@@ -455,6 +475,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                         onClick={() => {
                           setEditingUser(user);
                           setUserType(user.userType || 'employee');
+                          setEditFirstName(user.firstName || '');
+                          setEditLastName(user.lastName || '');
                           setShareholding(user.shareholdingPercent?.toString() || '0');
                         }}
                         data-testid={`edit-user-${user.id}`}
@@ -465,9 +487,19 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                     <DialogContent className="macos-panel">
                       <DialogHeader>
                         <DialogTitle>Edit Team Member</DialogTitle>
-                        <DialogDescription>Update role and shareholding for {user.firstName} {user.lastName}</DialogDescription>
+                        <DialogDescription>Update name, role and shareholding for {user.firstName} {user.lastName}</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>First name</Label>
+                            <Input value={editFirstName} onChange={e => setEditFirstName(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Last name</Label>
+                            <Input value={editLastName} onChange={e => setEditLastName(e.target.value)} />
+                          </div>
+                        </div>
                         <div className="space-y-2">
                           <Label>Role</Label>
                           <Select value={userType} onValueChange={setUserType}>
@@ -475,9 +507,9 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="co-founder">Co-founder</SelectItem>
-                              <SelectItem value="hr">HR</SelectItem>
-                              <SelectItem value="employee">Employee</SelectItem>
+                              {ROLES.map((r) => (
+                                <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -545,7 +577,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
     investedOn: new Date().toISOString().split('T')[0],
   });
 
-  const coFounders = users.filter(u => u.userType === 'co-founder');
+  const coFounders = users.filter(u => roleOf(u) === 'founder');
 
   const handleCreateInvestment = () => {
     if (!newInvestment.userId || !newInvestment.amount) return;
@@ -588,14 +620,14 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
           <DialogContent className="macos-panel">
             <DialogHeader>
               <DialogTitle>Add Investment</DialogTitle>
-              <DialogDescription>Record a new investment from a co-founder.</DialogDescription>
+              <DialogDescription>Record a new investment from a founder.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Co-founder</Label>
+                <Label>Founder</Label>
                 <Select value={newInvestment.userId} onValueChange={v => setNewInvestment({ ...newInvestment, userId: v })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select co-founder" />
+                    <SelectValue placeholder="Select founder" />
                   </SelectTrigger>
                   <SelectContent>
                     {coFounders.map(user => (
@@ -641,7 +673,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:grid-cols-2">
         {investmentsByUser.map(({ user, total }) => (
           <Card key={user.id} className="macos-card border-none">
             <CardContent className="p-4">
@@ -697,6 +729,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
                         <FileText className="h-4 w-4" />
                       </Button>
                     )}
+                    <EditInvestmentButton investment={inv} />
                     <Button
                       variant="ghost"
                       size="icon"
@@ -736,7 +769,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 lg:grid-cols-2">
         <Card className="macos-card border-none">
           <CardHeader>
             <CardTitle>Equity Distribution</CardTitle>
@@ -994,7 +1027,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">Company Documents</h3>
-          <p className="text-sm text-muted-foreground">Shared internal documents for co-founders only.</p>
+          <p className="text-sm text-muted-foreground">Shared internal documents for founders only.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -1106,7 +1139,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {documents.map(doc => (
             <Card key={doc.id} className="macos-card border-none" data-testid={`document-card-${doc.id}`}>
               <CardContent className="p-4">
@@ -1122,6 +1155,8 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                       </Badge>
                     </div>
                   </div>
+                  <div className="flex items-center shrink-0">
+                  <EditDocumentButton document={doc} />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1132,6 +1167,7 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                  </div>
                 </div>
                 {doc.description && (
                   <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{doc.description}</p>
@@ -1167,5 +1203,129 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
         </div>
       )}
     </div>
+  );
+}
+
+
+function EditInvestmentButton({ investment }: { investment: FounderInvestment }) {
+  const update = useUpdateFounderInvestment();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ amount: '', description: '', investedOn: '' });
+
+  const openDialog = () => {
+    setForm({
+      amount: String(investment.amount ?? ''),
+      description: investment.description || '',
+      investedOn: new Date(investment.investedOn).toISOString().split('T')[0],
+    });
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={openDialog} aria-label="Edit investment" data-testid={`edit-investment-${investment.id}`}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="macos-panel">
+          <DialogHeader>
+            <DialogTitle>Edit Investment</DialogTitle>
+            <DialogDescription>Update the amount, description or date.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Amount (₹)</Label>
+              <Input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={form.investedOn} onChange={e => setForm({ ...form, investedOn: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!form.amount || update.isPending}
+              onClick={() => update.mutate({ id: investment.id, data: form }, { onSuccess: () => setOpen(false) })}
+            >
+              {update.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function EditDocumentButton({ document: doc }: { document: InternalDocument }) {
+  const update = useUpdateInternalDocument();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', category: 'general', externalLink: '' });
+
+  const openDialog = () => {
+    setForm({
+      title: doc.title,
+      description: doc.description || '',
+      category: doc.category,
+      externalLink: doc.externalLink || '',
+    });
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={openDialog} aria-label="Edit document" data-testid={`button-edit-document-${doc.id}`}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Document</DialogTitle>
+            <DialogDescription>Change the title, description, category or link. To replace the file, delete and re-add it.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Title *</Label>
+              <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="legal">Legal</SelectItem>
+                  <SelectItem value="financial">Financial</SelectItem>
+                  <SelectItem value="contracts">Contracts</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>External Link</Label>
+              <Input value={form.externalLink} onChange={e => setForm({ ...form, externalLink: e.target.value })} placeholder="https://..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!form.title || update.isPending}
+              onClick={() => update.mutate({ id: doc.id, data: { ...form, externalLink: form.externalLink || null, description: form.description || null } }, { onSuccess: () => setOpen(false) })}
+            >
+              {update.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

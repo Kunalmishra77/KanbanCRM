@@ -30,7 +30,7 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
-export const updateUserProfileSchema = createInsertSchema(users).pick({ userType: true, shareholdingPercent: true }).partial();
+export const updateUserProfileSchema = createInsertSchema(users).pick({ firstName: true, lastName: true, userType: true, shareholdingPercent: true }).partial();
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
 export type User = typeof users.$inferSelect;

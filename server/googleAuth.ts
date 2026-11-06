@@ -7,22 +7,24 @@ import pg from "pg";
 import { dbSsl } from "../db/index.js";
 import { randomBytes } from "crypto";
 import { storage } from "./storage.js";
+import { CachedSessionStore } from "./lib/cachedSessionStore.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Allowlist of emails that are co-founders with admin access.
-// Override with CO_FOUNDER_EMAILS="a@x.com,b@y.com" so changes don't need a redeploy of code.
-const CO_FOUNDER_EMAILS = (
-  process.env.CO_FOUNDER_EMAILS ||
+// Bootstrap list of emails that may sign in as founders before they exist in the database.
+// After first sign-in the role stored on the user row is authoritative (changeable in Settings).
+// Override with FOUNDER_EMAILS="a@x.com,b@y.com".
+const FOUNDER_EMAILS = (
+  process.env.FOUNDER_EMAILS || process.env.CO_FOUNDER_EMAILS ||
   'vitalsaigorrela@gmail.com,anantsanadhya@gmail.com,myai@ai-agentix.com,anant@ai-agentix.com,tiwarivimlendra@gmail.com'
 )
   .split(',')
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
-export function isCoFounderEmail(email: string | null | undefined): boolean {
+export function isFounderEmail(email: string | null | undefined): boolean {
   if (!email) return false;
-  return CO_FOUNDER_EMAILS.includes(email.toLowerCase());
+  return FOUNDER_EMAILS.includes(email.toLowerCase());
 }
 
 /**
@@ -35,6 +37,59 @@ function getCallbackURL() {
   }
 
   return `http://localhost:${process.env.PORT || 5000}/api/auth/google/callback`;
+}
+
+
+type GoogleProfileLike = {
+  id: string;
+  displayName?: string;
+  name?: { givenName?: string; familyName?: string };
+  emails?: { value: string; verified?: boolean }[];
+  photos?: { value: string }[];
+};
+
+/** Everything that happens after Google says who someone is. Shared by the real login and the test login. */
+export async function signInFromGoogleProfile(profile: GoogleProfileLike) {
+  const emailObj = profile.emails?.[0];
+  const email = emailObj?.value || null;
+
+  if (!email || (emailObj as any)?.verified === false) {
+    return { user: null, error: "unverified_email" };
+  }
+
+  // Only pre-registered users (created by an admin/HR) or founders may sign in.
+  const existing = await storage.getUserByEmail(email);
+  if (!existing && !isFounderEmail(email)) {
+    console.warn("Auth Callback: rejected sign-in from unregistered account");
+    return { user: null, error: "not_registered" };
+  }
+
+  const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
+  const lastName = profile.name?.familyName || null;
+  const profileImageUrl = profile.photos?.[0]?.value || null;
+
+  const isFounder = isFounderEmail(email);
+  const user = await storage.upsertUserFromGoogle({
+    id: profile.id,
+    email,
+    firstName,
+    lastName,
+    profileImageUrl,
+    userType: isFounder ? 'founder' : 'employee',
+    role: isFounder ? 'admin' : 'editor',
+  });
+  return { user, error: null };
+}
+
+// Test-only sign-in for automated tests. Cannot be switched on unless the database is on this machine,
+// so it can never be enabled against Supabase or any remote database.
+function testLoginAllowed() {
+  try {
+    const host = new URL(process.env.DATABASE_URL || "").hostname;
+    return process.env.E2E_TEST_LOGIN === "1" && (host === "localhost" || host === "127.0.0.1");
+  } catch {
+    return false;
+  }
 }
 
 export function getSession() {
@@ -81,7 +136,7 @@ export function getSession() {
         console.error("Auth: Session store error event:", err);
       });
 
-      sessionOptions.store = store;
+      sessionOptions.store = new CachedSessionStore(store);
     } catch (storeErr) {
       console.error("Auth: CRITICAL ERROR initializing PostgreSQL session store:", storeErr);
       if (isProd) throw storeErr;
@@ -140,39 +195,9 @@ export async function setupGoogleAuth(app: Express) {
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
-            const emailObj = profile.emails?.[0];
-            const email = emailObj?.value || null;
-
-            if (!email || (emailObj as any)?.verified === false) {
-              return done(null, false, { message: "unverified_email" });
-            }
-
-            // Only pre-registered users (created by an admin/HR) or co-founders may sign in.
-            const existing = await storage.getUserByEmail(email);
-            if (!existing && !isCoFounderEmail(email)) {
-              console.warn("Auth Callback: rejected sign-in from unregistered account");
-              return done(null, false, { message: "not_registered" });
-            }
-
-            const firstName = profile.name?.givenName || profile.displayName?.split(" ")[0] || null;
-            const lastName = profile.name?.familyName || null;
-            const profileImageUrl = profile.photos?.[0]?.value || null;
-
-            const isCoFounder = isCoFounderEmail(email);
-            const userType = isCoFounder ? 'co-founder' : 'employee';
-            const role = isCoFounder ? 'admin' : 'editor';
-
-            const user = await storage.upsertUserFromGoogle({
-              id: profile.id,
-              email,
-              firstName,
-              lastName,
-              profileImageUrl,
-              userType,
-              role,
-            });
-
-            done(null, user);
+            const result = await signInFromGoogleProfile(profile);
+            if (!result.user) return done(null, false, { message: result.error });
+            done(null, result.user);
           } catch (error) {
             console.error("Auth Callback: Exception in strategy verify callback:", error);
             done(error as Error);
@@ -190,9 +215,16 @@ export async function setupGoogleAuth(app: Express) {
     done(null, user.id);
   });
 
+  // Every API call deserialises the session user; cache briefly instead of hitting the DB each time.
+  const userCache = new Map<string, { at: number; user: any }>();
+  const USER_CACHE_MS = 15_000;
+
   passport.deserializeUser(async (id: string, done) => {
     try {
+      const hit = userCache.get(id);
+      if (hit && Date.now() - hit.at < USER_CACHE_MS) return done(null, hit.user);
       const user = await storage.getUser(id);
+      if (user) userCache.set(id, { at: Date.now(), user });
       if (!user) {
         console.warn(`Auth: Deserialization failed - user not found for ID: ${id}`);
       }
@@ -238,6 +270,25 @@ export async function setupGoogleAuth(app: Express) {
     }
   );
 
+  if (testLoginAllowed()) {
+    console.warn("Auth: TEST LOGIN ENABLED (local database only)");
+    // Pretends to be Google: runs the same sign-in code with a made-up profile.
+    app.post("/api/test-login", async (req, res, next) => {
+      try {
+        const { email, googleGivenName, googleFamilyName } = req.body || {};
+        const result = await signInFromGoogleProfile({
+          id: `test-${email}`,
+          emails: [{ value: email, verified: true }],
+          name: { givenName: googleGivenName, familyName: googleFamilyName },
+        });
+        if (!result.user) return res.status(403).json({ error: result.error });
+        req.logIn(result.user, (err) => (err ? next(err) : res.json(result.user)));
+      } catch (e) {
+        next(e);
+      }
+    });
+  }
+
   app.post("/api/logout", (req, res) => {
     const userId = (req.user as any)?.id;
 
@@ -275,19 +326,12 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   res.status(401).json({ message: "Unauthorized. Please log in." });
 };
 
-export function isOwnerOrHRUser(user: any): boolean {
-  if (!user) return false;
-  return user.userType === "co-founder" || user.userType === "hr" || user.role === "admin" || isCoFounderEmail(user.email);
-}
-
-export const isOwnerOrHR: RequestHandler = (req, res, next) => {
+export const requireRole = (check: (user: any) => boolean, message: string): RequestHandler => (req, res, next) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized. Please log in." });
   }
-
-  if (!isOwnerOrHRUser(req.user)) {
-    return res.status(403).json({ error: "Access denied. Owner or HR role required." });
+  if (!check(req.user)) {
+    return res.status(403).json({ error: message });
   }
-
   next();
 };

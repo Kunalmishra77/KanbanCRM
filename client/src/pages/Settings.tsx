@@ -1,5 +1,6 @@
+import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
 import { useTheme } from "next-themes";
-import { useAuth, useIsOwner } from "@/lib/auth";
+import { useAuth, useIsFounder } from "@/lib/auth";
 import { useUsers, useUpdateUser } from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -17,21 +18,18 @@ import { CreateEmployeeModal } from "@/components/CreateEmployeeModal";
 import { InstallAppButton } from "@/components/InstallAppButton";
 import { useState } from "react";
 
-const USER_TYPE_LABELS: Record<string, string> = {
-  'co-founder': 'Owner',
-  'hr': 'HR',
-  'employee': 'Employee',
-};
+const USER_TYPE_LABELS: Record<string, string> = ROLE_LABELS;
 
 const USER_TYPE_BADGE: Record<string, string> = {
-  'co-founder': 'bg-purple-100 text-purple-700 border-purple-200',
+  'founder': 'bg-purple-100 text-purple-700 border-purple-200',
   'hr': 'bg-blue-100 text-blue-700 border-blue-200',
+  'accountant': 'bg-emerald-100 text-emerald-700 border-emerald-200',
   'employee': 'bg-gray-100 text-gray-700 border-gray-200',
 };
 
 export default function Settings() {
   const { user } = useAuth();
-  const isOwner = useIsOwner();
+  const isFounder = useIsFounder();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const { data: allUsers = [], isLoading } = useUsers();
@@ -39,8 +37,7 @@ export default function Settings() {
   const [showAddMember, setShowAddMember] = useState(false);
 
   function handleRoleChange(userId: string, newUserType: string) {
-    const roleMap: Record<string, string> = { 'co-founder': 'admin', 'hr': 'hr', 'employee': 'editor' };
-    updateUser({ id: userId, data: { userType: newUserType, role: roleMap[newUserType] || 'editor' } }, {
+    updateUser({ id: userId, data: { userType: newUserType } }, {
       onSuccess: () => toast({ title: "Role updated successfully" }),
       onError: () => toast({ title: "Failed to update role", variant: "destructive" }),
     });
@@ -96,7 +93,7 @@ export default function Settings() {
               <div className="space-y-1">
                 <p className="font-medium text-lg">{user?.firstName} {user?.lastName}</p>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
-                <p className="text-xs text-muted-foreground capitalize">Role: {user?.role || 'editor'}</p>
+                <p className="text-xs text-muted-foreground capitalize">Role: {ROLE_LABELS[roleOf(user)]}</p>
               </div>
             </div>
           </CardContent>
@@ -143,7 +140,7 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
-        {isOwner && (
+        {isFounder && (
           <Card className="macos-card">
             <CardHeader className="flex flex-row items-center gap-4 pb-4">
               <div className="p-2 rounded-lg bg-primary/10">
@@ -170,21 +167,21 @@ export default function Settings() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {u.id === user?.id ? (
-                      <Badge variant="outline" className={cn("text-[11px]", USER_TYPE_BADGE[u.userType] || USER_TYPE_BADGE.employee)}>
-                        {USER_TYPE_LABELS[u.userType] || 'Employee'} (You)
+                      <Badge variant="outline" className={cn("text-[11px]", USER_TYPE_BADGE[roleOf(u)])}>
+                        {USER_TYPE_LABELS[roleOf(u)]} (You)
                       </Badge>
                     ) : (
                       <Select
-                        value={u.userType || 'employee'}
+                        value={roleOf(u)}
                         onValueChange={v => handleRoleChange(u.id, v)}
                       >
                         <SelectTrigger className="h-8 w-32 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="employee">Employee</SelectItem>
-                          <SelectItem value="hr">HR</SelectItem>
-                          <SelectItem value="co-founder">Owner</SelectItem>
+                          {ROLES.map((r) => (
+                            <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}

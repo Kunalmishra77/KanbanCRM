@@ -571,10 +571,11 @@ export function useDeleteInternalDocument() {
 }
 
 // ─── Salary Records ──────────────────────────────────────────────────────────
-export function useSalaryRecords(employeeId?: string) {
+export function useSalaryRecords(employeeId?: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['salary-records', employeeId],
     queryFn: () => salaryAPI.getAll(employeeId),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -609,10 +610,11 @@ export function useDeleteSalaryRecord() {
 }
 
 // ─── Incentives ──────────────────────────────────────────────────────────────
-export function useIncentives(employeeId?: string) {
+export function useIncentives(employeeId?: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['incentives', employeeId],
     queryFn: () => incentivesAPI.getAll(employeeId),
+    enabled: options?.enabled ?? true,
   });
 }
 

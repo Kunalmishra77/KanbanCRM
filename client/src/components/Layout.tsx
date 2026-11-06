@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Sidebar, TopBar } from "./LayoutComponents";
-import generatedImage from '@/assets/wallpaper.png';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -11,9 +10,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div
         className="fixed inset-0 z-0 opacity-30 pointer-events-none saturate-150"
         style={{
-          backgroundImage: `url(${generatedImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundImage: 'radial-gradient(60% 50% at 15% 10%, hsl(24 95% 60% / 0.35), transparent), radial-gradient(50% 45% at 90% 85%, hsl(210 90% 65% / 0.30), transparent)',
         }}
       />
 

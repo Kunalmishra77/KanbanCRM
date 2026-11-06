@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
-import generatedImage from '@/assets/wallpaper.png';
 import agentixLogo from '../assets/agentix-full-logo.png';
 
 export default function Login() {
@@ -13,11 +12,9 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden font-sans selection:bg-primary/30 selection:text-primary-foreground">
       {/* Background Wallpaper Layer */}
       <div
-        className="fixed inset-0 z-0 opacity-40 pointer-events-none saturate-150 blur-sm scale-105"
+        className="fixed inset-0 z-0 opacity-40 pointer-events-none"
         style={{
-          backgroundImage: `url(${generatedImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundImage: 'radial-gradient(60% 50% at 15% 10%, hsl(24 95% 60% / 0.35), transparent), radial-gradient(50% 45% at 90% 85%, hsl(210 90% 65% / 0.30), transparent)',
         }}
       />
 

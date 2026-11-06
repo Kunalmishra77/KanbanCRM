@@ -8,6 +8,8 @@ import type { Story } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { format, differenceInHours } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
+import { useUsers } from "@/lib/queries";
+import { assigneeName } from "@/lib/assignee";
 
 interface StoryCardProps {
   story: Story;
@@ -96,8 +98,9 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
 };
 
 export function StoryCard({ story, index, onClick, clientName }: StoryCardProps) {
-  // Real user records aren't loaded on the board; fall back to the point-of-contact name
-  const assignee = story.person ? { name: story.person, avatarUrl: undefined as string | undefined } : undefined;
+  const { data: users = [] } = useUsers();
+  const resolvedName = assigneeName(story, users as any[]);
+  const assignee = resolvedName !== "Unassigned" ? { name: resolvedName, avatarUrl: undefined as string | undefined } : undefined;
   const status = getDeadlineStatus(story);
   const styles = DEADLINE_STYLES[status];
 

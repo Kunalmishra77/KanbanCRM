@@ -219,6 +219,18 @@
     @apply bg-white/50 dark:bg-white/10 border border-black/[0.05] dark:border-white/[0.1] focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all backdrop-blur-sm;
   }
 
+  /* Backdrop blur is very expensive on phones; use plain translucent surfaces there */
+  @media (max-width: 639px) {
+    .macos-sidebar, .macos-panel, .macos-card, .macos-input {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    .macos-card:hover { transform: none; }
+    /* Without blur the glass panels (dialogs, menus) would show the page through them */
+    .macos-panel { background-color: rgb(255 255 255 / 0.97); }
+    .dark .macos-panel { background-color: rgb(30 30 30 / 0.97); }
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

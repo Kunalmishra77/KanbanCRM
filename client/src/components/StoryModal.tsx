@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Clock, Paperclip, Send, Wand2, Mail, X, Loader2, Image, FileText, Trash2, History, Pencil, Check } from "lucide-react";
+import { Clock, Paperclip, Send, Wand2, Mail, X, Loader2, Image, FileText, Trash2, History, Pencil, Check, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("details");
+  const [showMeta, setShowMeta] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [commentAttachment, setCommentAttachment] = useState<File | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
@@ -217,12 +218,9 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
       return;
     }
 
-    const emailText = `Subject: ${draftSubject}\n\nTo: ${client?.contactName || 'Client'}${client?.contactEmail ? ` <${client.contactEmail}>` : ''}\n\n${draftBody}`;
-
-    try {
-      await navigator.clipboard.writeText(emailText);
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
+    if (!client?.contactEmail) {
+      toast({ title: "This client has no contact email", description: "Add one in the client's details first.", variant: "destructive" });
+      return;
     }
 
     createSentEmail({
@@ -237,8 +235,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
     }, {
       onSuccess: () => {
         toast({
-          title: "Email saved & copied",
-          description: `Email copied to clipboard. Paste it in your email client to send to ${client?.contactName || 'client'}.`
+          title: "Email sent",
+          description: `Sent to ${client?.contactEmail || client?.contactName || 'client'}.`
         });
         setDraftSubject("");
         setDraftBody("");
@@ -246,7 +244,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
       },
       onError: () => {
         toast({
-          title: "Failed to save email",
+          title: "Failed to send email",
           variant: "destructive"
         });
       }
@@ -325,8 +323,19 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 [&>button]:hidden">
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
-            {/* Meta & Status: a scrolling strip on top for phones, a left sidebar from md up */}
-            <div className="w-full md:w-72 shrink-0 max-h-[24%] md:max-h-none overflow-y-auto bg-muted/30 border-b md:border-b-0 md:border-r border-white/10">
+            {/* Meta & Status: a collapsible strip on top for phones, a left sidebar from md up */}
+            <div className="w-full md:w-72 shrink-0 bg-muted/30 border-b md:border-b-0 md:border-r border-white/10">
+              <button
+                type="button"
+                className="md:hidden w-full flex items-center justify-between gap-2 px-4 py-3 min-h-11 text-sm font-medium"
+                onClick={() => setShowMeta((v) => !v)}
+                aria-expanded={showMeta}
+                data-testid="button-toggle-meta"
+              >
+                <span className="truncate">{story.status} · {story.person || "Unassigned"}</span>
+                <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", showMeta && "rotate-180")} />
+              </button>
+              <div className={cn("md:h-full md:max-h-none md:block overflow-y-auto", showMeta ? "block max-h-[45dvh]" : "hidden")}>
               <div className="p-4 sm:p-6 flex flex-col gap-4 sm:gap-6">
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status</h4>
@@ -393,6 +402,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     ))}
                   </div>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -570,7 +580,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                   </TabsList>
                 </div>
 
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
                   <div className="p-4 sm:p-6">
                     <TabsContent value="details" className="mt-0 space-y-6 outline-none">
                       {isEditing ? (
@@ -964,11 +974,13 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             ) : (
                               <Send className="h-3 w-3" />
                             )}
-                            Save & Copy
+                            Send Email
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground text-center mt-2">
-                          Note: This saves the email to your history. Copy the content and paste it in your email client to send.
+                          {client?.contactEmail
+                            ? `This sends the email to ${client.contactEmail} and saves it to the email history.`
+                            : "Add a contact email to this client before sending."}
                         </p>
                       </div>
                     </TabsContent>

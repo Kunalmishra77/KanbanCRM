@@ -1,3 +1,4 @@
+import { useCanViewFinance } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ interface EditClientModalProps {
 }
 
 export function EditClientModal({ open, onOpenChange, client }: EditClientModalProps) {
+  const canViewFinance = useCanViewFinance();
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [stage, setStage] = useState("Warm");
@@ -248,6 +250,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
               </div>
             </div>
 
+            {canViewFinance && (
             <div className="space-y-2">
               <Label htmlFor="edit-revenue" className="flex items-center gap-2">
                 <IndianRupee className="h-4 w-4 text-green-600" />
@@ -266,6 +269,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
                 />
               </div>
             </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="edit-notes">Additional Notes</Label>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useIsHROrOwner } from "@/lib/auth";
+import { useCanManageTeam } from "@/lib/auth";
 import { RestrictedNotice } from "@/components/RestrictedNotice";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -152,7 +152,7 @@ function AuditLogContent() {
 }
 
 export default function AuditLog() {
-  const canView = useIsHROrOwner();
+  const canView = useCanManageTeam();
   if (!canView) return <RestrictedNotice message="The audit log is available to owners and HR only." />;
   return <AuditLogContent />;
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement, useDeleteAnnouncement } from "@/lib/queries";
-import { useIsOwner, useAuth } from "@/lib/auth";
+import { useAuth, useIsFounder } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ export default function Announcements() {
   const { mutate: createAnnouncement, isPending: isCreating } = useCreateAnnouncement();
   const { mutate: updateAnnouncement, isPending: isUpdating } = useUpdateAnnouncement();
   const { mutate: deleteAnnouncement } = useDeleteAnnouncement();
-  const isOwner = useIsOwner();
+  const isFounder = useIsFounder();
   const { toast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -109,7 +109,7 @@ export default function Announcements() {
             Company-wide notices and updates for the team.
           </p>
         </div>
-        {isOwner && (
+        {isFounder && (
           <Button className="gap-2 shadow-lg shadow-primary/20" onClick={openAddModal}>
             <Plus className="h-4 w-4" />
             Post Announcement
@@ -122,7 +122,7 @@ export default function Announcements() {
         <div className="macos-card p-8 sm:p-16 text-center">
           <Megaphone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground font-medium">No announcements yet</p>
-          {isOwner && (
+          {isFounder && (
             <p className="text-sm text-muted-foreground mt-1">
               Post an announcement to notify your team.
             </p>
@@ -145,7 +145,7 @@ export default function Announcements() {
                   )}
                   <h2 className="font-semibold text-base">{ann.title}</h2>
                 </div>
-                {isOwner && (
+                {isFounder && (
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button
                       variant="ghost"

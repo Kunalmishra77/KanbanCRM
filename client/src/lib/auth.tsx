@@ -1,3 +1,4 @@
+import { perms, roleOf } from "@shared/roles";
 import { createContext, useContext, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -62,13 +63,20 @@ export function useAuth() {
   return context;
 }
 
-// Returns true if the logged-in user is the owner / co-founder
-export function useIsOwner() {
+// Role helpers. Rules live in shared/roles.ts so the server and the UI always agree.
+export function useRole() {
   const { user } = useAuth();
-  return user?.userType === 'co-founder';
+  return roleOf(user);
 }
-
-export function useIsHROrOwner() {
-  const { user } = useAuth();
-  return user?.userType === 'hr' || user?.userType === 'co-founder';
+export function useIsFounder() {
+  return perms.isFounder(useAuth().user);
+}
+export function useCanViewFinance() {
+  return perms.viewFinance(useAuth().user);
+}
+export function useCanViewPayroll() {
+  return perms.viewPayroll(useAuth().user);
+}
+export function useCanManageTeam() {
+  return perms.manageTeam(useAuth().user);
 }

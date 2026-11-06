@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes.js";
 import { createServer } from "http";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import compression from "compression";
 
 console.log("App: Initializing Express app...");
 
@@ -36,6 +37,9 @@ app.use(
       : false,
   }),
 );
+
+// gzip every response; the JS bundle and JSON lists are large and many users are on mobile data
+app.use(compression());
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { useCreateClient } from "@/lib/queries";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useCanViewFinance } from "@/lib/auth";
 import { Loader2, IndianRupee, User, Mail, Phone, Receipt, Info, FileUp, X, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,6 +36,7 @@ interface CreateClientModalProps {
 }
 
 export function CreateClientModal({ open, onOpenChange, onCreated }: CreateClientModalProps) {
+  const canViewFinance = useCanViewFinance();
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [stage, setStage] = useState("Warm");
@@ -241,6 +242,7 @@ export function CreateClientModal({ open, onOpenChange, onCreated }: CreateClien
               </div>
             </div>
 
+            {canViewFinance && (
             <div className="space-y-2">
               <Label htmlFor="revenue" className="flex items-center gap-2">
                 <IndianRupee className="h-4 w-4 text-green-600" />
@@ -260,6 +262,7 @@ export function CreateClientModal({ open, onOpenChange, onCreated }: CreateClien
                 />
               </div>
             </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="notes">Additional Notes</Label>

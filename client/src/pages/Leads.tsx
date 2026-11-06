@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useCreateClient, useLeadComments, useCreateLeadComment } from "@/lib/queries";
-import { useIsOwner, useAuth } from "@/lib/auth";
+import { useAuth, useIsFounder } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -153,7 +153,7 @@ export default function Leads() {
   const { mutate: updateLead, isPending: isUpdating } = useUpdateLead();
   const { mutate: deleteLead } = useDeleteLead();
   const { mutate: createClient, isPending: isConverting } = useCreateClient();
-  const isOwner = useIsOwner();
+  const isFounder = useIsFounder();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -386,7 +386,7 @@ export default function Leads() {
             </Button>
           </div>
 
-          {isOwner && (
+          {isFounder && (
             <Button className="gap-2 shadow-lg shadow-primary/20 shrink-0" onClick={openAddModal}>
               <Plus className="h-4 w-4" />
               Add Lead
@@ -520,7 +520,7 @@ export default function Leads() {
                               >
                                 View Details & Notes
                               </Button>
-                              {isOwner && (
+                              {isFounder && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button
@@ -649,7 +649,7 @@ export default function Leads() {
                                   {/* Card header: company + menu */}
                                   <div className="flex items-start justify-between gap-2">
                                     <p className="font-semibold text-sm leading-tight">{lead.name}</p>
-                                    {isOwner && (
+                                    {isFounder && (
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                           <Button

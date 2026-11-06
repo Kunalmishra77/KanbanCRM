@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieCha
 import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil, Gift, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth, useIsOwner, useIsHROrOwner } from "@/lib/auth";
+import { useAuth, useCanViewFinance, useCanManageTeam, useCanViewPayroll } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -13,18 +13,20 @@ import { useState, useMemo } from "react";
 import { useSalaryRecords, useIncentives } from "@/lib/queries";
 import { format, subMonths } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
+import { MyWork } from "@/components/MyWork";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const isOwner = useIsOwner();
-  const isHROrOwner = useIsHROrOwner();
+  const canViewFinance = useCanViewFinance();
+  const canManageTeam = useCanManageTeam();
+  const canViewPayroll = useCanViewPayroll();
   const [, setLocation] = useLocation();
   const { data: clients = [], isLoading: isLoadingClients } = useClients() as { data: Client[], isLoading: boolean };
   const { data: stories = [], isLoading: isLoadingStories } = useStories() as { data: Story[], isLoading: boolean };
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog() as { data: ActivityLog[], isLoading: boolean };
   const { data: leads = [], isLoading: isLoadingLeads } = useLeads() as { data: any[], isLoading: boolean };
   const { data: users = [] } = useUsers();
-  const { data: revenueTargets = [] } = useRevenueTargets({ enabled: isOwner });
+  const { data: revenueTargets = [] } = useRevenueTargets({ enabled: canViewFinance });
   const { mutate: upsertTarget } = useUpsertRevenueTarget();
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
@@ -32,11 +34,11 @@ export default function Dashboard() {
   const currentTarget = (revenueTargets as any[]).find(t => t.period === currentPeriod);
 
   // Salary & Incentive data (HR/Owner only)
-  const { data: allSalaryRecords = [] } = useSalaryRecords(undefined);
-  const { data: allIncentiveRecords = [] } = useIncentives(undefined);
+  const { data: allSalaryRecords = [] } = useSalaryRecords(undefined, { enabled: canViewPayroll });
+  const { data: allIncentiveRecords = [] } = useIncentives(undefined, { enabled: canViewPayroll });
 
   const payrollChartData = useMemo(() => {
-    if (!isHROrOwner) return [];
+    if (!canViewPayroll) return [];
     const months = Array.from({ length: 6 }, (_, i) => {
       const d = subMonths(new Date(), 5 - i);
       return format(d, "yyyy-MM");
@@ -50,7 +52,7 @@ export default function Dashboard() {
         .reduce((s: number, r: any) => s + parseFloat(r.amount || 0), 0);
       return { period: format(new Date(period + '-01'), "MMM yy"), salary, incentive };
     });
-  }, [allSalaryRecords, allIncentiveRecords, isHROrOwner]);
+  }, [allSalaryRecords, allIncentiveRecords, canViewPayroll]);
 
   const currentMonthSalary = (allSalaryRecords as any[])
     .filter((r: any) => r.period === currentPeriod)
@@ -115,9 +117,11 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Welcome back, {user?.firstName || 'there'}. Here's what's happening today.</p>
       </div>
 
+      <MyWork stories={stories} clients={clients} />
+
       {/* Hero Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {isOwner && (
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 2xl:grid-cols-6">
+        {canViewFinance && (
           <Card
             className="macos-card border-none relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300 cursor-pointer"
             onClick={() => setLocation('/insights/revenue')}
@@ -235,9 +239,9 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-7">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-7">
         {/* Revenue Chart - Owner only */}
-        {isOwner && <Card className="col-span-7 lg:col-span-4 macos-card border-none shadow-sm">
+        {canViewFinance && <Card className="col-span-7 lg:col-span-4 macos-card border-none shadow-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-semibold">Expected vs Received Revenue</CardTitle>
@@ -375,7 +379,7 @@ export default function Dashboard() {
       </div>
       
       {/* Owner-only: Target vs Achievement */}
-      {isOwner && (() => {
+      {canViewFinance && (() => {
         const targetAmt = currentTarget ? Number(currentTarget.targetAmount) : 0;
         const achievedPct = targetAmt > 0 ? Math.min((totalReceived / targetAmt) * 100, 100) : 0;
         const monthName = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -421,7 +425,7 @@ export default function Dashboard() {
       })()}
 
       {/* HR/Owner: Overdue Tasks + Employee Workload */}
-      {isHROrOwner && (() => {
+      {canManageTeam && (() => {
         const overdueTasks = stories.filter((s: Story) => s.dueDate && s.status !== 'Done' && new Date(s.dueDate as any as string) < new Date());
         const workload = users.map((u: any) => ({
           name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
@@ -430,7 +434,7 @@ export default function Dashboard() {
         })).filter((u: any) => u.active + u.done > 0);
 
         return (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-2">
             {/* Overdue Tasks */}
             <Card className="macos-card border-none shadow-sm">
               <CardHeader className="pb-2">
@@ -500,13 +504,13 @@ export default function Dashboard() {
       })()}
 
       {/* HR/Owner: Leads Pipeline Summary */}
-      {isHROrOwner && (
+      {canManageTeam && (
         <div className="space-y-4 animate-in fade-in duration-500">
           <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
             Leads Pipeline Summary
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {['New', 'Contacted', 'Proposal Sent', 'Negotiation'].map(stage => {
               const stageLeads = leads.filter(l => l.stage === stage);
               const totalValue = stageLeads.reduce((acc, l) => acc + Number(l.estimatedValue || 0), 0);
@@ -535,14 +539,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* HR/Owner: Payroll Summary */}
-      {isHROrOwner && (
+      {/* Payroll Summary */}
+      {canViewPayroll && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" />
             Payroll Overview
           </h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-4 sm:grid-cols-3">
             <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">

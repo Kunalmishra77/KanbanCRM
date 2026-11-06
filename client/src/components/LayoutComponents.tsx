@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { InstallAppButton } from "@/components/InstallAppButton";
 import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp } from "lucide-react";
-import { useIsOwner, useIsHROrOwner } from "@/lib/auth";
+import { useIsFounder, useCanManageTeam, useCanViewPayroll } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,24 +26,26 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const isOwner = useIsOwner();
-  const isHROrOwner = useIsHROrOwner();
+  const isFounder = useIsFounder();
+  const canManageTeam = useCanManageTeam();
+  const canViewPayroll = useCanViewPayroll();
 
   const allNavItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/", ownerOnly: false, hrOrOwnerOnly: false },
-    { icon: Users, label: "Clients", href: "/clients", ownerOnly: false, hrOrOwnerOnly: false },
-    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", ownerOnly: false, hrOrOwnerOnly: false },
-    { icon: Target, label: "Leads", href: "/leads", ownerOnly: false, hrOrOwnerOnly: false },
-    { icon: Megaphone, label: "Announcements", href: "/announcements", ownerOnly: false, hrOrOwnerOnly: false },
-    { icon: Wallet, label: "Salary & Incentives", href: "/salary", ownerOnly: false, hrOrOwnerOnly: true },
-    { icon: Building2, label: "Internal", href: "/internal", ownerOnly: true, hrOrOwnerOnly: false },
-    { icon: Activity, label: "Audit Log", href: "/audit-log", ownerOnly: false, hrOrOwnerOnly: true },
-    { icon: TrendingUp, label: "Team Performance", href: "/team", ownerOnly: true, hrOrOwnerOnly: false },
+    { icon: LayoutDashboard, label: "Dashboard", href: "/", access: "all" },
+    { icon: Users, label: "Clients", href: "/clients", access: "all" },
+    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", access: "all" },
+    { icon: Target, label: "Leads", href: "/leads", access: "all" },
+    { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },
+    { icon: Wallet, label: "Salary & Incentives", href: "/salary", access: "payroll" },
+    { icon: Building2, label: "Internal", href: "/internal", access: "founder" },
+    { icon: Activity, label: "Audit Log", href: "/audit-log", access: "team" },
+    { icon: TrendingUp, label: "Team Performance", href: "/team", access: "team" },
   ];
 
   const navItems = allNavItems.filter(item => {
-    if (item.ownerOnly && !isOwner) return false;
-    if (item.hrOrOwnerOnly && !isHROrOwner) return false;
+    if (item.access === "founder") return isFounder;
+    if (item.access === "team") return canManageTeam;
+    if (item.access === "payroll") return canViewPayroll;
     return true;
   });
 

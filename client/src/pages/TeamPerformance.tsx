@@ -1,5 +1,6 @@
+import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
 import { useTeamAnalytics } from "@/lib/queries";
-import { useIsHROrOwner } from "@/lib/auth";
+import { useCanManageTeam } from "@/lib/auth";
 import { RestrictedNotice } from "@/components/RestrictedNotice";
 
 import { Loader2, Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
@@ -36,7 +37,7 @@ function TeamPerformanceContent() {
             </div>
           </header>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-3">
             <Card className="macos-card border-none bg-white/60">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Assigned Tasks</CardTitle>
@@ -68,7 +69,7 @@ function TeamPerformanceContent() {
             </Card>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 mt-8">
+          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3 mt-8">
             {teamStats?.map((stat: any) => (
               <Card key={stat.user.id} className="macos-card border-none bg-white/80 hover:bg-white transition-colors duration-200">
                 <CardContent className="p-4 sm:p-6">
@@ -79,7 +80,7 @@ function TeamPerformanceContent() {
                     </Avatar>
                     <div>
                       <h3 className="text-lg font-semibold">{stat.user.firstName} {stat.user.lastName}</h3>
-                      <p className="text-sm text-muted-foreground capitalize">{stat.user.role === 'admin' ? 'Admin' : 'Employee'}</p>
+                      <p className="text-sm text-muted-foreground capitalize">{ROLE_LABELS[roleOf(stat.user)]}</p>
                     </div>
                   </div>
 
@@ -125,7 +126,7 @@ function TeamPerformanceContent() {
 }
 
 export default function TeamPerformance() {
-  const canView = useIsHROrOwner();
+  const canView = useCanManageTeam();
   if (!canView) return <RestrictedNotice message="Team performance is available to owners and HR only." />;
   return <TeamPerformanceContent />;
 }

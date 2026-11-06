@@ -23,6 +23,15 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Charts and drag-and-drop are heavy and only some pages need them
+        manualChunks: {
+          charts: ["recharts"],
+          dnd: ["@hello-pangea/dnd"],
+        },
+      },
+    },
   },
   server: {
     host: "0.0.0.0",

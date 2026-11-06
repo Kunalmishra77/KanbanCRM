@@ -169,10 +169,12 @@ export class DatabaseStorage implements IStorage {
     const existingByEmail = await this.getUserByEmail(userData.email || '');
     
     if (existingByEmail) {
+      // The name was entered internally by HR/founders and is what stories are assigned under, so a
+      // Google display name (often a company or nickname) must never replace it. Only fill gaps.
+      const hasName = !!(existingByEmail.firstName || '').trim();
       const [user] = await db.update(users).set({
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
+        ...(hasName ? {} : { firstName: userData.firstName, lastName: userData.lastName }),
+        profileImageUrl: existingByEmail.profileImageUrl || userData.profileImageUrl,
         updatedAt: new Date(),
       }).where(eq(users.id, existingByEmail.id)).returning();
       return user;
@@ -226,6 +228,11 @@ export class DatabaseStorage implements IStorage {
       .set({ ...data, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
+    // stories.person is a denormalised copy of the assignee's name; keep it in step with a rename
+    if (user && (data.firstName !== undefined || data.lastName !== undefined)) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      if (fullName) await db.update(stories).set({ person: fullName }).where(eq(stories.assignedTo, id));
+    }
     return user;
   }
 
@@ -508,17 +515,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertRevenueTarget(target: InsertRevenueTarget): Promise<RevenueTarget> {
-    const [upserted] = await db
-      .insert(revenueTargets)
-      .values(target)
-      .onConflictDoUpdate({
-        target: revenueTargets.period,
-        set: {
-          targetAmount: target.targetAmount,
-        },
-      })
-      .returning();
-    return upserted;
+    // One company-wide target per month. The table's unique key is (period, owner_id), not period,
+    // so ON CONFLICT (period) is invalid; look the month up instead.
+    return db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(revenueTargets).where(eq(revenueTargets.period, target.period)).orderBy(revenueTargets.createdAt);
+      if (existing) {
+        const [updated] = await tx.update(revenueTargets).set({ targetAmount: target.targetAmount }).where(eq(revenueTargets.id, existing.id)).returning();
+        return updated;
+      }
+      const [created] = await tx.insert(revenueTargets).values(target).returning();
+      return created;
+    });
   }
 
   // Client Communications

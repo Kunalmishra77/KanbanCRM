@@ -1,11 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { setupGoogleAuth, isAuthenticated, isCoFounderEmail, isOwnerOrHR, isOwnerOrHRUser } from "./googleAuth.js";
+import { setupGoogleAuth, isAuthenticated, requireRole } from "./googleAuth.js";
+import { perms, isRole, ROLES } from "../shared/roles.js";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
-import { sendDeadlineReminders } from "./emailService.js";
+import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
-import { analyzeProposal, generateStatusEmail } from "./gemini.js";
+import { analyzeProposal, generateStatusEmail } from "./ai.js";
 
 import multer from "multer";
 import { saveFile, createDownloadUrl, isValidStoredName, originalNameOf, isUploadBucket, removeStoredFiles } from "./lib/fileStorage.js";
@@ -50,10 +51,18 @@ export async function registerRoutes(
   // Setup Google OAuth FIRST - this sets up session middleware
   await setupGoogleAuth(app);
 
-  const isCoFounder = (user: any): boolean => {
-    if (!user) return false;
-    return user.userType === 'co-founder' || isCoFounderEmail(user.email);
-  };
+  // Malformed ids in the URL are "not found", not a database error
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  app.param(['storyId', 'clientId', 'leadId'], (_req, res, next, value) => {
+    if (!UUID_RE.test(String(value))) return res.status(404).json({ error: "Not found" });
+    next();
+  });
+
+  const isFounder = perms.isFounder;
+  const legacyRoleColumn = (userType: string) => (userType === 'founder' ? 'admin' : 'editor');
+  const requirePayrollView = requireRole(perms.viewPayroll, "Access denied. Founder, HR or Accountant role required.");
+  const requirePayrollEdit = requireRole(perms.editPayroll, "Access denied. Founder, HR or Accountant role required.");
+  const requireTeamManager = requireRole(perms.manageTeam, "Access denied. Founder or HR role required.");
 
   // File URLs that belong to a client (proposal, invoice files, story comment attachments).
   // Gathered before a client is removed, because their database rows disappear with it.
@@ -67,9 +76,9 @@ export async function registerRoutes(
     return [client?.proposalFileData, ...invoices.map((i) => i.fileData), ...attachments];
   };
 
-  // Revenue fields are co-founder only; everyone else's writes to them are dropped
+  // Revenue fields are finance-only (founder, accountant); everyone else's writes to them are dropped
   const stripRevenueFields = (body: any, user: any) => {
-    if (isCoFounder(user) || !body || typeof body !== 'object') return body;
+    if (perms.viewFinance(user) || !body || typeof body !== 'object') return body;
     const { expectedRevenue, revenueTotal, ...rest } = body;
     return rest;
   };
@@ -97,8 +106,8 @@ export async function registerRoutes(
       return res.status(400).json({ error: "Invalid or missing bucket name" });
     }
 
-    // Invoices and internal documents are co-founder only, matching their API routes
-    if ((bucket === 'invoices' || bucket === 'documents') && !isCoFounder(req.user)) {
+    // Invoices need finance access, internal documents are founder-only, matching their API routes
+    if ((bucket === 'invoices' && !perms.viewFinance(req.user)) || (bucket === 'documents' && !isFounder(req.user))) {
       return res.status(403).json({ error: "Access denied for this bucket" });
     }
 
@@ -124,7 +133,7 @@ export async function registerRoutes(
     if (!isUploadBucket(bucket) || !isValidStoredName(file)) {
       return res.status(404).json({ error: "File not found" });
     }
-    if ((bucket === 'invoices' || bucket === 'documents') && !isCoFounder(req.user)) {
+    if ((bucket === 'invoices' && !perms.viewFinance(req.user)) || (bucket === 'documents' && !isFounder(req.user))) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -156,7 +165,7 @@ export async function registerRoutes(
   app.get("/api/clients", isAuthenticated, async (req: any, res) => {
     try {
       const clientsList = await storage.getClients();
-      const userIsCoFounder = isCoFounder(req.user);
+      const userIsCoFounder = perms.viewFinance(req.user);
       if (!userIsCoFounder) {
         const sanitized = clientsList.map(c => ({
           ...c,
@@ -178,7 +187,7 @@ export async function registerRoutes(
       if (!client) {
         return res.status(404).json({ error: "Client not found" });
       }
-      const userIsCoFounder = isCoFounder(req.user);
+      const userIsCoFounder = perms.viewFinance(req.user);
       if (!userIsCoFounder) {
         return res.json({
           ...client,
@@ -197,7 +206,7 @@ export async function registerRoutes(
     try {
       const clientId = req.params.id;
       
-      const canSeeFinance = isCoFounder(req.user);
+      const canSeeFinance = perms.viewFinance(req.user);
       const [clientStories, clientInvoices, clientComms] = await Promise.all([
         storage.getStoriesByClient(clientId),
         canSeeFinance ? storage.getInvoicesByClient(clientId) : Promise.resolve([]),
@@ -252,8 +261,8 @@ export async function registerRoutes(
 
   app.post("/api/clients/:id/convert-to-lead", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only co-founders can convert clients to leads." });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only founders can convert clients to leads." });
       }
 
       const client = await storage.getClient(req.params.id);
@@ -341,8 +350,8 @@ export async function registerRoutes(
 
   app.delete("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only co-founders can delete clients." });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only founders can delete clients." });
       }
       const existing = await storage.getClient(req.params.id);
       // Collect file URLs first: the database rows cascade away with the client
@@ -457,7 +466,7 @@ export async function registerRoutes(
 
   app.delete("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isOwnerOrHRUser(req.user)) {
+      if (!perms.manageTeam(req.user)) {
         return res.status(403).json({ error: "Access denied. Only admins can delete stories." });
       }
       const existing = await storage.getStory(req.params.id);
@@ -483,9 +492,9 @@ export async function registerRoutes(
 
   app.delete("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      // Co-founders have full admin access — they can delete any employee
+      // Founders and HR can delete employees
       const user = req.user;
-      const isAuthorized = isOwnerOrHRUser(user);
+      const isAuthorized = perms.manageTeam(user);
       if (!isAuthorized) {
         return res.status(403).json({ error: "Access denied. Admin role required to delete employees." });
       }
@@ -494,8 +503,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "You cannot delete your own account." });
       }
       const target = await storage.getUser(req.params.id);
-      if (target && isCoFounder(target) && !isCoFounder(user)) {
-        return res.status(403).json({ error: "Only co-founders can delete co-founders." });
+      if (target && isFounder(target) && !isFounder(user)) {
+        return res.status(403).json({ error: "Only founders can delete founders." });
       }
 
       await storage.deleteUser(req.params.id, req.user.id);
@@ -634,6 +643,24 @@ export async function registerRoutes(
         recipientName: req.body.recipientName || client?.contactName,
         sentAt: new Date(),
       });
+
+      if (!data.recipientEmail) {
+        return res.status(400).json({ error: "Client has no contact email" });
+      }
+      if (!isEmailConfigured()) {
+        return res.status(503).json({ error: "Email is not configured on the server" });
+      }
+      try {
+        await sendEmail({
+          to: data.recipientEmail,
+          subject: data.subject,
+          text: data.body,
+          replyTo: req.user.email || undefined,
+        });
+      } catch (mailErr) {
+        console.error('SMTP send error:', mailErr);
+        return res.status(502).json({ error: "Failed to send email" });
+      }
 
       const email = await storage.createSentEmail(data);
       res.status(201).json(email);
@@ -776,8 +803,8 @@ export async function registerRoutes(
       const parsedLimit = parseInt(req.query.limit as string, 10);
       const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 200) : 10;
       let logs = await storage.getActivityLog(limit);
-      // Invoice entries carry amounts: co-founders only
-      if (!isCoFounder(req.user)) {
+      // Invoice entries carry amounts: finance roles only
+      if (!perms.viewFinance(req.user)) {
         logs = (await storage.getActivityLog(limit * 3)).filter((l) => l.entityType !== 'invoice').slice(0, limit);
       }
       res.json(logs);
@@ -790,8 +817,8 @@ export async function registerRoutes(
   // Invoices (all protected with authentication)
   app.get("/api/clients/:clientId/invoices", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      if (!perms.viewFinance(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only founders and accountants can access invoices." });
       }
       const invoicesList = await storage.getInvoicesByClient(req.params.clientId);
       res.json(invoicesList);
@@ -803,8 +830,8 @@ export async function registerRoutes(
 
   app.post("/api/clients/:clientId/invoices", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      if (!perms.viewFinance(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only founders and accountants can access invoices." });
       }
       const data = insertInvoiceSchema.parse({
         ...req.body,
@@ -836,8 +863,8 @@ export async function registerRoutes(
 
   app.patch("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      if (!perms.viewFinance(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only founders and accountants can access invoices." });
       }
       const data = updateInvoiceSchema.parse({
         ...req.body,
@@ -872,8 +899,8 @@ export async function registerRoutes(
 
   app.delete("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only co-founders can access invoices." });
+      if (!perms.viewFinance(req.user)) {
+        return res.status(403).json({ error: "Access denied. Only founders and accountants can access invoices." });
       }
       const invoice = await storage.getInvoice(req.params.id);
       const success = await storage.deleteInvoice(req.params.id);
@@ -900,10 +927,10 @@ export async function registerRoutes(
     }
   });
 
-  // Users (for internal dashboard - co-founders only, verified by email allowlist)
+  // Users (for internal dashboard - founders only, verified by email allowlist)
   app.get("/api/analytics/team", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isOwnerOrHRUser(req.user)) {
+      if (!perms.manageTeam(req.user)) {
         return res.status(403).json({ error: "Access denied. Admin or HR role required." });
       }
 
@@ -935,11 +962,18 @@ export async function registerRoutes(
 
   app.get("/api/users", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isOwnerOrHRUser(req.user)) {
-        return res.status(403).json({ error: "Access denied. Owner or HR role required." });
-      }
-
       const usersList = await storage.getAllUsers();
+      // Everyone needs names to assign tasks; contact details and shareholding are for managers only
+      if (!perms.manageTeam(req.user) && !perms.viewPayroll(req.user)) {
+        return res.json(usersList.map((u) => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          profileImageUrl: u.profileImageUrl,
+          userType: u.userType,
+          role: u.role,
+        })));
+      }
       res.json(usersList);
     } catch (error) {
       console.error('Get users error:', error);
@@ -947,29 +981,31 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/users", isOwnerOrHR, async (req: any, res) => {
+  app.post("/api/users", requireTeamManager, async (req: any, res) => {
     try {
       const { firstName, lastName, email, userType } = req.body;
       if (!firstName || !lastName) {
         return res.status(400).json({ error: "firstName and lastName are required" });
       }
-      const roleMap: Record<string, string> = { 'co-founder': 'admin', 'hr': 'hr', 'employee': 'editor' };
       const type = userType || 'employee';
-      if (!roleMap[type]) {
-        return res.status(400).json({ error: "Invalid userType" });
+      if (!isRole(type)) {
+        return res.status(400).json({ error: `Invalid userType. Use one of: ${ROLES.join(', ')}` });
       }
-      if (type === 'co-founder' && !isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can create co-founders." });
+      if (type === 'founder' && !isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can create founders." });
       }
       const user = await storage.createEmployee({
         firstName,
         lastName,
-        email: email || null,
+        email: email ? String(email).trim().toLowerCase() : null,
         userType: type,
-        role: roleMap[type] || 'editor',
+        role: legacyRoleColumn(type),
       });
       res.status(201).json(user);
     } catch (error) {
+      if ((error as any)?.code === '23505') {
+        return res.status(409).json({ error: "A team member with this email already exists." });
+      }
       console.error('Create employee error:', error);
       res.status(500).json({ error: "Failed to create employee" });
     }
@@ -977,20 +1013,37 @@ export async function registerRoutes(
 
   app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isOwnerOrHRUser(req.user)) {
-        return res.status(403).json({ error: "Access denied. Owner or HR role required." });
+      if (!perms.manageTeam(req.user)) {
+        return res.status(403).json({ error: "Access denied. Founder or HR role required." });
       }
 
       const data = updateUserProfileSchema.parse(req.body);
+      if (data.userType !== undefined && !isRole(data.userType)) {
+        return res.status(400).json({ error: `Invalid userType. Use one of: ${ROLES.join(', ')}` });
+      }
 
-      // Promoting to, or changing, a co-founder is reserved for co-founders (HR must not self-escalate)
-      if (!isCoFounder(req.user)) {
-        const target = await storage.getUser(req.params.id);
-        if (data.userType === 'co-founder' || (target && isCoFounder(target)) || data.shareholdingPercent !== undefined) {
-          return res.status(403).json({ error: "Only co-founders can change co-founder status or shareholding." });
+      const target = await storage.getUser(req.params.id);
+      if (!target) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Promoting to, demoting, or editing a founder is reserved for founders (HR must not self-escalate)
+      if (!isFounder(req.user)) {
+        if (data.userType === 'founder' || isFounder(target) || data.shareholdingPercent !== undefined) {
+          return res.status(403).json({ error: "Only founders can change founder status or shareholding." });
         }
       }
-      const user = await storage.updateUserProfile(req.params.id, data);
+      // Never leave the company without a founder
+      if (isFounder(target) && data.userType !== undefined && data.userType !== 'founder') {
+        const founders = (await storage.getAllUsers()).filter((u) => isFounder(u));
+        if (founders.length <= 1) {
+          return res.status(400).json({ error: "There must be at least one founder." });
+        }
+      }
+      const user = await storage.updateUserProfile(
+        req.params.id,
+        (data.userType ? { ...data, role: legacyRoleColumn(data.userType) } : data) as any
+      );
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -1019,8 +1072,8 @@ export async function registerRoutes(
   // Founder Investments (verified by email allowlist)
   app.get("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can view investments" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can view investments" });
       }
 
       const investments = await storage.getFounderInvestments();
@@ -1033,8 +1086,8 @@ export async function registerRoutes(
 
   app.post("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can add investments" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can add investments" });
       }
 
       const data = insertFounderInvestmentSchema.parse({
@@ -1055,8 +1108,8 @@ export async function registerRoutes(
 
   app.patch("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can update investments" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can update investments" });
       }
 
       const data = updateFounderInvestmentSchema.parse({
@@ -1081,8 +1134,8 @@ export async function registerRoutes(
 
   app.delete("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can delete investments" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can delete investments" });
       }
 
       const success = await storage.deleteFounderInvestment(req.params.id);
@@ -1097,11 +1150,11 @@ export async function registerRoutes(
     }
   });
 
-  // Internal Documents (co-founders only)
+  // Internal Documents (founders only)
   app.get("/api/internal-documents", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can view documents" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can view documents" });
       }
 
       const documents = await storage.getInternalDocuments();
@@ -1114,8 +1167,8 @@ export async function registerRoutes(
 
   app.post("/api/internal-documents", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can add documents" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can add documents" });
       }
 
       const data = insertInternalDocumentSchema.parse({
@@ -1135,8 +1188,8 @@ export async function registerRoutes(
 
   app.patch("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can update documents" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can update documents" });
       }
 
       const data = updateInternalDocumentSchema.parse(req.body);
@@ -1158,8 +1211,8 @@ export async function registerRoutes(
 
   app.delete("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can delete documents" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can delete documents" });
       }
 
       const doc = await storage.getInternalDocument(req.params.id);
@@ -1176,7 +1229,7 @@ export async function registerRoutes(
     }
   });
 
-  // Leads (read: all authenticated; write: co-founders only)
+  // Leads (read: all authenticated; write: founders only)
   app.get("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
       const leadsList = await storage.getLeads();
@@ -1202,8 +1255,8 @@ export async function registerRoutes(
 
   app.post("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can create leads" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can create leads" });
       }
       const data = insertLeadSchema.parse({ ...req.body, ownerId: req.user.id });
       const lead = await storage.createLead(data);
@@ -1230,8 +1283,8 @@ export async function registerRoutes(
 
   app.patch("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can update leads" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can update leads" });
       }
       const data = updateLeadSchema.parse(req.body);
       const lead = await storage.updateLead(req.params.id, data);
@@ -1250,8 +1303,8 @@ export async function registerRoutes(
 
   app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can delete leads" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can delete leads" });
       }
       const success = await storage.deleteLead(req.params.id);
       if (!success) {
@@ -1264,11 +1317,11 @@ export async function registerRoutes(
     }
   });
 
-  // Revenue Targets (co-founders only)
+  // Revenue Targets (founders only)
   app.get("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can view revenue targets" });
+      if (!perms.viewFinance(req.user)) {
+        return res.status(403).json({ error: "Only founders and accountants can view revenue targets" });
       }
       const targets = await storage.getRevenueTargets();
       res.json(targets);
@@ -1280,8 +1333,8 @@ export async function registerRoutes(
 
   app.post("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can set revenue targets" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can set revenue targets" });
       }
       const data = insertRevenueTargetSchema.parse({
         ...req.body,
@@ -1329,8 +1382,11 @@ export async function registerRoutes(
 
   app.delete("/api/communications/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isOwnerOrHRUser(req.user)) {
+      if (!perms.manageTeam(req.user)) {
         return res.status(403).json({ error: "Access denied. Only admins can delete communication logs." });
+      }
+      if (!UUID_RE.test(req.params.id)) {
+        return res.status(404).json({ error: "Communication not found" });
       }
       const success = await storage.deleteClientCommunication(req.params.id);
       if (!success) {
@@ -1343,7 +1399,7 @@ export async function registerRoutes(
     }
   });
 
-  // Announcements (read: all authenticated; write: co-founders only)
+  // Announcements (read: all authenticated; write: founders only)
   app.get("/api/announcements", isAuthenticated, async (req: any, res) => {
     try {
       const announcementsList = await storage.getAnnouncements();
@@ -1356,8 +1412,8 @@ export async function registerRoutes(
 
   app.post("/api/announcements", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can post announcements" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can post announcements" });
       }
       const data = insertAnnouncementSchema.parse({
         ...req.body,
@@ -1376,8 +1432,8 @@ export async function registerRoutes(
 
   app.patch("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can update announcements" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can update announcements" });
       }
       const data = updateAnnouncementSchema.parse(req.body);
       const announcement = await storage.updateAnnouncement(req.params.id, data);
@@ -1396,8 +1452,8 @@ export async function registerRoutes(
 
   app.delete("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isCoFounder(req.user)) {
-        return res.status(403).json({ error: "Only co-founders can delete announcements" });
+      if (!isFounder(req.user)) {
+        return res.status(403).json({ error: "Only founders can delete announcements" });
       }
       const success = await storage.deleteAnnouncement(req.params.id);
       if (!success) {
@@ -1411,7 +1467,7 @@ export async function registerRoutes(
   });
 
   // ─── Salary Records (Owner + HR only) ───────────────────────────────────────
-  app.get("/api/salary-records", isOwnerOrHR, async (req: any, res) => {
+  app.get("/api/salary-records", requirePayrollView, async (req: any, res) => {
     try {
       const { employeeId } = req.query;
       const records = await storage.getSalaryRecords(employeeId as string | undefined);
@@ -1422,7 +1478,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/salary-records", isOwnerOrHR, async (req: any, res) => {
+  app.post("/api/salary-records", requirePayrollEdit, async (req: any, res) => {
     try {
       const data = insertSalaryRecordSchema.parse({ ...req.body, createdBy: req.user.id });
       const record = await storage.createSalaryRecord(data);
@@ -1434,7 +1490,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/salary-records/:id", isOwnerOrHR, async (req: any, res) => {
+  app.patch("/api/salary-records/:id", requirePayrollEdit, async (req: any, res) => {
     try {
       const data = updateSalaryRecordSchema.parse(req.body);
       const record = await storage.updateSalaryRecord(req.params.id, data);
@@ -1447,7 +1503,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/salary-records/:id", isOwnerOrHR, async (req: any, res) => {
+  app.delete("/api/salary-records/:id", requirePayrollEdit, async (req: any, res) => {
     try {
       const success = await storage.deleteSalaryRecord(req.params.id);
       if (!success) return res.status(404).json({ error: "Salary record not found" });
@@ -1459,7 +1515,7 @@ export async function registerRoutes(
   });
 
   // ─── Incentives (Owner + HR only) ───────────────────────────────────────────
-  app.get("/api/incentives", isOwnerOrHR, async (req: any, res) => {
+  app.get("/api/incentives", requirePayrollView, async (req: any, res) => {
     try {
       const { employeeId } = req.query;
       const records = await storage.getIncentives(employeeId as string | undefined);
@@ -1470,7 +1526,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/incentives", isOwnerOrHR, async (req: any, res) => {
+  app.post("/api/incentives", requirePayrollEdit, async (req: any, res) => {
     try {
       const data = insertIncentiveSchema.parse({ ...req.body, createdBy: req.user.id });
       const incentive = await storage.createIncentive(data);
@@ -1482,7 +1538,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/incentives/:id", isOwnerOrHR, async (req: any, res) => {
+  app.patch("/api/incentives/:id", requirePayrollEdit, async (req: any, res) => {
     try {
       const data = updateIncentiveSchema.parse(req.body);
       const incentive = await storage.updateIncentive(req.params.id, data);
@@ -1495,7 +1551,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/incentives/:id", isOwnerOrHR, async (req: any, res) => {
+  app.delete("/api/incentives/:id", requirePayrollEdit, async (req: any, res) => {
     try {
       const success = await storage.deleteIncentive(req.params.id);
       if (!success) return res.status(404).json({ error: "Incentive not found" });

@@ -1,5 +1,6 @@
+import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
 import { useState, useMemo } from "react";
-import { useIsHROrOwner } from "@/lib/auth";
+import { useCanViewPayroll, useCanManageTeam } from "@/lib/auth";
 import { useUsers, useCreateUser } from "@/lib/queries";
 
 // Display name overrides — maps email → proper display name + title
@@ -15,7 +16,7 @@ const EMPLOYEE_DISPLAY: Record<string, { name: string; title: string }> = {
 function getEmployeeDisplay(u: any): { name: string; title: string; initials: string } {
   const override = u.email ? EMPLOYEE_DISPLAY[u.email.toLowerCase()] : null;
   const name = override?.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
-  const title = override?.title || (u.userType === 'co-founder' ? 'Co-Founder' : u.userType === 'hr' ? 'HR' : 'Employee');
+  const title = override?.title || ROLE_LABELS[roleOf(u)];
   const parts = name.split(/\s+/).filter(Boolean);
   const initials = parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
   return { name, title, initials: initials.toUpperCase() };
@@ -68,7 +69,8 @@ function shortPeriodLabel(period: string) {
 const INCENTIVE_TYPES = ["bonus", "commission", "reward", "other"] as const;
 
 export default function SalaryIncentives() {
-  const isHROrOwner = useIsHROrOwner();
+  const canViewPayroll = useCanViewPayroll();
+  const canManageTeam = useCanManageTeam();
   const { data: allUsers = [] } = useUsers();
   const { toast } = useToast();
 
@@ -101,7 +103,7 @@ export default function SalaryIncentives() {
   const [incentiveModal, setIncentiveModal] = useState<{ open: boolean; record?: any }>({ open: false });
   const [incentiveForm, setIncentiveForm] = useState({ amount: "", type: "bonus", description: "", period: getCurrentPeriod(), notes: "" });
 
-  if (!isHROrOwner) {
+  if (!canViewPayroll) {
     return <RestrictedNotice message="Salary and incentives are available to owners and HR only." />;
   }
 
@@ -190,10 +192,12 @@ export default function SalaryIncentives() {
           <h1 className="text-2xl font-bold text-foreground">Salary & Incentives</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage employee compensation records</p>
         </div>
-        <Button className="gap-2 shrink-0" onClick={() => setAddEmpOpen(true)}>
-          <UserPlus className="h-4 w-4" />
-          Add Employee
-        </Button>
+        {canManageTeam && (
+          <Button className="gap-2 shrink-0" onClick={() => setAddEmpOpen(true)}>
+            <UserPlus className="h-4 w-4" />
+            Add Employee
+          </Button>
+        )}
       </div>
 
       {/* Employee card grid */}
@@ -474,9 +478,9 @@ export default function SalaryIncentives() {
               <Select value={empForm.userType} onValueChange={v => setEmpForm(f => ({ ...f, userType: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="co-founder">Owner</SelectItem>
+                  {ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -9,12 +9,12 @@ import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import type { Client, Story } from "@shared/schema";
-import { useIsOwner } from "@/lib/auth";
+import { useCanViewFinance } from "@/lib/auth";
 
 export function RevenueInsight() {
   const [, setLocation] = useLocation();
   const { data: clients = [], isLoading } = useClients();
-  const isOwner = useIsOwner();
+  const canViewFinance = useCanViewFinance();
 
   if (isLoading) {
     return (
@@ -24,12 +24,12 @@ export function RevenueInsight() {
     );
   }
 
-  if (!isOwner) {
+  if (!canViewFinance) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] gap-4 text-center">
         <Lock className="h-12 w-12 text-muted-foreground" />
         <h2 className="text-xl font-semibold">Access Restricted</h2>
-        <p className="text-muted-foreground">Revenue data is only visible to the owner.</p>
+        <p className="text-muted-foreground">Revenue data is only visible to founders and accountants.</p>
         <Button variant="outline" onClick={() => setLocation('/')}>Go to Dashboard</Button>
       </div>
     );
@@ -88,7 +88,7 @@ export function RevenueInsight() {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-3">
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export function RevenueInsight() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-2">
         <Card className="macos-card border-none">
           <CardHeader>
             <CardTitle>Revenue by Client</CardTitle>
@@ -259,7 +259,7 @@ export function ClientsInsight() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-3">
         <Card className="macos-card border-none bg-red-50/50">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3">
@@ -389,7 +389,7 @@ export function StoriesInsight() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-4">
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
             <p className="text-3xl font-bold text-orange-600">{pendingStories.length}</p>
@@ -528,7 +528,7 @@ export function CompletionInsight() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-4">
         <Card className="macos-card border-none md:col-span-1">
           <CardContent className="p-4 sm:p-6">
             <div className="relative h-32 w-32 mx-auto">
@@ -563,7 +563,7 @@ export function CompletionInsight() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-2">
         <Card className="macos-card border-none">
           <CardHeader>
             <CardTitle>Status Distribution</CardTitle>

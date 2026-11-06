@@ -1,6 +1,25 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+const MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Calls OpenAI chat completions in JSON mode and returns the raw JSON text.
+async function completeJson(prompt: string, maxTokens: number): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: maxTokens,
+      temperature: 0.4,
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
 interface ExtractedProposalData {
   suggestedTasks: {
@@ -19,8 +38,6 @@ export async function analyzeProposal(
   proposalText: string,
   clientName: string
 ): Promise<ExtractedProposalData> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const prompt = `You are analyzing a business proposal/contract for a CRM system. Extract the following information from the proposal text and return it as JSON:
 
 1. suggestedTasks: An array of tasks that should be created based on the proposal. Each task should have:
@@ -54,9 +71,7 @@ Return ONLY valid JSON in this exact format, no markdown or explanation:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const text = await completeJson(prompt, 4000);
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -66,7 +81,7 @@ Return ONLY valid JSON in this exact format, no markdown or explanation:
     const parsed = JSON.parse(jsonMatch[0]) as ExtractedProposalData;
     return parsed;
   } catch (error) {
-    console.error("Error analyzing proposal with Gemini:", error);
+    console.error("Error analyzing proposal with OpenAI:", error);
     return {
       suggestedTasks: [],
       extractedRevenue: null,
@@ -105,8 +120,6 @@ interface GeneratedEmail {
 }
 
 export async function generateStatusEmail(input: EmailGenerationInput): Promise<GeneratedEmail> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const commentsContext = input.recentComments.length > 0
     ? input.recentComments.map(c => `${c.authorName}: ${c.body}`).join('\n')
     : 'No recent updates';
@@ -150,9 +163,7 @@ Return ONLY valid JSON in this format:
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const text = await completeJson(prompt, 1000);
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -162,7 +173,7 @@ Return ONLY valid JSON in this format:
     const parsed = JSON.parse(jsonMatch[0]) as GeneratedEmail;
     return parsed;
   } catch (error) {
-    console.error("Error generating email with Gemini:", error);
+    console.error("Error generating email with OpenAI:", error);
     return {
       subject: `Update on: ${input.storyTitle}`,
       body: `Hi ${input.recipientName || 'there'},\n\nI wanted to give you a quick update on "${input.storyTitle}".\n\nWe are currently at ${input.progressPercent}% completion.\n\nPlease let me know if you have any questions.\n\nBest regards,\n${input.senderName}\nAGENTiX`

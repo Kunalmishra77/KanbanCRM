@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app, { initApp } from "./app.js";
 import { serveStatic } from "./static.js";
 import { createServer } from "http";
+import { startDeadlineScheduler } from "./emailService.js";
 
 console.log("Server: index.ts loaded");
 
@@ -26,6 +27,7 @@ const httpServer = createServer(app);
       const port = parseInt(process.env.PORT || "5000", 10);
       httpServer.listen(port, "0.0.0.0", () => {
         console.log(`${new Date().toLocaleTimeString()} [express] serving on port ${port}`);
+        startDeadlineScheduler();
       });
     }
   } catch (err) {

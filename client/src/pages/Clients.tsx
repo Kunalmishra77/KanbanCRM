@@ -1,5 +1,5 @@
 import { useClients, useDeleteClient, useStories, useConvertToLead } from "@/lib/queries";
-import { useAuth, useIsHROrOwner, useIsOwner } from "@/lib/auth";
+import { useAuth, useIsFounder, useCanViewFinance, useCanManageTeam } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,8 +66,9 @@ export default function Clients() {
   const { data: stories = [] } = useStories();
   const { mutate: deleteClient } = useDeleteClient();
   const { mutate: convertToLead } = useConvertToLead();
-  const isHROrOwner = useIsHROrOwner();
-  const isOwner = useIsOwner();
+  const canManageTeam = useCanManageTeam();
+  const isFounder = useIsFounder();
+  const canViewFinance = useCanViewFinance();
   const CLIENT_STAGES = ['Hot', 'Warm', 'Cold', 'Hold', 'Dropped'] as const;
 
   const [, setLocation] = useLocation();
@@ -107,7 +108,7 @@ export default function Clients() {
           </p>
         </div>
         <div className="flex w-full sm:w-auto flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          {isHROrOwner && (
+          {canManageTeam && (
             <Button
               className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateOpen(true)}
@@ -154,13 +155,13 @@ export default function Clients() {
                         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between p-4 gap-6">
                           
                           {/* Client Identity & Industry */}
-                          <div className="flex items-center gap-4 min-w-[240px] max-w-[340px] shrink-0">
+                          <div className="flex items-center gap-4 min-w-0 w-full lg:w-auto lg:min-w-[240px] lg:max-w-[340px] lg:shrink-0">
                             <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-orange-500/20 flex items-center justify-center border border-white/20 shrink-0">
                               <Briefcase className="h-5 w-5 text-primary" />
                             </div>
-                            <div className="space-y-0.5 truncate">
+                            <div className="space-y-0.5 min-w-0 flex-1">
                               <h3 className="font-semibold text-base sm:text-lg text-foreground truncate hover:text-primary transition-colors">
-                                <Link href={`/clients/${client.id}`}>{client.name}</Link>
+                                <Link href={`/clients/${client.id}`} className="block truncate py-2 -my-2">{client.name}</Link>
                               </h3>
                               <p className="text-xs text-muted-foreground truncate">{client.industry}</p>
                             </div>
@@ -183,8 +184,8 @@ export default function Clients() {
                           </div>
 
                           {/* Commercials Section (Collected vs Expected) */}
-                          {isOwner && (
-                            <div className="flex-1 min-w-[200px] max-w-[320px] space-y-2 shrink-0">
+                          {canViewFinance && (
+                            <div className="flex-1 min-w-0 lg:min-w-[200px] max-w-[320px] space-y-2 lg:shrink-0">
                               <div className="flex items-center justify-between text-xs">
                                 <span className="text-muted-foreground flex items-center gap-1">
                                   <Receipt className="h-3.5 w-3.5 text-primary/70" />
@@ -216,7 +217,7 @@ export default function Clients() {
                           )}
 
                           {/* Project Progress */}
-                          <div className="flex-1 min-w-[200px] max-w-[320px] space-y-2 shrink-0">
+                          <div className="flex-1 min-w-0 lg:min-w-[200px] max-w-[320px] space-y-2 lg:shrink-0">
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>Project Progress</span>
                               <span className="font-semibold">{Number(client.averageProgress).toFixed(0)}%</span>
@@ -238,7 +239,7 @@ export default function Clients() {
                                 View Details
                               </Button>
                             </Link>
-                            {isHROrOwner && (
+                            {canManageTeam && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -253,7 +254,7 @@ export default function Clients() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="macos-panel">
-                                  {isOwner && (
+                                  {isFounder && (
                                     <DropdownMenuItem
                                       className="cursor-pointer text-orange-600 focus:text-orange-700"
                                       onClick={(e) => {

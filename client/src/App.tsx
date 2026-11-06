@@ -5,21 +5,26 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
-import Dashboard from "@/pages/Dashboard";
-import GlobalKanban from "@/pages/GlobalKanban";
-import Clients from "@/pages/Clients";
-import ClientDetail from "@/pages/ClientDetail";
 import Login from "@/pages/Login";
-import { RevenueInsight, ClientsInsight, StoriesInsight, CompletionInsight } from "@/pages/Insights";
-import Settings from "@/pages/Settings";
-import Internal from "@/pages/Internal";
-import Leads from "@/pages/Leads";
-import Announcements from "@/pages/Announcements";
-import SalaryIncentives from "@/pages/SalaryIncentives";
-import AuditLog from "@/pages/AuditLog";
-import TeamPerformance from "@/pages/TeamPerformance";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
+
+// Each page is its own chunk so the first screen only downloads what it shows
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const GlobalKanban = lazy(() => import("@/pages/GlobalKanban"));
+const Clients = lazy(() => import("@/pages/Clients"));
+const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Internal = lazy(() => import("@/pages/Internal"));
+const Leads = lazy(() => import("@/pages/Leads"));
+const Announcements = lazy(() => import("@/pages/Announcements"));
+const SalaryIncentives = lazy(() => import("@/pages/SalaryIncentives"));
+const AuditLog = lazy(() => import("@/pages/AuditLog"));
+const TeamPerformance = lazy(() => import("@/pages/TeamPerformance"));
+const RevenueInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.RevenueInsight })));
+const ClientsInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.ClientsInsight })));
+const StoriesInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.StoriesInsight })));
+const CompletionInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.CompletionInsight })));
 
 // Wrapper to protect routes
 function ProtectedRoute({ component: Component, ...rest }: any) {
@@ -38,7 +43,9 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 
   return (
     <Layout>
-      <Component {...rest} />
+      <Suspense fallback={<div className="h-[50vh] flex items-center justify-center text-sm text-muted-foreground">Loading…</div>}>
+        <Component {...rest} />
+      </Suspense>
     </Layout>
   );
 }
