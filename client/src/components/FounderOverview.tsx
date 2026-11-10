@@ -163,6 +163,16 @@ export function FounderOverview() {
 
 function PersonCard({ p, period }: { p: PersonRow; period: Period }) {
   const h = HEALTH[p.health];
+  const [, setLocation] = useLocation();
+  const board = (scope?: string) => `/global-kanban?assignee=${encodeURIComponent(p.name)}${scope ? `&scope=${scope}` : ""}`;
+  const stats: { key: string; value: React.ReactNode; label: string; to: string; hint: string; red?: boolean }[] = [
+    { key: "done", value: p.completed, label: `done ${period === "today" ? "today" : "in period"}`, to: board("done"), hint: "Show finished stories" },
+    { key: "plan", value: `${p.plannedDone}/${p.planned}`, label: "plan done", to: board(), hint: "Show all of their stories" },
+    { key: "open", value: p.open, label: "open", to: board("open"), hint: "Show open stories" },
+    { key: "overdue", value: p.overdue, label: "overdue", to: board("overdue"), hint: "Show overdue stories", red: p.overdue > 0 },
+    { key: "comments", value: p.comments, label: "comments", to: `/audit-log?user=${encodeURIComponent(p.id)}&type=comment`, hint: "Show their comments" },
+    { key: "updates", value: p.actions, label: "updates", to: `/audit-log?user=${encodeURIComponent(p.id)}`, hint: "Show everything they did" },
+  ];
   return (
     <div className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3" data-testid={`person-${p.name}`}>
       <div className="flex items-center justify-between gap-2">
@@ -176,12 +186,19 @@ function PersonCard({ p, period }: { p: PersonRow; period: Period }) {
       </div>
       <p className="text-xs text-muted-foreground mt-1">{p.reason}</p>
       <div className="mt-2 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-[11px] text-muted-foreground">
-        <span><b className="block text-sm text-foreground">{p.completed}</b>done {period === "today" ? "today" : "in period"}</span>
-        <span><b className="block text-sm text-foreground">{p.plannedDone}/{p.planned}</b>plan done</span>
-        <span><b className="block text-sm text-foreground">{p.open}</b>open</span>
-        <span><b className={cn("block text-sm", p.overdue ? "text-red-600 dark:text-red-300" : "text-foreground")}>{p.overdue}</b>overdue</span>
-        <span><b className="block text-sm text-foreground">{p.comments}</b>comments</span>
-        <span><b className="block text-sm text-foreground">{p.actions}</b>updates</span>
+        {stats.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setLocation(s.to)}
+            title={s.hint}
+            aria-label={`${s.value} ${s.label}. ${s.hint}`}
+            data-testid={`stat-${s.key}-${p.name}`}
+            className="rounded-lg py-1.5 min-h-[44px] hover:bg-black/5 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+          >
+            <b className={cn("block text-sm", s.red ? "text-red-600 dark:text-red-300" : "text-foreground")}>{s.value}</b>{s.label}
+          </button>
+        ))}
       </div>
       {(p.away === "wfh" || p.otHours > 0) && (
         <p className="text-[11px] mt-1 text-sky-700 dark:text-sky-300">{p.away === "wfh" ? "Working from home today" : ""}{p.away === "wfh" && p.otHours > 0 ? " · " : ""}{p.otHours > 0 ? `${p.otHours} h overtime` : ""}</p>

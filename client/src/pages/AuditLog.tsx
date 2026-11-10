@@ -16,8 +16,9 @@ import { useUsers } from "@/lib/queries";
 function AuditLogContent() {
   const { user } = useAuth();
   const { data: users = [] } = useUsers();
-  const [filterUser, setFilterUser] = useState<string>("all");
-  const [filterType, setFilterType] = useState<string>("all");
+  const initial = new URLSearchParams(window.location.search);
+  const [filterUser, setFilterUser] = useState<string>(initial.get("user") || "all");
+  const [filterType, setFilterType] = useState<string>(initial.get("type") || "all");
   const [search, setSearch] = useState("");
 
   const { data: logs = [], isLoading } = useQuery({

@@ -139,6 +139,13 @@ export default function GlobalKanban() {
   // Filter state
   const [filterClientIds, setFilterClientIds] = useState<string[]>([]);
   const [filterAssigneeNames, setFilterAssigneeNames] = useState<string[]>([]);
+  // Quick scope from links such as the founder overview: done | open | overdue
+  const scopeParam = useMemo(() => {
+    const v = new URLSearchParams(searchString).get('scope');
+    return v === 'done' || v === 'open' || v === 'overdue' ? v : null;
+  }, [searchString]);
+  const [scope, setScope] = useState<'done' | 'open' | 'overdue' | null>(scopeParam);
+  useEffect(() => { setScope(scopeParam); }, [scopeParam]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
@@ -204,6 +211,9 @@ export default function GlobalKanban() {
   const filteredStories = useMemo(() => {
     return stories.filter((story: Story) => {
       if (filterClientIds.length > 0 && !filterClientIds.includes(story.clientId)) return false;
+      if (scope === 'done' && story.status !== 'Done') return false;
+      if (scope === 'open' && story.status === 'Done') return false;
+      if (scope === 'overdue' && (story.status === 'Done' || !story.dueDate || new Date(story.dueDate).getTime() >= Date.now())) return false;
       if (filterAssigneeNames.length > 0) {
         const hasMatchingAssignee = filterAssigneeNames.some(name => {
           const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
@@ -214,7 +224,15 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users]);
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope]);
+
+  // When opened with a scope, jump to the first status column that actually has matching stories
+  useEffect(() => {
+    if (!scope) return;
+    const first = BOARD_COLUMNS.find((c) => filteredStories.some((s) => s.status === c));
+    if (first) setActiveStatusTab(first);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, filterAssigneeNames, stories.length]);
 
   // Count active filters
   const activeFilterCount = filterClientIds.length + filterAssigneeNames.length;
@@ -508,6 +526,15 @@ export default function GlobalKanban() {
           </Button>
         </div>
       </div>
+
+      {scope && (
+        <div className="flex items-center gap-2" data-testid="scope-chip">
+          <Badge variant="outline" className="gap-1.5 text-xs">
+            Showing {scope === 'overdue' ? 'overdue' : scope === 'open' ? 'open' : 'finished'} stories only
+          </Badge>
+          <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => setScope(null)} data-testid="scope-clear">Show all</button>
+        </div>
+      )}
 
       {/* RENDER VIEW */}
       {viewMode === 'list' ? (
