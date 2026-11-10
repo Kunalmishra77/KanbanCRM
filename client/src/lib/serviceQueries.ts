@@ -19,7 +19,7 @@ function useInvalidating<TVars, TData>(fn: (v: TVars) => Promise<TData>, ok: (d:
   return useMutation({
     mutationFn: fn,
     onSuccess: (d) => {
-      ["recurring-tasks", "stories", "requests", "overview"].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+      ["recurring-tasks", "stories", "requests", "overview", "notifications"].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       toast({ title: ok(d) });
     },
     onError: (e: Error) => toast({ title: fail, description: e.message, variant: "destructive" }),
@@ -32,6 +32,25 @@ export const useToggleRecurringTask = () =>
   useInvalidating(({ id, active }: { id: string; active: boolean }) => call("PATCH", `/api/recurring-tasks/${id}`, { active }), () => "Updated", "Could not update");
 export const useDeleteRecurringTask = () =>
   useInvalidating((id: string) => call("DELETE", `/api/recurring-tasks/${id}`), () => "Repeating task deleted. Tasks already created stay.", "Could not delete");
+
+// ---- personal notifications (the bell) ----
+export type NotificationRow = { id: string; type: string; title: string; message: string; link: string | null; isRead: boolean; createdAt: string };
+export function useNotifications() {
+  return useQuery<{ items: NotificationRow[]; unread: number }>({
+    queryKey: ["notifications"],
+    queryFn: () => call("GET", "/api/notifications"),
+    refetchInterval: 15_000, // new items (and the pop-up) show up within seconds without a reload
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
+}
+export function useMarkNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids?: string[]) => call("POST", "/api/notifications/read", ids ? { ids } : {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
 
 // ---- employee services ----
 export function useRequests(scope: "mine" | "all") {

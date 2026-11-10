@@ -80,3 +80,12 @@ export function useCanViewPayroll() {
 export function useCanManageTeam() {
   return perms.manageTeam(useAuth().user);
 }
+export function useCanApproveRequests() {
+  return perms.approveRequests(useAuth().user);
+}
+export function useCanViewOverview() {
+  return perms.viewOverview(useAuth().user);
+}
+export function useCanViewTeamStats() {
+  return perms.viewTeamStats(useAuth().user);
+}

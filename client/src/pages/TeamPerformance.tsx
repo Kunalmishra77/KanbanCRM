@@ -1,6 +1,6 @@
 import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
 import { useTeamAnalytics } from "@/lib/queries";
-import { useCanManageTeam } from "@/lib/auth";
+import { useCanManageTeam, useCanViewTeamStats } from "@/lib/auth";
 import { RestrictedNotice } from "@/components/RestrictedNotice";
 
 import { Loader2, Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
@@ -126,7 +126,7 @@ function TeamPerformanceContent() {
 }
 
 export default function TeamPerformance() {
-  const canView = useCanManageTeam();
-  if (!canView) return <RestrictedNotice message="Team performance is available to owners and HR only." />;
+  const canView = useCanViewTeamStats();
+  if (!canView) return <RestrictedNotice message="Team performance is available to founders, the Chief of Staff and HR only." />;
   return <TeamPerformanceContent />;
 }

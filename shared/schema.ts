@@ -381,7 +381,23 @@ export const recurringTaskInputSchema = z.object({
 export type RecurringTaskInput = z.infer<typeof recurringTaskInputSchema>;
 export type RecurringTask = typeof recurringTasks.$inferSelect;
 
-// Employee services: leave, work from home and overtime, raised by the employee and approved by a founder/HR
+// Personal notifications (one row per recipient). Shown under the bell and as a pop-up when a new one arrives.
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: text("type").notNull(), // request_submitted | request_pending | request_decided | request_decided_fyi
+  title: text("title").notNull(),
+  message: text("message").notNull().default(''),
+  link: text("link"), // in-app path to open when clicked
+  entityType: text("entity_type"), // 'request'
+  entityId: text("entity_id"), // the request this is about, so it can be cleared when decided or withdrawn
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("idx_notifications_user").on(t.userId, t.createdAt), index("idx_notifications_entity").on(t.entityId)]);
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+
+// Employee services: leave, work from home and overtime, raised by the employee and approved by a founder, the chief of staff or HR
 export const employeeRequests = pgTable("employee_requests", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),

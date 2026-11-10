@@ -16,9 +16,10 @@ import {
   type SalaryRecord, type InsertSalaryRecord, type UpdateSalaryRecord,
   type Incentive, type InsertIncentive, type UpdateIncentive,
   type RecurringTask, type RecurringTaskInput, type EmployeeRequest, type EmployeeRequestInput,
+  type Notification, type InsertNotification,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
   leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives,
-  recurringTasks, employeeRequests
+  recurringTasks, employeeRequests, notifications
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
 import { eq, desc, and, sql, inArray, gte, ne } from "drizzle-orm";
@@ -64,6 +65,14 @@ export interface IStorage {
   createEmployeeRequest(userId: string, data: EmployeeRequestInput): Promise<EmployeeRequest>;
   decideEmployeeRequest(id: string, status: 'approved' | 'rejected', decidedBy: string, note: string | null): Promise<EmployeeRequest | undefined>;
   deleteEmployeeRequest(id: string): Promise<boolean>;
+
+  // Personal notifications
+  createNotifications(rows: InsertNotification[]): Promise<void>;
+  listNotifications(userId: string, limit?: number): Promise<Notification[]>;
+  countUnreadNotifications(userId: string): Promise<number>;
+  markNotificationsRead(userId: string, ids?: string[]): Promise<number>;
+  markEntityNotificationsRead(entityId: string, types: string[]): Promise<void>;
+  deleteEntityNotifications(entityId: string, types: string[]): Promise<void>;
 
   // Founder overview + mentions
   getCommentsSince(since: Date): Promise<Comment[]>;
@@ -412,6 +421,39 @@ export class DatabaseStorage implements IStorage {
   async deleteEmployeeRequest(id: string): Promise<boolean> {
     const rows = await db.delete(employeeRequests).where(eq(employeeRequests.id, id)).returning({ id: employeeRequests.id });
     return rows.length > 0;
+  }
+
+  // ---- Personal notifications ----
+  async createNotifications(rows: InsertNotification[]): Promise<void> {
+    if (rows.length === 0) return;
+    await db.insert(notifications).values(rows);
+  }
+
+  async listNotifications(userId: string, limit = 50): Promise<Notification[]> {
+    return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(limit);
+  }
+
+  async countUnreadNotifications(userId: string): Promise<number> {
+    const [r] = await db.select({ n: sql<number>`count(*)::int` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    return r?.n ?? 0;
+  }
+
+  /** Marks the person's own notifications as read: the given ids, or all of them when no ids are given. */
+  async markNotificationsRead(userId: string, ids?: string[]): Promise<number> {
+    const where = ids && ids.length > 0
+      ? and(eq(notifications.userId, userId), inArray(notifications.id, ids), eq(notifications.isRead, false))
+      : and(eq(notifications.userId, userId), eq(notifications.isRead, false));
+    const rows = await db.update(notifications).set({ isRead: true }).where(where).returning({ id: notifications.id });
+    return rows.length;
+  }
+
+  async markEntityNotificationsRead(entityId: string, types: string[]): Promise<void> {
+    await db.update(notifications).set({ isRead: true })
+      .where(and(eq(notifications.entityId, entityId), inArray(notifications.type, types), eq(notifications.isRead, false)));
+  }
+
+  async deleteEntityNotifications(entityId: string, types: string[]): Promise<void> {
+    await db.delete(notifications).where(and(eq(notifications.entityId, entityId), inArray(notifications.type, types)));
   }
 
   async getCommentsSince(since: Date): Promise<Comment[]> {

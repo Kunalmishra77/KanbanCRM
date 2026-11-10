@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupGoogleAuth, isAuthenticated, requireRole } from "./googleAuth.js";
-import { perms, isRole, ROLES } from "../shared/roles.js";
+import { perms, isRole, ROLES, canDecideRequest } from "../shared/roles.js";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
@@ -12,6 +12,7 @@ import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
 import { generateRecurringStories } from "./lib/recurring.js";
+import { notifyRequestRaised, notifyRequestDecided, clearWithdrawn, personName as fullNameOf } from "./lib/notify.js";
 import { analyzeProposal, generateStatusEmail } from "./ai.js";
 
 import multer from "multer";
@@ -817,11 +818,12 @@ export async function registerRoutes(
     try {
       const parsedLimit = parseInt(req.query.limit as string, 10);
       const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 200) : 10;
-      let logs = await storage.getActivityLog(limit);
-      // Invoice entries carry amounts: finance roles only
-      if (!perms.viewFinance(req.user)) {
-        logs = (await storage.getActivityLog(limit * 3)).filter((l) => l.entityType !== 'invoice').slice(0, limit);
-      }
+      // Invoice entries carry amounts (finance roles only); leave / work-from-home / overtime entries are private
+      // to the people who decide them, plus the person who raised them
+      const seeInvoices = perms.viewFinance(req.user);
+      const seeRequests = perms.approveRequests(req.user);
+      const hidden = (l: any) => (l.entityType === 'invoice' && !seeInvoices) || (l.entityType === 'request' && !seeRequests && l.userId !== req.user.id);
+      const logs = (await storage.getActivityLog(seeInvoices && seeRequests ? limit : limit * 4)).filter((l) => !hidden(l)).slice(0, limit);
       res.json(logs);
     } catch (error) {
       console.error('Get activity error:', error);
@@ -1016,7 +1018,7 @@ export async function registerRoutes(
   // ---- Employee services: leave, work from home, overtime ----
   app.get("/api/requests", isAuthenticated, async (req: any, res) => {
     try {
-      const seeAll = req.query.scope === 'all' && (perms.manageTeam(req.user) || perms.viewPayroll(req.user));
+      const seeAll = req.query.scope === 'all' && (perms.approveRequests(req.user) || perms.manageTeam(req.user) || perms.viewPayroll(req.user));
       res.json(await storage.listEmployeeRequests(seeAll ? {} : { userId: req.user.id }));
     } catch (error) {
       console.error('List requests error:', error);
@@ -1034,6 +1036,8 @@ export async function registerRoutes(
       if (data.type !== 'ot' && data.endDate && data.endDate > addDays(data.startDate, 60)) return res.status(400).json({ error: "A single request can cover at most 60 days." });
       const row = await storage.createEmployeeRequest(req.user.id, data);
       await storage.createActivityLog({ entityType: 'request', entityId: row.id, action: 'created', userId: req.user.id, details: `Raised ${data.type === 'ot' ? 'overtime' : data.type === 'wfh' ? 'work from home' : 'leave'} request for ${data.startDate}${row.endDate !== row.startDate ? ' to ' + row.endDate : ''}` });
+      // Notifications must never make a request fail
+      try { await notifyRequestRaised(row, req.user); } catch (e) { console.error('Notify (raised) failed:', e); }
       res.status(201).json(row);
     } catch (error) {
       if (error instanceof ZodError) return res.status(400).json({ error: error.errors.map((e) => e.message).join('. ') });
@@ -1042,17 +1046,20 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/requests/:id", requireTeamManager, async (req: any, res) => {
+  app.patch("/api/requests/:id", requireRole(perms.approveRequests, "Access denied. Founder, Chief of Staff or HR role required."), async (req: any, res) => {
     try {
       const status = req.body?.status;
       if (status !== 'approved' && status !== 'rejected') return res.status(400).json({ error: "Status must be approved or rejected." });
       const existing = await storage.getEmployeeRequest(req.params.id);
       if (!existing) return res.status(404).json({ error: "Request not found" });
       if (existing.userId === req.user.id && !perms.isFounder(req.user)) return res.status(403).json({ error: "You cannot approve your own request." });
+      const requester = await storage.getUser(existing.userId);
+      if (!requester || !canDecideRequest(req.user, requester)) return res.status(403).json({ error: "You are not allowed to decide this person's request." });
       const note = typeof req.body.note === 'string' && req.body.note.trim() ? req.body.note.trim().slice(0, 500) : null;
       const row = await storage.decideEmployeeRequest(req.params.id, status, req.user.id, note);
       if (!row) return res.status(409).json({ error: "This request was already decided." });
       await storage.createActivityLog({ entityType: 'request', entityId: row.id, action: status, userId: req.user.id, details: `${status === 'approved' ? 'Approved' : 'Rejected'} a ${row.type === 'ot' ? 'overtime' : row.type === 'wfh' ? 'work from home' : 'leave'} request` });
+      try { await notifyRequestDecided(row, requester, req.user); } catch (e) { console.error('Notify (decided) failed:', e); }
       res.json(row);
     } catch (error) {
       console.error('Decide request error:', error);
@@ -1066,6 +1073,7 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ error: "Request not found" });
       if (existing.userId !== req.user.id) return res.status(403).json({ error: "You can only withdraw your own requests." });
       if (existing.status !== 'pending') return res.status(409).json({ error: "Only pending requests can be withdrawn." });
+      await clearWithdrawn(req.params.id);
       await storage.deleteEmployeeRequest(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -1074,10 +1082,32 @@ export async function registerRoutes(
     }
   });
 
-  // Founder overview: what happened per team and per person (founders only)
+  // ---- Personal notifications (the bell). Everyone only ever sees their own. ----
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const [items, unread] = await Promise.all([storage.listNotifications(req.user.id, 50), storage.countUnreadNotifications(req.user.id)]);
+      res.json({ items, unread });
+    } catch (error) {
+      console.error('List notifications error:', error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications/read", isAuthenticated, async (req: any, res) => {
+    try {
+      const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((x: unknown) => typeof x === 'string' && UUID_RE.test(x)).slice(0, 200) : undefined;
+      const marked = await storage.markNotificationsRead(req.user.id, ids);
+      res.json({ marked });
+    } catch (error) {
+      console.error('Mark notifications read error:', error);
+      res.status(500).json({ error: "Failed to update notifications" });
+    }
+  });
+
+  // Founder overview: what happened per team and per person (founders and the chief of staff)
   app.get("/api/overview", isAuthenticated, async (req: any, res) => {
     try {
-      if (!perms.isFounder(req.user)) return res.status(403).json({ error: "Founders only." });
+      if (!perms.viewOverview(req.user)) return res.status(403).json({ error: "Founders and the Chief of Staff only." });
       const period = isPeriod(req.query.period) ? req.query.period : "today";
       // Fetch a bit more than the period so "last active" has something to show
       const since = new Date(Math.min(periodRange(period).start.getTime(), Date.now() - 35 * 86400000));
@@ -1104,8 +1134,8 @@ export async function registerRoutes(
   // Users (for internal dashboard - founders only, verified by email allowlist)
   app.get("/api/analytics/team", isAuthenticated, async (req: any, res) => {
     try {
-      if (!perms.manageTeam(req.user)) {
-        return res.status(403).json({ error: "Access denied. Admin or HR role required." });
+      if (!perms.viewTeamStats(req.user)) {
+        return res.status(403).json({ error: "Access denied. Founder, Chief of Staff or HR role required." });
       }
 
       const allUsers = await storage.getAllUsers();

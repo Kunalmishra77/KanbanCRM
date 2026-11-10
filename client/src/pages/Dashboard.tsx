@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieCha
 import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil, Gift, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth, useCanViewFinance, useCanManageTeam, useCanViewPayroll, useIsFounder } from "@/lib/auth";
+import { useAuth, useCanViewFinance, useCanManageTeam, useCanViewPayroll, useIsFounder, useCanViewOverview } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const canViewFinance = useCanViewFinance();
   const canManageTeam = useCanManageTeam();
   const isFounderUser = useIsFounder();
+  const canViewOverview = useCanViewOverview();
   const canViewPayroll = useCanViewPayroll();
   const [, setLocation] = useLocation();
   const { data: clients = [], isLoading: isLoadingClients } = useClients() as { data: Client[], isLoading: boolean };
@@ -119,7 +120,7 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Welcome back, {user?.firstName || 'there'}. Here's what's happening today.</p>
       </div>
 
-      {isFounderUser && <FounderOverview />}
+      {canViewOverview && <FounderOverview />}
       <MyWork stories={stories} clients={clients} />
 
       {/* Hero Stats Grid */}

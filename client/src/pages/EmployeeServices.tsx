@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CalendarOff, Home, Clock, Loader2, Check, X } from "lucide-react";
-import { useAuth, useCanManageTeam } from "@/lib/auth";
+import { useAuth, useCanApproveRequests } from "@/lib/auth";
+import { canDecideRequest } from "@shared/roles";
 import { useUsers } from "@/lib/queries";
 import { useRequests, useRaiseRequest, useDecideRequest, useWithdrawRequest } from "@/lib/serviceQueries";
 import { fullName } from "@/lib/assignee";
@@ -29,7 +30,7 @@ const span = (r: EmployeeRequest) => (r.startDate === r.endDate ? fmt(r.startDat
 
 export default function EmployeeServices() {
   const { user } = useAuth();
-  const canApprove = useCanManageTeam();
+  const canApprove = useCanApproveRequests();
   const today = istDate();
   const [kind, setKind] = useState<Kind>("leave");
   const [start, setStart] = useState(today);
@@ -46,7 +47,18 @@ export default function EmployeeServices() {
   const withdraw = useWithdrawRequest();
 
   const nameOf = (id: string) => fullName((users as any[]).find((u) => u.id === id)) || "Unknown";
-  const pending = useMemo(() => (all as EmployeeRequest[]).filter((r) => r.status === "pending"), [all]);
+  // Only the requests this person is actually allowed to decide (the server enforces the same rule)
+  const pending = useMemo(
+    () => (all as EmployeeRequest[]).filter((r) => r.status === "pending" && canDecideRequest(user, (users as any[]).find((u) => u.id === r.userId))),
+    [all, user, users],
+  );
+  // The log of what has been approved or rejected, newest first
+  const decided = useMemo(
+    () => (all as EmployeeRequest[]).filter((r) => r.status !== "pending" && r.decidedAt).sort((a, b) => +new Date(b.decidedAt as any) - +new Date(a.decidedAt as any)).slice(0, 15),
+    [all],
+  );
+  const decisionLine = (r: EmployeeRequest) =>
+    `${r.status === "approved" ? "Approved" : "Rejected"} by ${r.decidedBy ? nameOf(r.decidedBy) : "an approver"}${r.decidedAt ? ` · ${format(new Date(r.decidedAt as any), "d MMM, h:mm a")}` : ""}`;
   const month = today.slice(0, 7);
   const otByPerson = useMemo(() => {
     const m = new Map<string, number>();
@@ -71,7 +83,7 @@ export default function EmployeeServices() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Employee services</h1>
-        <p className="text-muted-foreground">Raise leave, work from home and overtime. A founder or HR approves it.</p>
+        <p className="text-muted-foreground">Raise leave, work from home and overtime. A founder, the Chief of Staff or HR approves it, and you are notified when they decide.</p>
       </div>
 
       <Card className="macos-card border-none" data-testid="raise-request">
@@ -139,6 +151,25 @@ export default function EmployeeServices() {
         </Card>
       )}
 
+      {canApprove && (
+        <Card className="macos-card border-none" data-testid="decision-log">
+          <CardHeader className="pb-2"><CardTitle className="text-base">Recent decisions</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {decided.length === 0 && <p className="text-sm text-muted-foreground">Nothing has been approved or rejected yet.</p>}
+            {decided.map((r) => (
+              <div key={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3 flex items-start justify-between gap-2" data-testid={`logged-${r.id}`}>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{nameOf(r.userId)} · {KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""} <span className="font-normal text-muted-foreground">· {span(r)}</span></p>
+                  <p className="text-xs text-muted-foreground">{decisionLine(r)}</p>
+                  {r.decisionNote && <p className="text-xs mt-1">Note: {r.decisionNote}</p>}
+                </div>
+                <Badge variant="outline" className={cn("capitalize shrink-0", STATUS_TONE[r.status])}>{r.status}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="macos-card border-none" data-testid="my-requests">
         <CardHeader className="pb-2"><CardTitle className="text-base">My requests</CardTitle></CardHeader>
         <CardContent className="space-y-2">
@@ -149,6 +180,8 @@ export default function EmployeeServices() {
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""} <span className="font-normal text-muted-foreground">· {span(r)}</span></p>
                 <p className="text-xs text-muted-foreground break-words">{r.reason}</p>
+                {r.status === "pending" && <p className="text-xs mt-1 text-amber-700 dark:text-amber-300" data-testid={`waiting-${r.id}`}>Waiting for approval</p>}
+                {r.status !== "pending" && <p className={cn("text-xs mt-1 font-medium", r.status === "approved" ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300")} data-testid={`decision-${r.id}`}>{decisionLine(r)}</p>}
                 {r.decisionNote && <p className="text-xs mt-1">Note: {r.decisionNote}</p>}
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
