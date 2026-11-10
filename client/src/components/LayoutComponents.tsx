@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { InstallAppButton } from "@/components/InstallAppButton";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp, CalendarClock, Repeat } from "lucide-react";
 import { useIsFounder, useCanManageTeam, useCanViewPayroll } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -35,6 +35,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { icon: Users, label: "Clients", href: "/clients", access: "all" },
     { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", access: "all" },
     { icon: Target, label: "Leads", href: "/leads", access: "all" },
+    { icon: CalendarClock, label: "Employee Services", href: "/services", access: "all" },
+    { icon: Repeat, label: "Repeating Tasks", href: "/recurring", access: "founder" },
     { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },
     { icon: Wallet, label: "Salary & Incentives", href: "/salary", access: "payroll" },
     { icon: Building2, label: "Internal", href: "/internal", access: "founder" },

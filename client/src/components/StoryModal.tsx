@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
+import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { useToast } from "@/hooks/use-toast";
 
 type StoryData = {
@@ -776,7 +777,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                     </p>
                                   </div>
                                   <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 text-sm border border-white/10 shadow-sm space-y-2">
-                                    {comment.body}
+                                    <MentionText body={comment.body} />
                                     {comment.attachmentData && comment.attachmentName && (
                                       <div className="mt-2 pt-2 border-t border-white/20">
                                         {comment.attachmentType?.startsWith('image/') ? (
@@ -818,10 +819,10 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 gap-2 flex flex-col">
-                          <Textarea
-                            placeholder="Write a comment..."
+                          <MentionTextarea
+                            placeholder="Write a comment... type @ to tag someone"
                             value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
+                            onChange={setNewComment}
                             className="bg-white/40 border-white/20 min-h-[80px] resize-none"
                             data-testid="input-comment"
                           />

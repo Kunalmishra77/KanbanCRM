@@ -12,7 +12,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useClients, useCreateStory, useUsers } from "@/lib/queries";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useIsFounder } from "@/lib/auth";
+import { useCreateRecurringTask } from "@/lib/serviceQueries";
+import { TEAMS } from "@shared/teams";
+import { WEEKDAYS } from "@shared/schedule";
+import { istDate } from "@shared/istDate";
 
 // Assignee tracking now handled via User relationships directly
 
@@ -31,7 +35,16 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   const { data: clients = [] } = useClients();
   const { mutate: createStory, isPending } = useCreateStory();
   const { user } = useAuth();
-  
+  const isFounder = useIsFounder();
+  const { mutate: createRecurring, isPending: isCreatingRecurring } = useCreateRecurringTask();
+  // Repeat options (founders only): none | daily | weekly | monthly
+  const [repeat, setRepeat] = useState("none");
+  const [weekday, setWeekday] = useState("1");
+  const [monthDay, setMonthDay] = useState("1");
+  const [dueTime, setDueTime] = useState("end");
+  const [forTeam, setForTeam] = useState("person");
+  const [team, setTeam] = useState("");
+  const [error, setError] = useState("");
   const { data: users = [] } = useUsers();
   const [clientId, setClientId] = useState(defaultClientId || "");
   const [title, setTitle] = useState("");
@@ -56,10 +69,27 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
     setPriority("Medium");
     setAssignedTo("unassigned");
     setDate(undefined);
+    setRepeat("none"); setWeekday("1"); setMonthDay("1"); setDueTime("end"); setForTeam("person"); setTeam(""); setError("");
   };
 
   const handleSubmit = () => {
     if (!clientId || !title.trim()) {
+      return;
+    }
+
+    if (repeat !== "none") {
+      setError("");
+      if (forTeam === "team" && !team) return setError("Choose the team.");
+      if (forTeam === "person" && assignedTo === "unassigned") return setError("Choose the person, or pick a whole team.");
+      createRecurring({
+        clientId, title: title.trim(), description: description.trim(), priority, repeat,
+        weekday: repeat === "weekly" ? Number(weekday) : null,
+        monthDay: repeat === "monthly" ? Number(monthDay) : null,
+        dueTime: dueTime === "end" ? null : dueTime,
+        startDate: istDate(),
+        team: forTeam === "team" ? team : null,
+        assigneeIds: forTeam === "person" ? [assignedTo] : [],
+      }, { onSuccess: () => { resetForm(); onOpenChange(false); }, onError: (e: Error) => setError(e.message) });
       return;
     }
 
@@ -102,7 +132,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="macos-panel border-none sm:max-w-[600px] p-0 overflow-hidden">
+      <DialogContent className="macos-panel border-none sm:max-w-[600px] p-0 overflow-y-auto">
         <div className="p-4 sm:p-6 border-b border-black/5 bg-white/50">
           <DialogHeader>
             <DialogTitle className="text-xl">Create New Story</DialogTitle>
@@ -171,6 +201,78 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             />
           </div>
 
+          {isFounder && (
+            <div className="space-y-3 rounded-xl border bg-white/50 p-3" data-testid="repeat-section">
+              <div className="space-y-2">
+                <Label>Repeat</Label>
+                <Select value={repeat} onValueChange={setRepeat}>
+                  <SelectTrigger className="macos-input" data-testid="select-repeat"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Does not repeat (one-time task)</SelectItem>
+                    <SelectItem value="daily">Every day</SelectItem>
+                    <SelectItem value="weekly">Every week</SelectItem>
+                    <SelectItem value="monthly">Every month</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {repeat !== "none" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {repeat === "weekly" && (
+                    <div className="space-y-2">
+                      <Label>Day of the week</Label>
+                      <Select value={weekday} onValueChange={setWeekday}>
+                        <SelectTrigger className="macos-input" data-testid="select-weekday"><SelectValue /></SelectTrigger>
+                        <SelectContent>{WEEKDAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {repeat === "monthly" && (
+                    <div className="space-y-2">
+                      <Label>Day of the month</Label>
+                      <Input type="number" min={1} max={31} className="macos-input" value={monthDay} onChange={(e) => setMonthDay(e.target.value)} data-testid="input-monthday" />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Due</Label>
+                    <Select value={dueTime === "end" ? "end" : "time"} onValueChange={(v) => setDueTime(v === "end" ? "end" : "19:00")}>
+                      <SelectTrigger className="macos-input" data-testid="select-due-kind"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="end">End of the day</SelectItem>
+                        <SelectItem value="time">At a set time</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {dueTime !== "end" && (
+                    <div className="space-y-2">
+                      <Label>Time (India)</Label>
+                      <Input type="time" className="macos-input" value={dueTime} onChange={(e) => setDueTime(e.target.value || "19:00")} data-testid="input-due-time" />
+                    </div>
+                  )}
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Create it for</Label>
+                    <Select value={forTeam} onValueChange={setForTeam}>
+                      <SelectTrigger className="macos-input" data-testid="select-for"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="person">The person chosen above</SelectItem>
+                        <SelectItem value="team">Everyone in a team</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {forTeam === "team" && (
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Team</Label>
+                      <Select value={team} onValueChange={setTeam}>
+                        <SelectTrigger className="macos-input" data-testid="select-team"><SelectValue placeholder="Choose a team" /></SelectTrigger>
+                        <SelectContent>{TEAMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground sm:col-span-2">A fresh story is created automatically on each of their working days (never on leave or days off). Unfinished ones stay open as missed.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Priority</Label>
@@ -185,6 +287,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                 </SelectContent>
               </Select>
             </div>
+            {repeat === "none" && (
             <div className="space-y-2">
               <Label>Due Date</Label>
               <Popover open={dateOpen} onOpenChange={setDateOpen}>
@@ -215,7 +318,9 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                 </PopoverContent>
               </Popover>
             </div>
+            )}
           </div>
+          {error && <p role="alert" className="text-sm text-red-600 font-medium" data-testid="story-error">{error}</p>}
         </div>
 
         <DialogFooter className="p-4 sm:p-6 border-t border-black/5 bg-white/50">
@@ -228,17 +333,17 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={!isValid || isPending}
+            disabled={!isValid || isPending || isCreatingRecurring}
             className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
             data-testid="button-create-story"
           >
-            {isPending ? (
+            {isPending || isCreatingRecurring ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating...
               </>
             ) : (
-              "Create Story"
+              repeat === "none" ? "Create Story" : "Save repeating task"
             )}
           </Button>
         </DialogFooter>

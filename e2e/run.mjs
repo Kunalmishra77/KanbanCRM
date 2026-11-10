@@ -25,7 +25,7 @@ const VIEWPORTS = [
   { name: 'tablet', width: 768, height: 1024 },
   { name: 'desktop', width: 1366, height: 768 },
 ];
-const PAGES = ['/', '/global-kanban', '/clients', '/clients/c1', '/leads', '/announcements', '/salary', '/internal', '/audit-log', '/team', '/settings', '/insights/revenue', '/insights/clients', '/insights/stories', '/insights/completion'];
+const PAGES = ['/', '/global-kanban', '/clients', '/clients/c1', '/leads', '/announcements', '/salary', '/internal', '/audit-log', '/team', '/services', '/recurring', '/settings', '/insights/revenue', '/insights/clients', '/insights/stories', '/insights/completion'];
 
 function api(url, method) {
   const p = new URL(url).pathname;
@@ -35,6 +35,7 @@ function api(url, method) {
   if (p === '/api/clients') return F.clients;
   if (/^\/api\/clients\/c\d+\/./.test(p)) return [];
   if (p.startsWith('/api/clients/c')) return F.clients.find((c) => p.endsWith(c.id)) || F.clients[0];
+  if (p === '/api/overview') return { period: 'today', from: new Date().toISOString(), to: new Date(Date.now() + 86400000).toISOString(), summary: { peopleWorking: 2, peopleActive: 1, planned: 3, plannedDone: 1, completed: 1, overdue: 1, waitingReview: 1, comments: 2, pendingRequests: 2, otHours: 3, awayToday: { leave: ['Pooja Singh'], wfh: ['Divya Sales'] } }, teams: [{ team: 'Sales', people: 2, active: 1, planned: 3, plannedDone: 1, completed: 1, overdue: 1, review: 0, health: 'attention', reason: '1 overdue' }], people: [{ id: 'u-pooja', name: 'Pooja Singh', team: 'Sales', assigned: 3, open: 2, overdue: 1, review: 0, planned: 3, plannedDone: 1, completed: 1, comments: 1, actions: 2, lastActiveAt: new Date().toISOString(), health: 'attention', reason: '1 overdue' }], review: [{ storyId: 's5', title: 'Story with a long title that has to wrap on a small screen', clientId: 'c1', client: 'Hot Co', assignee: 'Pooja Singh', team: 'Sales', waitingDays: 2 }], recentComments: [{ id: 'x', author: 'Pooja Singh', body: 'A reasonably long comment body to see wrapping on narrow screens', storyTitle: 'Story 1', clientId: 'c1', client: 'Hot Co', at: new Date().toISOString() }] };
   if (p === '/api/stories') return F.stories;
   if (p === '/api/leads') return F.leads;
   if (p === '/api/announcements') return F.announcements;

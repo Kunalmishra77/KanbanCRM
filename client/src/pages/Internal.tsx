@@ -1,4 +1,6 @@
 import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
+import { TEAMS } from "@shared/teams";
+import { WORK_PATTERNS } from "@shared/schedule";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -228,6 +230,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
   const [userType, setUserType] = useState<string>('');
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
+  const [editTeam, setEditTeam] = useState('none');
+  const [editPattern, setEditPattern] = useState('mon-sat');
   const [shareholding, setShareholding] = useState<string>('');
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', userType: 'employee' });
@@ -239,6 +243,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
       data: {
         firstName: editFirstName.trim() || editingUser.firstName,
         lastName: editLastName.trim(),
+        team: editTeam === 'none' ? null : editTeam,
+        workPattern: editPattern,
         userType,
         shareholdingPercent: shareholding,
       }
@@ -351,6 +357,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                         setUserType(user.userType || 'employee');
                         setEditFirstName(user.firstName || '');
                         setEditLastName(user.lastName || '');
+                        setEditTeam((user as any).team || 'none');
+                        setEditPattern((user as any).workPattern || 'mon-sat');
                         setShareholding(user.shareholdingPercent?.toString() || '0');
                       }}
                       data-testid={`edit-user-${user.id}`}
@@ -373,6 +381,25 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                           <Label>Last name</Label>
                           <Input value={editLastName} onChange={e => setEditLastName(e.target.value)} />
                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Team</Label>
+                        <Select value={editTeam} onValueChange={setEditTeam}>
+                          <SelectTrigger data-testid="edit-team"><SelectValue placeholder="Choose a team" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No team</SelectItem>
+                            {TEAMS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Working days</Label>
+                        <Select value={editPattern} onValueChange={setEditPattern}>
+                          <SelectTrigger data-testid="edit-pattern"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(WORK_PATTERNS).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Role</Label>
@@ -477,6 +504,8 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                           setUserType(user.userType || 'employee');
                           setEditFirstName(user.firstName || '');
                           setEditLastName(user.lastName || '');
+                          setEditTeam((user as any).team || 'none');
+                          setEditPattern((user as any).workPattern || 'mon-sat');
                           setShareholding(user.shareholdingPercent?.toString() || '0');
                         }}
                         data-testid={`edit-user-${user.id}`}
@@ -499,6 +528,25 @@ function TeamSection({ users, coFounders, employees }: { users: User[], coFounde
                             <Label>Last name</Label>
                             <Input value={editLastName} onChange={e => setEditLastName(e.target.value)} />
                           </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Team</Label>
+                          <Select value={editTeam} onValueChange={setEditTeam}>
+                            <SelectTrigger data-testid="edit-team"><SelectValue placeholder="Choose a team" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No team</SelectItem>
+                              {TEAMS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Working days</Label>
+                          <Select value={editPattern} onValueChange={setEditPattern}>
+                            <SelectTrigger data-testid="edit-pattern"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(WORK_PATTERNS).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label>Role</Label>

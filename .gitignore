@@ -19,3 +19,5 @@ push_err.txt
 e2e/shots/
 e2e/shots-ui/
 e2e/report-*.json
+
+.vscode

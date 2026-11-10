@@ -21,6 +21,8 @@ const Announcements = lazy(() => import("@/pages/Announcements"));
 const SalaryIncentives = lazy(() => import("@/pages/SalaryIncentives"));
 const AuditLog = lazy(() => import("@/pages/AuditLog"));
 const TeamPerformance = lazy(() => import("@/pages/TeamPerformance"));
+const EmployeeServices = lazy(() => import("@/pages/EmployeeServices"));
+const RecurringTasks = lazy(() => import("@/pages/RecurringTasks"));
 const RevenueInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.RevenueInsight })));
 const ClientsInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.ClientsInsight })));
 const StoriesInsight = lazy(() => import("@/pages/Insights").then((m) => ({ default: m.StoriesInsight })));
@@ -99,6 +101,12 @@ function Router() {
       </Route>
       <Route path="/team">
         <ProtectedRoute component={TeamPerformance} />
+      </Route>
+      <Route path="/services">
+        <ProtectedRoute component={EmployeeServices} />
+      </Route>
+      <Route path="/recurring">
+        <ProtectedRoute component={RecurringTasks} />
       </Route>
 
       <Route component={NotFound} />

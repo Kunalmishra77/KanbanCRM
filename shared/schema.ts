@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, uuid, numeric, jsonb, index, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, uuid, numeric, jsonb, index, date, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,6 +23,8 @@ export const users = pgTable("users", {
   profileImageUrl: text("profile_image_url"),
   role: text("role").notNull().default('editor'),
   userType: text("user_type").notNull().default('employee'),
+  team: text("team"),
+  workPattern: text("work_pattern").notNull().default('mon-sat'), // mon-sat | mon-fri | all
   shareholdingPercent: numeric("shareholding_percent").default('0'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -30,7 +32,7 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export const insertUserSchema = createInsertSchema(users).omit({ createdAt: true, updatedAt: true });
-export const updateUserProfileSchema = createInsertSchema(users).pick({ firstName: true, lastName: true, userType: true, shareholdingPercent: true }).partial();
+export const updateUserProfileSchema = createInsertSchema(users).pick({ firstName: true, lastName: true, userType: true, shareholdingPercent: true, team: true, workPattern: true }).partial();
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
 export type User = typeof users.$inferSelect;
@@ -77,9 +79,12 @@ export const stories = pgTable("stories", {
   progressPercent: integer("progress_percent").default(0).notNull(),
   person: text("person").notNull().default(''),
   tags: text("tags").array().default(sql`ARRAY[]::text[]`).notNull(),
+  // Set on stories created from a repeating task; one story per rule, person and day
+  recurringTaskId: uuid("recurring_task_id"),
+  occurrenceDate: varchar("occurrence_date", { length: 10 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [unique("stories_recurring_occurrence_key").on(t.recurringTaskId, t.assignedTo, t.occurrenceDate)]);
 
 export const insertStorySchema = createInsertSchema(stories).omit({ id: true, createdAt: true, updatedAt: true });
 export const updateStorySchema = insertStorySchema.partial();
@@ -328,3 +333,77 @@ export const leadComments = pgTable("lead_comments", {
 export const insertLeadCommentSchema = createInsertSchema(leadComments).omit({ id: true, createdAt: true });
 export type InsertLeadComment = z.infer<typeof insertLeadCommentSchema>;
 export type LeadComment = typeof leadComments.$inferSelect;
+
+// Repeating tasks: a rule that creates a fresh story every day / week / month (founders manage these)
+export const recurringTasks = pgTable("recurring_tasks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  clientId: uuid("client_id").references(() => clients.id, { onDelete: 'cascade' }).notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(''),
+  priority: text("priority").notNull().default('Medium'),
+  repeat: text("repeat").notNull(), // daily | weekly | monthly
+  weekday: integer("weekday"), // 0 = Sunday, for weekly
+  monthDay: integer("month_day"), // 1-31, for monthly
+  dueTime: varchar("due_time", { length: 5 }), // HH:MM India time; null = end of day
+  startDate: varchar("start_date", { length: 10 }).notNull(),
+  endDate: varchar("end_date", { length: 10 }),
+  active: boolean("active").default(true).notNull(),
+  assigneeIds: text("assignee_ids").array().default(sql`ARRAY[]::text[]`).notNull(),
+  team: text("team"), // when set, every current member of this team
+  createdBy: varchar("created_by", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date");
+export const recurringTaskInputSchema = z.object({
+  clientId: z.string().uuid("Choose a client"),
+  title: z.string().trim().min(1, "Give the task a title").max(200),
+  description: z.string().trim().max(5000).default(''),
+  priority: z.enum(['Low', 'Medium', 'High']).default('Medium'),
+  repeat: z.enum(['daily', 'weekly', 'monthly']),
+  weekday: z.coerce.number().int().min(0).max(6).nullable().optional(),
+  monthDay: z.coerce.number().int().min(1).max(31).nullable().optional(),
+  dueTime: z.string().regex(/^\d{2}:\d{2}$/, "Use a time like 19:00").nullable().optional(),
+  startDate: ymd.optional(),
+  endDate: ymd.nullable().optional(),
+  active: z.boolean().optional(),
+  assigneeIds: z.array(z.string()).default([]),
+  team: z.string().nullable().optional(),
+}).superRefine((v, ctx) => {
+  if (v.repeat === 'weekly' && (v.weekday === null || v.weekday === undefined)) ctx.addIssue({ code: 'custom', message: 'Pick the day of the week', path: ['weekday'] });
+  if (v.repeat === 'monthly' && !v.monthDay) ctx.addIssue({ code: 'custom', message: 'Pick the day of the month', path: ['monthDay'] });
+  if (!v.team && v.assigneeIds.length === 0) ctx.addIssue({ code: 'custom', message: 'Choose who this is for (a person or a whole team)', path: ['assigneeIds'] });
+  if (v.endDate && v.startDate && v.endDate < v.startDate) ctx.addIssue({ code: 'custom', message: 'The end date is before the start date', path: ['endDate'] });
+});
+export type RecurringTaskInput = z.infer<typeof recurringTaskInputSchema>;
+export type RecurringTask = typeof recurringTasks.$inferSelect;
+
+// Employee services: leave, work from home and overtime, raised by the employee and approved by a founder/HR
+export const employeeRequests = pgTable("employee_requests", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }).references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: text("type").notNull(), // leave | wfh | ot
+  startDate: varchar("start_date", { length: 10 }).notNull(),
+  endDate: varchar("end_date", { length: 10 }).notNull(),
+  hours: numeric("hours"), // overtime only
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default('pending'), // pending | approved | rejected
+  decidedBy: varchar("decided_by", { length: 255 }),
+  decisionNote: text("decision_note"),
+  decidedAt: timestamp("decided_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("idx_employee_requests_user").on(t.userId), index("idx_employee_requests_dates").on(t.startDate)]);
+
+export const employeeRequestInputSchema = z.object({
+  type: z.enum(['leave', 'wfh', 'ot']),
+  startDate: ymd,
+  endDate: ymd.optional(),
+  hours: z.coerce.number().positive("Enter the overtime hours").max(16, "That is more than 16 hours").optional(),
+  reason: z.string().trim().min(3, "Please give a reason").max(1000),
+}).superRefine((v, ctx) => {
+  if (v.type === 'ot' && !v.hours) ctx.addIssue({ code: 'custom', message: 'Enter the overtime hours', path: ['hours'] });
+  if (v.type !== 'ot' && v.endDate && v.endDate < v.startDate) ctx.addIssue({ code: 'custom', message: 'The end date is before the start date', path: ['endDate'] });
+});
+export type EmployeeRequestInput = z.infer<typeof employeeRequestInputSchema>;
+export type EmployeeRequest = typeof employeeRequests.$inferSelect;

@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ListTodo, AlertTriangle, CalendarClock, CheckCircle2, Flame, Sun, Snowflake } from "lucide-react";
+import { ListTodo, AlertTriangle, CalendarClock, CheckCircle2, Flame, Sun, Snowflake, AtSign } from "lucide-react";
+import { useMentions } from "@/lib/overviewQueries";
+import { MentionText } from "@/components/MentionTextarea";
+import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { isAssignedTo } from "@/lib/assignee";
 import { format } from "date-fns";
@@ -26,6 +29,7 @@ const TEMPS = [
 export function MyWork({ stories, clients }: { stories: Story[]; clients: Client[] }) {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { data: mentions = [] } = useMentions();
 
   const stats = useMemo(() => {
     const mine = stories.filter((s) => isAssignedTo(s, user));
@@ -65,6 +69,20 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
   return (
     <section className="space-y-3" data-testid="my-work">
       <h2 className="text-lg font-semibold tracking-tight">My work</h2>
+
+      {mentions.length > 0 && (
+        <Card className="macos-card border-none border-l-4 !border-l-primary" data-testid="mentions-card">
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AtSign className="h-4 w-4 text-primary" /> Mentioned you ({mentions.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-1">
+            {mentions.slice(0, 8).map((m) => (
+              <button key={m.id} type="button" onClick={() => setLocation(`/clients/${m.clientId}`)} className="w-full min-w-0 text-left rounded-lg px-2 py-2 hover:bg-black/5 min-h-[44px]">
+                <span className="block text-sm break-words"><b>{m.authorName || "Someone"}</b>: <MentionText body={m.body} /></span>
+                <span className="block text-xs text-muted-foreground truncate">{m.storyTitle} · {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 [&>*]:min-w-0">
         {tiles.map((t) => (

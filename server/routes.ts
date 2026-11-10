@@ -6,6 +6,12 @@ import { perms, isRole, ROLES } from "../shared/roles.js";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
+import { computeOverview, nameOf } from "./lib/overview.js";
+import { isPeriod, periodRange, istDate, addDays } from "../shared/istDate.js";
+import { isTeam } from "../shared/teams.js";
+import { isWorkPattern } from "../shared/schedule.js";
+import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
+import { generateRecurringStories } from "./lib/recurring.js";
 import { analyzeProposal, generateStatusEmail } from "./ai.js";
 
 import multer from "multer";
@@ -382,7 +388,9 @@ export async function registerRoutes(
       const storiesList = clientId
         ? await storage.getStoriesByClient(clientId)
         : await storage.getStories();
-      res.json(storiesList);
+      // Finished repeating tasks older than a week would bury the boards; they stay in the history and the overview
+      const weekAgo = Date.now() - 7 * 86400000;
+      res.json(storiesList.filter((s) => !(s.recurringTaskId && s.status === 'Done' && new Date(s.updatedAt).getTime() < weekAgo)));
     } catch (error) {
       console.error('Get stories error:', error);
       res.status(500).json({ error: "Failed to fetch stories" });
@@ -406,6 +414,8 @@ export async function registerRoutes(
     try {
       const body = {
         ...req.body,
+        recurringTaskId: undefined, // only the repeating-task generator may link a story to a rule
+        occurrenceDate: undefined,
         dueDate: req.body.dueDate ? new Date(req.body.dueDate) : new Date(),
       };
       const data = insertStorySchema.parse(body);
@@ -434,6 +444,8 @@ export async function registerRoutes(
   app.patch("/api/stories/:id", isAuthenticated, async (req: any, res) => {
     try {
       const body = { ...req.body };
+      delete body.recurringTaskId;
+      delete body.occurrenceDate;
       if (body.dueDate) {
         body.dueDate = new Date(body.dueDate);
       }
@@ -539,9 +551,12 @@ export async function registerRoutes(
 
   app.post("/api/stories/:storyId/comments", isAuthenticated, async (req: any, res) => {
     try {
+      // Author identity always comes from the session, never from the request body
       const data = insertCommentSchema.parse({
         ...req.body,
         storyId: req.params.storyId,
+        authorId: req.user.id,
+        authorName: req.user.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : req.user.email,
       });
       const comment = await storage.createComment(data);
 
@@ -927,6 +942,165 @@ export async function registerRoutes(
     }
   });
 
+  // ---- Repeating tasks (founders only) ----
+  const requireFounder = requireRole(perms.isFounder, "Founders only.");
+  const validTargets = async (data: { team?: string | null; assigneeIds: string[] }) => {
+    if (data.team && !isTeam(data.team)) return "Unknown team.";
+    if (!data.team) {
+      const ids = new Set((await storage.getAllUsers()).map((u) => u.id));
+      if (data.assigneeIds.some((id) => !ids.has(id))) return "One of the chosen people no longer exists.";
+    }
+    return null;
+  };
+
+  app.get("/api/recurring-tasks", requireFounder, async (_req, res) => {
+    try {
+      res.json(await storage.listRecurringTasks());
+    } catch (error) {
+      console.error('List recurring tasks error:', error);
+      res.status(500).json({ error: "Failed to fetch repeating tasks" });
+    }
+  });
+
+  app.post("/api/recurring-tasks", requireFounder, async (req: any, res) => {
+    try {
+      const data = recurringTaskInputSchema.parse(req.body);
+      const bad = await validTargets(data);
+      if (bad) return res.status(400).json({ error: bad });
+      if (!(await storage.getClient(data.clientId))) return res.status(404).json({ error: "Client not found" });
+      const task = await storage.createRecurringTask({ ...data, startDate: data.startDate || istDate() }, req.user.id);
+      const created = await generateRecurringStories(); // today's story appears straight away
+      res.status(201).json({ task, created });
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors.map((e) => e.message).join('. ') });
+      console.error('Create recurring task error:', error);
+      res.status(500).json({ error: "Failed to create the repeating task" });
+    }
+  });
+
+  app.patch("/api/recurring-tasks/:id", requireFounder, async (req: any, res) => {
+    try {
+      const body = req.body || {};
+      const onlyToggle = Object.keys(body).length === 1 && typeof body.active === 'boolean';
+      let patch: any;
+      if (onlyToggle) {
+        patch = { active: body.active };
+      } else {
+        const data = recurringTaskInputSchema.parse(body);
+        const bad = await validTargets(data);
+        if (bad) return res.status(400).json({ error: bad });
+        patch = { ...data, assigneeIds: data.team ? [] : data.assigneeIds, team: data.team || null, dueTime: data.dueTime || null, endDate: data.endDate || null };
+        if (!data.startDate) delete patch.startDate;
+      }
+      const task = await storage.updateRecurringTask(req.params.id, patch);
+      if (!task) return res.status(404).json({ error: "Repeating task not found" });
+      const created = task.active ? await generateRecurringStories() : 0;
+      res.json({ task, created });
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors.map((e) => e.message).join('. ') });
+      console.error('Update recurring task error:', error);
+      res.status(500).json({ error: "Failed to update the repeating task" });
+    }
+  });
+
+  app.delete("/api/recurring-tasks/:id", requireFounder, async (req, res) => {
+    try {
+      if (!(await storage.deleteRecurringTask(req.params.id))) return res.status(404).json({ error: "Repeating task not found" });
+      res.status(204).send(); // stories already created stay where they are
+    } catch (error) {
+      console.error('Delete recurring task error:', error);
+      res.status(500).json({ error: "Failed to delete the repeating task" });
+    }
+  });
+
+  // ---- Employee services: leave, work from home, overtime ----
+  app.get("/api/requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const seeAll = req.query.scope === 'all' && (perms.manageTeam(req.user) || perms.viewPayroll(req.user));
+      res.json(await storage.listEmployeeRequests(seeAll ? {} : { userId: req.user.id }));
+    } catch (error) {
+      console.error('List requests error:', error);
+      res.status(500).json({ error: "Failed to fetch requests" });
+    }
+  });
+
+  app.post("/api/requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = employeeRequestInputSchema.parse(req.body);
+      const today = istDate();
+      if (data.startDate < addDays(today, -30)) return res.status(400).json({ error: "You can only raise requests for the last 30 days." });
+      if (data.startDate > addDays(today, 365)) return res.status(400).json({ error: "That date is too far ahead." });
+      if (data.type === 'ot' && data.startDate > today) return res.status(400).json({ error: "Overtime can only be logged for today or earlier." });
+      if (data.type !== 'ot' && data.endDate && data.endDate > addDays(data.startDate, 60)) return res.status(400).json({ error: "A single request can cover at most 60 days." });
+      const row = await storage.createEmployeeRequest(req.user.id, data);
+      await storage.createActivityLog({ entityType: 'request', entityId: row.id, action: 'created', userId: req.user.id, details: `Raised ${data.type === 'ot' ? 'overtime' : data.type === 'wfh' ? 'work from home' : 'leave'} request for ${data.startDate}${row.endDate !== row.startDate ? ' to ' + row.endDate : ''}` });
+      res.status(201).json(row);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors.map((e) => e.message).join('. ') });
+      console.error('Create request error:', error);
+      res.status(500).json({ error: "Failed to raise the request" });
+    }
+  });
+
+  app.patch("/api/requests/:id", requireTeamManager, async (req: any, res) => {
+    try {
+      const status = req.body?.status;
+      if (status !== 'approved' && status !== 'rejected') return res.status(400).json({ error: "Status must be approved or rejected." });
+      const existing = await storage.getEmployeeRequest(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Request not found" });
+      if (existing.userId === req.user.id && !perms.isFounder(req.user)) return res.status(403).json({ error: "You cannot approve your own request." });
+      const note = typeof req.body.note === 'string' && req.body.note.trim() ? req.body.note.trim().slice(0, 500) : null;
+      const row = await storage.decideEmployeeRequest(req.params.id, status, req.user.id, note);
+      if (!row) return res.status(409).json({ error: "This request was already decided." });
+      await storage.createActivityLog({ entityType: 'request', entityId: row.id, action: status, userId: req.user.id, details: `${status === 'approved' ? 'Approved' : 'Rejected'} a ${row.type === 'ot' ? 'overtime' : row.type === 'wfh' ? 'work from home' : 'leave'} request` });
+      res.json(row);
+    } catch (error) {
+      console.error('Decide request error:', error);
+      res.status(500).json({ error: "Failed to update the request" });
+    }
+  });
+
+  app.delete("/api/requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const existing = await storage.getEmployeeRequest(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Request not found" });
+      if (existing.userId !== req.user.id) return res.status(403).json({ error: "You can only withdraw your own requests." });
+      if (existing.status !== 'pending') return res.status(409).json({ error: "Only pending requests can be withdrawn." });
+      await storage.deleteEmployeeRequest(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Delete request error:', error);
+      res.status(500).json({ error: "Failed to withdraw the request" });
+    }
+  });
+
+  // Founder overview: what happened per team and per person (founders only)
+  app.get("/api/overview", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!perms.isFounder(req.user)) return res.status(403).json({ error: "Founders only." });
+      const period = isPeriod(req.query.period) ? req.query.period : "today";
+      // Fetch a bit more than the period so "last active" has something to show
+      const since = new Date(Math.min(periodRange(period).start.getTime(), Date.now() - 35 * 86400000));
+      const [users, stories, clients, comments, activity, requests] = await Promise.all([
+        storage.getAllUsers(), storage.getStories(), storage.getClients(), storage.getCommentsSince(since), storage.getActivitySince(since), storage.listEmployeeRequests(),
+      ]);
+      res.json(computeOverview({ users, stories, clients, comments, activity, requests, period }));
+    } catch (error) {
+      console.error('Overview error:', error);
+      res.status(500).json({ error: "Failed to build the overview" });
+    }
+  });
+
+  // Comments that @mention the signed-in person (never anyone else's)
+  app.get("/api/mentions", isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(await storage.getMentions(req.user.id, nameOf(req.user), new Date(Date.now() - 14 * 86400000)));
+    } catch (error) {
+      console.error('Mentions error:', error);
+      res.status(500).json({ error: "Failed to fetch mentions" });
+    }
+  });
+
   // Users (for internal dashboard - founders only, verified by email allowlist)
   app.get("/api/analytics/team", isAuthenticated, async (req: any, res) => {
     try {
@@ -1020,6 +1194,13 @@ export async function registerRoutes(
       const data = updateUserProfileSchema.parse(req.body);
       if (data.userType !== undefined && !isRole(data.userType)) {
         return res.status(400).json({ error: `Invalid userType. Use one of: ${ROLES.join(', ')}` });
+      }
+      if (data.team !== undefined && data.team !== null && data.team !== '' && !isTeam(data.team)) {
+        return res.status(400).json({ error: "Unknown team." });
+      }
+      if (data.team === '') data.team = null;
+      if (data.workPattern !== undefined && !isWorkPattern(data.workPattern)) {
+        return res.status(400).json({ error: "Unknown work pattern." });
       }
 
       const target = await storage.getUser(req.params.id);

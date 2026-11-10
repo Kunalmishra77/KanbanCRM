@@ -15,11 +15,13 @@ import {
   type Announcement, type InsertAnnouncement, type UpdateAnnouncement,
   type SalaryRecord, type InsertSalaryRecord, type UpdateSalaryRecord,
   type Incentive, type InsertIncentive, type UpdateIncentive,
+  type RecurringTask, type RecurringTaskInput, type EmployeeRequest, type EmployeeRequestInput,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
-  leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives
+  leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives,
+  recurringTasks, employeeRequests
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
-import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, inArray, gte, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -48,6 +50,26 @@ export interface IStorage {
   updateStory(id: string, story: UpdateStory): Promise<Story | undefined>;
   deleteStory(id: string): Promise<boolean>;
   
+  // Repeating tasks
+  listRecurringTasks(): Promise<RecurringTask[]>;
+  createRecurringTask(data: RecurringTaskInput & { startDate: string }, createdBy: string): Promise<RecurringTask>;
+  updateRecurringTask(id: string, data: Partial<RecurringTaskInput>): Promise<RecurringTask | undefined>;
+  deleteRecurringTask(id: string): Promise<boolean>;
+  getOccurrenceKeys(date: string): Promise<Set<string>>;
+  insertGeneratedStories(rows: InsertStory[]): Promise<number>;
+
+  // Leave / work from home / overtime
+  listEmployeeRequests(filter?: { userId?: string }): Promise<EmployeeRequest[]>;
+  getEmployeeRequest(id: string): Promise<EmployeeRequest | undefined>;
+  createEmployeeRequest(userId: string, data: EmployeeRequestInput): Promise<EmployeeRequest>;
+  decideEmployeeRequest(id: string, status: 'approved' | 'rejected', decidedBy: string, note: string | null): Promise<EmployeeRequest | undefined>;
+  deleteEmployeeRequest(id: string): Promise<boolean>;
+
+  // Founder overview + mentions
+  getCommentsSince(since: Date): Promise<Comment[]>;
+  getActivitySince(since: Date): Promise<ActivityLog[]>;
+  getMentions(userId: string, fullName: string, since: Date): Promise<{ id: string; storyId: string; storyTitle: string; clientId: string; authorName: string | null; body: string; createdAt: Date }[]>;
+
   // Comments
   getCommentsByStory(storyId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
@@ -319,6 +341,98 @@ export class DatabaseStorage implements IStorage {
   async deleteStory(id: string): Promise<boolean> {
     const result = await db.delete(stories).where(eq(stories.id, id)).returning();
     return result.length > 0;
+  }
+
+  // ---- Repeating tasks ----
+  async listRecurringTasks(): Promise<RecurringTask[]> {
+    return db.select().from(recurringTasks).orderBy(desc(recurringTasks.createdAt));
+  }
+
+  async createRecurringTask(data: RecurringTaskInput & { startDate: string }, createdBy: string): Promise<RecurringTask> {
+    const [row] = await db.insert(recurringTasks).values({
+      clientId: data.clientId, title: data.title, description: data.description, priority: data.priority,
+      repeat: data.repeat, weekday: data.repeat === 'weekly' ? (data.weekday ?? null) : null,
+      monthDay: data.repeat === 'monthly' ? (data.monthDay ?? null) : null,
+      dueTime: data.dueTime || null, startDate: data.startDate, endDate: data.endDate || null,
+      active: data.active ?? true, assigneeIds: data.team ? [] : data.assigneeIds, team: data.team || null, createdBy,
+    }).returning();
+    return row;
+  }
+
+  async updateRecurringTask(id: string, data: Partial<RecurringTaskInput>): Promise<RecurringTask | undefined> {
+    const [row] = await db.update(recurringTasks).set({ ...data, updatedAt: new Date() } as any).where(eq(recurringTasks.id, id)).returning();
+    return row;
+  }
+
+  async deleteRecurringTask(id: string): Promise<boolean> {
+    const rows = await db.delete(recurringTasks).where(eq(recurringTasks.id, id)).returning({ id: recurringTasks.id });
+    return rows.length > 0;
+  }
+
+  async getOccurrenceKeys(date: string): Promise<Set<string>> {
+    const rows = await db.select({ r: stories.recurringTaskId, u: stories.assignedTo, d: stories.occurrenceDate }).from(stories).where(eq(stories.occurrenceDate, date));
+    return new Set(rows.filter((x) => x.r && x.u).map((x) => `${x.r}|${x.u}|${x.d}`));
+  }
+
+  async insertGeneratedStories(rows: InsertStory[]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const done = await db.insert(stories).values(rows).onConflictDoNothing().returning({ id: stories.id });
+    return done.length;
+  }
+
+  // ---- Leave / work from home / overtime ----
+  async listEmployeeRequests(filter: { userId?: string } = {}): Promise<EmployeeRequest[]> {
+    const q = db.select().from(employeeRequests);
+    return (filter.userId ? q.where(eq(employeeRequests.userId, filter.userId)) : q).orderBy(desc(employeeRequests.createdAt));
+  }
+
+  async getEmployeeRequest(id: string): Promise<EmployeeRequest | undefined> {
+    const [row] = await db.select().from(employeeRequests).where(eq(employeeRequests.id, id));
+    return row;
+  }
+
+  async createEmployeeRequest(userId: string, data: EmployeeRequestInput): Promise<EmployeeRequest> {
+    const [row] = await db.insert(employeeRequests).values({
+      userId, type: data.type, startDate: data.startDate,
+      endDate: data.type === 'ot' ? data.startDate : (data.endDate || data.startDate),
+      hours: data.type === 'ot' ? String(data.hours) : null, reason: data.reason,
+    }).returning();
+    return row;
+  }
+
+  async decideEmployeeRequest(id: string, status: 'approved' | 'rejected', decidedBy: string, note: string | null): Promise<EmployeeRequest | undefined> {
+    const [row] = await db.update(employeeRequests)
+      .set({ status, decidedBy, decisionNote: note, decidedAt: new Date() })
+      .where(and(eq(employeeRequests.id, id), eq(employeeRequests.status, 'pending')))
+      .returning();
+    return row;
+  }
+
+  async deleteEmployeeRequest(id: string): Promise<boolean> {
+    const rows = await db.delete(employeeRequests).where(eq(employeeRequests.id, id)).returning({ id: employeeRequests.id });
+    return rows.length > 0;
+  }
+
+  async getCommentsSince(since: Date): Promise<Comment[]> {
+    return db.select().from(comments).where(gte(comments.createdAt, since)).orderBy(desc(comments.createdAt));
+  }
+
+  async getActivitySince(since: Date): Promise<ActivityLog[]> {
+    return db.select().from(activityLog).where(gte(activityLog.createdAt, since)).orderBy(desc(activityLog.createdAt));
+  }
+
+  /** Comments written by someone else that contain "@<this person's full name>". Private to that person. */
+  async getMentions(userId: string, fullName: string, since: Date) {
+    const name = fullName.replace(/\s+/g, ' ').trim();
+    if (!name) return [];
+    const pattern = '%@' + name.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
+    return db
+      .select({ id: comments.id, storyId: comments.storyId, storyTitle: stories.title, clientId: stories.clientId, authorName: comments.authorName, body: comments.body, createdAt: comments.createdAt })
+      .from(comments)
+      .innerJoin(stories, eq(stories.id, comments.storyId))
+      .where(and(sql`${comments.body} ilike ${pattern}`, ne(comments.authorId, userId), eq(comments.isSystem, false), gte(comments.createdAt, since)))
+      .orderBy(desc(comments.createdAt))
+      .limit(30);
   }
 
   // Comments

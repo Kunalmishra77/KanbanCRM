@@ -3,6 +3,7 @@ import app, { initApp } from "./app.js";
 import { serveStatic } from "./static.js";
 import { createServer } from "http";
 import { startDeadlineScheduler } from "./emailService.js";
+import { startRecurringScheduler } from "./lib/recurring.js";
 
 console.log("Server: index.ts loaded");
 
@@ -28,6 +29,7 @@ const httpServer = createServer(app);
       httpServer.listen(port, "0.0.0.0", () => {
         console.log(`${new Date().toLocaleTimeString()} [express] serving on port ${port}`);
         startDeadlineScheduler();
+        startRecurringScheduler();
       });
     }
   } catch (err) {

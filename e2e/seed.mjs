@@ -13,6 +13,7 @@ const users = [
   ['t-pooja', 'Pooja', 'Singh', 'razorbill2018@gmail.com', 'employee', 'editor'],
   ['t-ranveer', 'ranveer', 'razorveda', 'ranveer@test.dev', 'employee', 'editor'],
 ];
+await sql`alter database crm set timezone to 'UTC'`; // production runs in UTC
 await sql`truncate table users cascade`;
 for (const [id, f, l, e, t, r] of users) {
   await sql`insert into users (id, first_name, last_name, email, user_type, role) values (${id}, ${f}, ${l}, ${e}, ${t}, ${r})`;
