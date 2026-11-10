@@ -57,6 +57,17 @@ export default function EmployeeServices() {
     () => (all as EmployeeRequest[]).filter((r) => r.status !== "pending" && r.decidedAt).sort((a, b) => +new Date(b.decidedAt as any) - +new Date(a.decidedAt as any)).slice(0, 15),
     [all],
   );
+  // The approver's note: optional when approving, required (a reason) when rejecting
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [needReason, setNeedReason] = useState<string | null>(null);
+  const decideWith = (r: EmployeeRequest, status: "approved" | "rejected") => {
+    const note = (notes[r.id] || "").trim();
+    if (status === "rejected" && note.length < 3) { setNeedReason(r.id); return; }
+    setNeedReason(null);
+    decide.mutate({ id: r.id, status, note: note || undefined }, { onSuccess: () => setNotes((m) => { const { [r.id]: _gone, ...rest } = m; return rest; }) });
+  };
+  const noteLine = (r: EmployeeRequest) =>
+    r.decisionNote ? `${r.status === "rejected" ? "Reason" : "Note"}${r.decidedBy ? ` from ${nameOf(r.decidedBy)}` : ""}: ${r.decisionNote}` : null;
   const decisionLine = (r: EmployeeRequest) =>
     `${r.status === "approved" ? "Approved" : "Rejected"} by ${r.decidedBy ? nameOf(r.decidedBy) : "an approver"}${r.decidedAt ? ` · ${format(new Date(r.decidedAt as any), "d MMM, h:mm a")}` : ""}`;
   const month = today.slice(0, 7);
@@ -141,9 +152,23 @@ export default function EmployeeServices() {
                     <p className="text-sm mt-1 break-words">{r.reason}</p>
                   </div>
                 </div>
+                <div className="mt-2 space-y-1">
+                  <Label htmlFor={`note-${r.id}`} className="text-xs">Note for {nameOf(r.userId)} <span className="font-normal text-muted-foreground">(optional when approving, required when rejecting)</span></Label>
+                  <Textarea
+                    id={`note-${r.id}`}
+                    rows={2}
+                    maxLength={500}
+                    value={notes[r.id] || ""}
+                    onChange={(e) => { setNotes((m) => ({ ...m, [r.id]: e.target.value })); if (needReason === r.id) setNeedReason(null); }}
+                    placeholder="e.g. Approved, enjoy the break. / Not possible this week because of the release."
+                    className="macos-input text-sm min-h-0"
+                    data-testid={`note-${r.id}`}
+                  />
+                  {needReason === r.id && <p role="alert" className="text-xs text-red-600 dark:text-red-300" data-testid={`note-error-${r.id}`}>Please write a reason so {nameOf(r.userId)} knows why.</p>}
+                </div>
                 <div className="mt-2 flex gap-2">
-                  <Button size="sm" className="h-10 flex-1 gap-1" disabled={decide.isPending || (r.userId === user?.id && !isFounderUser(user))} onClick={() => decide.mutate({ id: r.id, status: "approved" })} data-testid={`approve-${r.id}`}><Check className="h-4 w-4" />Approve</Button>
-                  <Button size="sm" variant="outline" className="h-10 flex-1 gap-1" disabled={decide.isPending || (r.userId === user?.id && !isFounderUser(user))} onClick={() => decide.mutate({ id: r.id, status: "rejected" })} data-testid={`reject-${r.id}`}><X className="h-4 w-4" />Reject</Button>
+                  <Button size="sm" className="h-10 flex-1 gap-1" disabled={decide.isPending || (r.userId === user?.id && !isFounderUser(user))} onClick={() => decideWith(r, "approved")} data-testid={`approve-${r.id}`}><Check className="h-4 w-4" />Approve</Button>
+                  <Button size="sm" variant="outline" className="h-10 flex-1 gap-1" disabled={decide.isPending || (r.userId === user?.id && !isFounderUser(user))} onClick={() => decideWith(r, "rejected")} data-testid={`reject-${r.id}`}><X className="h-4 w-4" />Reject</Button>
                 </div>
               </div>
             ))}
@@ -161,7 +186,7 @@ export default function EmployeeServices() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">{nameOf(r.userId)} · {KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""} <span className="font-normal text-muted-foreground">· {span(r)}</span></p>
                   <p className="text-xs text-muted-foreground">{decisionLine(r)}</p>
-                  {r.decisionNote && <p className="text-xs mt-1">Note: {r.decisionNote}</p>}
+                  {noteLine(r) && <p className="text-xs mt-1 break-words" data-testid={`logged-note-${r.id}`}>{noteLine(r)}</p>}
                 </div>
                 <Badge variant="outline" className={cn("capitalize shrink-0", STATUS_TONE[r.status])}>{r.status}</Badge>
               </div>
@@ -182,7 +207,7 @@ export default function EmployeeServices() {
                 <p className="text-xs text-muted-foreground break-words">{r.reason}</p>
                 {r.status === "pending" && <p className="text-xs mt-1 text-amber-700 dark:text-amber-300" data-testid={`waiting-${r.id}`}>Waiting for approval</p>}
                 {r.status !== "pending" && <p className={cn("text-xs mt-1 font-medium", r.status === "approved" ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300")} data-testid={`decision-${r.id}`}>{decisionLine(r)}</p>}
-                {r.decisionNote && <p className="text-xs mt-1">Note: {r.decisionNote}</p>}
+                {noteLine(r) && <p className="text-sm mt-1 rounded-md bg-black/5 dark:bg-white/10 px-2 py-1 break-words" data-testid={`decision-note-${r.id}`}>{noteLine(r)}</p>}
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <Badge variant="outline" className={cn("capitalize", STATUS_TONE[r.status])}>{r.status}</Badge>

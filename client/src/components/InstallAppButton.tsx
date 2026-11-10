@@ -91,6 +91,17 @@ export function InstallAppButton({ variant = "icon" }: InstallAppButtonProps) {
               </li>
             </ol>
           )}
+          {!isIOS && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm" data-testid="install-already-note">
+              <p className="font-medium">Nothing happens, or you see "Open in app" in the address bar?</p>
+              <p className="mt-1 text-muted-foreground">
+                Then AGENTiX is already installed on this computer, so the browser will not install it again, and it keeps the
+                icon it had when it was installed. To get the latest icon: open the app, click <b>⋮</b> at its top right,
+                choose <b>Uninstall AGENTiX CRM</b>, reload this page, then install again. If a pinned or desktop shortcut keeps the
+                old icon, unpin or delete it and pin the new one.
+              </p>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
             The install option appears only on the live HTTPS site and in browsers that support installing web apps.
           </p>

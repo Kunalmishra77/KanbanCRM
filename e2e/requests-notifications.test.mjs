@@ -206,6 +206,7 @@ await F.page.waitForTimeout(900);
 ok(F.page.url().endsWith('/services'), 'clicking it opens Employee Services', F.page.url());
 ok(await F.page.getByTestId(`pending-Pooja Singh-leave`).first().isVisible(), 'and the request is waiting in the approval queue');
 // Approve from the UI
+await F.page.getByTestId(`note-${live.data.id}`).fill('Approved, enjoy the break');
 await F.page.getByTestId(`approve-${live.data.id}`).click();
 await F.page.waitForTimeout(1200);
 ok(await F.page.getByTestId(`logged-${live.data.id}`).isVisible(), 'the decision shows up in the "Recent decisions" log');
@@ -221,6 +222,21 @@ await P.page.getByTestId('button-notifications').click(); await P.page.waitForTi
 ok(await P.page.getByText(/Anant Founder approved your leave request/).first().isVisible(), 'and the bell lists the approval');
 await P.page.getByTestId('mark-all-read').click(); await P.page.waitForTimeout(800);
 ok(await P.page.getByTestId('notification-badge').count() === 0, '"Mark all read" removes the badge');
+
+// The approver's note is shown to the requester, and a rejection needs a reason
+ok(/Note from Anant Founder: Approved, enjoy the break/.test(await P.page.getByTestId(`decision-note-${live.data.id}`).innerText()), "the employee sees the approver's note, labelled with who wrote it");
+const rj = await pooja.post('/api/requests', { type: 'wfh', startDate: plusDays(25), reason: 'need to be home' });
+await F.page.reload({ waitUntil: 'load' }); await F.page.waitForTimeout(1500);
+await F.page.getByTestId(`reject-${rj.data.id}`).click(); await F.page.waitForTimeout(500);
+ok(await F.page.getByTestId(`note-error-${rj.data.id}`).isVisible(), 'rejecting without a reason is refused with a clear message');
+ok((await pooja.get('/api/requests')).data.find((r) => r.id === rj.data.id).status === 'pending', 'and the request stays pending');
+await F.page.getByTestId(`note-${rj.data.id}`).fill('Team is short-handed that day');
+await F.page.getByTestId(`reject-${rj.data.id}`).click(); await F.page.waitForTimeout(1200);
+ok(/Rejected by Anant Founder/.test(await F.page.getByTestId(`logged-${rj.data.id}`).innerText()), 'the rejection is logged with who rejected it');
+ok(/Reason from Anant Founder: Team is short-handed that day/.test(await F.page.getByTestId(`logged-note-${rj.data.id}`).innerText()), 'and the reason');
+await P.page.reload({ waitUntil: 'load' }); await P.page.waitForTimeout(1500);
+ok(/Rejected by Anant Founder/.test(await P.page.getByTestId(`decision-${rj.data.id}`).innerText()), 'the employee sees "Rejected by Anant Founder"');
+ok(/Reason from Anant Founder: Team is short-handed that day/.test(await P.page.getByTestId(`decision-note-${rj.data.id}`).innerText()), 'with the reason');
 
 // Chief of Staff in the browser
 const C = await openAs('cos@test.dev');
