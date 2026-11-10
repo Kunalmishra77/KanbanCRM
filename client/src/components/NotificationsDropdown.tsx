@@ -49,13 +49,14 @@ export function NotificationsDropdown() {
   const markRead = useMarkNotificationsRead();
   const { data: activities = [], isLoading: loadingActivity } = useActivityLog(20);
 
-  const items = mine?.items ?? [];
-  const unreadCount = mine?.unread ?? 0;
+  // Never let an unexpected response shape take the whole page down: the bell just shows nothing
+  const items: NotificationRow[] = Array.isArray(mine?.items) ? mine!.items : [];
+  const unreadCount = typeof mine?.unread === "number" ? mine.unread : 0;
 
   // Pop-up: a toast for every notification that arrives while the app is open (and one summary on opening it)
   const seen = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (!mine) return;
+    if (!mine || !Array.isArray(mine.items)) return;
     const unread = mine.items.filter((n) => !n.isRead);
     if (seen.current === null) {
       seen.current = new Set(mine.items.map((n) => n.id));

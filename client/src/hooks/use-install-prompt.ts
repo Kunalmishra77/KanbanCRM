@@ -7,8 +7,14 @@ interface BeforeInstallPromptEvent extends Event {
 
 function detectStandalone() {
   if (typeof window === "undefined") return false;
+  // A normal tab is display-mode "browser". Every installed mode (standalone, minimal-ui, fullscreen,
+  // window-controls-overlay, tabbed) is something else, so this covers them all.
+  const inBrowserTab = window.matchMedia("(display-mode: browser)").matches;
   return (
+    !inBrowserTab ||
     window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: minimal-ui)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
     window.matchMedia("(display-mode: window-controls-overlay)").matches ||
     (navigator as any).standalone === true
   );
