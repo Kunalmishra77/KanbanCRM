@@ -91,7 +91,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
                   )} />
                   {status}
                 </h3>
-                <span className="bg-white/40 px-2 py-0.5 rounded-full text-xs font-medium text-muted-foreground">
+                <span className="bg-white/40 dark:bg-white/[0.05] px-2 py-0.5 rounded-full text-xs font-medium text-muted-foreground">
                   {columnStories.length}
                 </span>
               </div>

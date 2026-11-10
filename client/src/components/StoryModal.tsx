@@ -322,10 +322,10 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 [&>button]:hidden">
+        <DialogContent className="max-w-4xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 dark:border-white/10 [&>button]:hidden">
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
             {/* Meta & Status: a collapsible strip on top for phones, a left sidebar from md up */}
-            <div className="w-full md:w-72 shrink-0 bg-muted/30 border-b md:border-b-0 md:border-r border-white/10">
+            <div className="w-full md:w-72 shrink-0 bg-muted/30 border-b md:border-b-0 md:border-r border-white/10 dark:border-white/10">
               <button
                 type="button"
                 className="md:hidden w-full flex items-center justify-between gap-2 px-4 py-3 min-h-11 text-sm font-medium"
@@ -342,7 +342,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Status</h4>
                   <Badge variant="outline" className={cn(
                     "w-full justify-center py-1.5 text-sm",
-                    story.status === 'Done' ? "bg-green-500/10 text-green-600 border-green-500/20" : "bg-white/50"
+                    story.status === 'Done' ? "bg-green-500/10 text-green-600 dark:text-green-300 border-green-500/20" : "bg-white/50 dark:bg-white/[0.08]"
                   )}>
                     {story.status}
                   </Badge>
@@ -350,7 +350,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assignee</h4>
-                  <div className="flex items-center gap-3 p-2 rounded-lg bg-white/40 border border-white/20">
+                  <div className="flex items-center gap-3 p-2 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback>{(story.person || 'U').charAt(0)}</AvatarFallback>
                     </Avatar>
@@ -397,7 +397,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tags</h4>
                   <div className="flex flex-wrap gap-2">
                     {(story.tags || []).map((tag: string) => (
-                      <Badge key={tag} variant="secondary" className="text-xs bg-white/50 hover:bg-white/70 transition-colors">
+                      <Badge key={tag} variant="secondary" className="text-xs bg-white/50 dark:bg-white/[0.08] hover:bg-white/70 dark:hover:bg-white/10 transition-colors">
                         {tag}
                       </Badge>
                     ))}
@@ -409,7 +409,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 min-h-0">
-              <div className="p-4 sm:p-6 border-b border-white/10">
+              <div className="p-4 sm:p-6 border-b border-white/10 dark:border-white/10">
                 <DialogHeader className="text-left">
                   <div className="flex items-start justify-between gap-4">
                     <DialogTitle className="text-2xl font-bold leading-tight pr-2">
@@ -417,7 +417,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         <Input
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
-                          className="text-2xl font-bold bg-white/60 border-primary/40 h-auto py-1"
+                          className="text-2xl font-bold bg-white/60 dark:bg-white/[0.08] border-primary/40 h-auto py-1"
                           data-testid="input-edit-title"
                         />
                       ) : story.title}
@@ -428,7 +428,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           <Button
                             variant="outline"
                             size="icon"
-                            className="rounded-full h-8 w-8 text-green-600 border-green-300 hover:bg-green-50"
+                            className="rounded-full h-8 w-8 text-green-600 dark:text-green-300 border-green-300 dark:border-green-500/40 hover:bg-green-50"
                             onClick={saveEdits}
                             data-testid="button-save-story"
                             title="Save changes"
@@ -505,7 +505,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
                 {/* Time Log Panel */}
                 {showTimeLog && (
-                  <div className="mt-4 p-4 rounded-lg bg-white/40 border border-white/20 animate-in fade-in slide-in-from-top-2">
+                  <div className="mt-4 p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <Clock className="h-4 w-4" />
@@ -525,7 +525,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           placeholder="e.g., 2.5"
                           value={timeLogHours}
                           onChange={(e) => setTimeLogHours(e.target.value)}
-                          className="bg-white/60"
+                          className="bg-white/60 dark:bg-white/[0.08]"
                           data-testid="input-time-hours"
                         />
                       </div>
@@ -535,7 +535,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           placeholder="What did you work on?"
                           value={timeLogNote}
                           onChange={(e) => setTimeLogNote(e.target.value)}
-                          className="bg-white/60"
+                          className="bg-white/60 dark:bg-white/[0.08]"
                           data-testid="input-time-note"
                         />
                       </div>
@@ -548,7 +548,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
               </div>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-                <div className="px-6 pt-4 border-b border-white/10 bg-white/20">
+                <div className="px-6 pt-4 border-b border-white/10 dark:border-white/10 bg-white/20 dark:bg-white/[0.05]">
                   <TabsList className="bg-transparent p-0 gap-4 sm:gap-6 h-auto w-full">
                     <TabsTrigger
                       value="details"
@@ -592,7 +592,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             <Textarea
                               value={editDescription}
                               onChange={(e) => setEditDescription(e.target.value)}
-                              className="bg-white/60 min-h-[120px] resize-none"
+                              className="bg-white/60 dark:bg-white/[0.08] min-h-[120px] resize-none"
                               placeholder="Story description..."
                               data-testid="input-edit-description"
                             />
@@ -603,7 +603,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               <select
                                 value={editStatus}
                                 onChange={(e) => setEditStatus(e.target.value)}
-                                className="w-full h-9 rounded-md border border-input bg-white/60 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                className="w-full h-9 rounded-md border border-input bg-white/60 dark:bg-white/[0.08] px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                                 data-testid="select-edit-status"
                               >
                                 <option value="To Do">To Do</option>
@@ -618,7 +618,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               <select
                                 value={editPriority}
                                 onChange={(e) => setEditPriority(e.target.value)}
-                                className="w-full h-9 rounded-md border border-input bg-white/60 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                className="w-full h-9 rounded-md border border-input bg-white/60 dark:bg-white/[0.08] px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                                 data-testid="select-edit-priority"
                               >
                                 <option value="Low">Low</option>
@@ -631,7 +631,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               <select
                                 value={editAssignedTo}
                                 onChange={(e) => setEditAssignedTo(e.target.value)}
-                                className="w-full h-9 rounded-md border border-input bg-white/60 px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                className="w-full h-9 rounded-md border border-input bg-white/60 dark:bg-white/[0.08] px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                                 data-testid="select-edit-assignee"
                               >
                                 <option value="unassigned">Unassigned</option>
@@ -648,7 +648,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                 type="date"
                                 value={editDueDate}
                                 onChange={(e) => setEditDueDate(e.target.value)}
-                                className="bg-white/60"
+                                className="bg-white/60 dark:bg-white/[0.08]"
                                 data-testid="input-edit-due-date"
                               />
                             </div>
@@ -659,7 +659,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                 min="0"
                                 value={editHours}
                                 onChange={(e) => setEditHours(e.target.value)}
-                                className="bg-white/60"
+                                className="bg-white/60 dark:bg-white/[0.08]"
                                 data-testid="input-edit-hours"
                               />
                             </div>
@@ -668,7 +668,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               <Input
                                 value={editTags}
                                 onChange={(e) => setEditTags(e.target.value)}
-                                className="bg-white/60"
+                                className="bg-white/60 dark:bg-white/[0.08]"
                                 placeholder="e.g. payment, followup"
                                 data-testid="input-edit-tags"
                               />
@@ -684,7 +684,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                       ) : (
                         <div className="space-y-2">
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
-                          <div className="min-h-[150px] p-4 rounded-lg bg-white/40 border border-white/20 text-sm leading-relaxed">
+                          <div className="min-h-[150px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed">
                             {story.description || 'No description provided.'}
                           </div>
                         </div>
@@ -776,16 +776,16 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                       {comment.createdAt ? format(new Date(comment.createdAt), 'MMM d, h:mm a') : ''}
                                     </p>
                                   </div>
-                                  <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 text-sm border border-white/10 shadow-sm space-y-2">
+                                  <div className="p-3 rounded-r-xl rounded-bl-xl bg-white/50 dark:bg-white/[0.08] text-sm border border-white/10 dark:border-white/10 shadow-sm space-y-2">
                                     <MentionText body={comment.body} />
                                     {comment.attachmentData && comment.attachmentName && (
-                                      <div className="mt-2 pt-2 border-t border-white/20">
+                                      <div className="mt-2 pt-2 border-t border-white/20 dark:border-white/10">
                                         {comment.attachmentType?.startsWith('image/') ? (
                                           <div className="space-y-1">
                                             <img
                                               src={comment.attachmentData}
                                               alt={comment.attachmentName}
-                                              className="max-w-full max-h-48 rounded-lg border border-white/20"
+                                              className="max-w-full max-h-48 rounded-lg border border-white/20 dark:border-white/10"
                                             />
                                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                                               <Image className="h-3 w-3" />
@@ -814,7 +814,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         </div>
                       )}
 
-                      <div className="flex gap-4 items-start mt-8 pt-6 border-t border-white/10">
+                      <div className="flex gap-4 items-start mt-8 pt-6 border-t border-white/10 dark:border-white/10">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                         </Avatar>
@@ -823,7 +823,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             placeholder="Write a comment... type @ to tag someone"
                             value={newComment}
                             onChange={setNewComment}
-                            className="bg-white/40 border-white/20 min-h-[80px] resize-none"
+                            className="bg-white/40 dark:bg-white/[0.05] border-white/20 dark:border-white/10 min-h-[80px] resize-none"
                             data-testid="input-comment"
                           />
 
@@ -858,7 +858,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                 }}
                                 data-testid="input-comment-attachment"
                               />
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-white/40">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-white/40 dark:hover:bg-white/10">
                                 <Paperclip className="h-4 w-4" />
                                 Attach file
                               </div>
@@ -883,7 +883,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     </TabsContent>
 
                     <TabsContent value="email" className="mt-0 space-y-6 outline-none">
-                      <div className="grid gap-4 p-4 sm:p-6 rounded-xl border border-white/20 bg-white/30">
+                      <div className="grid gap-4 p-4 sm:p-6 rounded-xl border border-white/20 dark:border-white/10 bg-white/30 dark:bg-white/[0.05]">
                         <div className="flex items-center justify-between">
                           <h3 className="font-medium flex items-center gap-2">
                             <Mail className="h-4 w-4 text-primary" />
@@ -900,7 +900,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               value={emailNotes}
                               onChange={(e) => setEmailNotes(e.target.value)}
                               placeholder="Add any specific points you want to mention in the email... (e.g., 'We completed the design phase', 'Need client approval on mockups', 'Schedule a call for next week')"
-                              className="min-h-[80px] bg-white/60 text-sm"
+                              className="min-h-[80px] bg-white/60 dark:bg-white/[0.08] text-sm"
                               data-testid="input-email-notes"
                             />
                             <p className="text-xs text-muted-foreground">
@@ -938,7 +938,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                   value={draftSubject}
                                   onChange={(e) => setDraftSubject(e.target.value)}
                                   placeholder="Subject line..."
-                                  className="bg-white/60"
+                                  className="bg-white/60 dark:bg-white/[0.08]"
                                   data-testid="input-email-subject"
                                 />
                               </div>
@@ -948,7 +948,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                   value={draftBody}
                                   onChange={(e) => setDraftBody(e.target.value)}
                                   placeholder="Email content..."
-                                  className="min-h-[200px] bg-white/60 font-mono text-sm"
+                                  className="min-h-[200px] bg-white/60 dark:bg-white/[0.08] font-mono text-sm"
                                   data-testid="input-email-body"
                                 />
                               </div>
@@ -1000,7 +1000,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                       ) : (
                         <div className="space-y-4">
                           {sentEmails.map((email: any) => (
-                            <div key={email.id} className="p-4 rounded-xl border border-white/20 bg-white/30" data-testid={`email-${email.id}`}>
+                            <div key={email.id} className="p-4 rounded-xl border border-white/20 dark:border-white/10 bg-white/30 dark:bg-white/[0.05]" data-testid={`email-${email.id}`}>
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                   <Mail className="h-4 w-4 text-primary" />
@@ -1013,7 +1013,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               <div className="text-xs text-muted-foreground mb-2">
                                 To: {email.recipientName || 'Client'} {email.recipientEmail && `<${email.recipientEmail}>`}
                               </div>
-                              <div className="p-3 rounded-lg bg-white/40 text-sm whitespace-pre-wrap border border-white/10">
+                              <div className="p-3 rounded-lg bg-white/40 dark:bg-white/[0.05] text-sm whitespace-pre-wrap border border-white/10 dark:border-white/10">
                                 {email.body}
                               </div>
                             </div>

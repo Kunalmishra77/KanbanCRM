@@ -54,11 +54,11 @@ function getHealthScore(client: ClientData, stories: any[]): { score: number; la
   const stageScore = client.stage === 'Hot' ? 20 : client.stage === 'Warm' ? 15 : client.stage === 'Cold' ? 8 : client.stage === 'Hold' ? 10 : 0;
 
   const total_score = Math.round(progressScore + revenueScore + stageScore);
-  if (client.stage === 'Dropped') return { score: 0, label: 'Inactive', color: 'bg-gray-100 text-gray-500' };
-  if (client.stage === 'Hold') return { score: total_score, label: 'On Hold', color: 'bg-amber-100 text-amber-700' };
-  if (total_score >= 65) return { score: total_score, label: 'Healthy', color: 'bg-green-100 text-green-700' };
-  if (total_score >= 35) return { score: total_score, label: 'At Risk', color: 'bg-yellow-100 text-yellow-700' };
-  return { score: total_score, label: 'Critical', color: 'bg-red-100 text-red-700' };
+  if (client.stage === 'Dropped') return { score: 0, label: 'Inactive', color: 'bg-muted text-muted-foreground' };
+  if (client.stage === 'Hold') return { score: total_score, label: 'On Hold', color: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300' };
+  if (total_score >= 65) return { score: total_score, label: 'Healthy', color: 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300' };
+  if (total_score >= 35) return { score: total_score, label: 'At Risk', color: 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300' };
+  return { score: total_score, label: 'Critical', color: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300' };
 }
 
 export default function Clients() {
@@ -156,7 +156,7 @@ export default function Clients() {
                           
                           {/* Client Identity & Industry */}
                           <div className="flex items-center gap-4 min-w-0 w-full lg:w-auto lg:min-w-[240px] lg:max-w-[340px] lg:shrink-0">
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-orange-500/20 flex items-center justify-center border border-white/20 shrink-0">
+                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-orange-500/20 flex items-center justify-center border border-white/20 dark:border-white/10 shrink-0">
                               <Briefcase className="h-5 w-5 text-primary" />
                             </div>
                             <div className="space-y-0.5 min-w-0 flex-1">
@@ -174,10 +174,10 @@ export default function Clients() {
                             </Badge>
                             <Badge variant="outline" className={cn(
                               "border-0 text-[10px] px-2.5 py-1 rounded-full",
-                              client.stage === 'Hot' ? "bg-red-500/10 text-red-600" :
-                              client.stage === 'Warm' ? "bg-orange-500/10 text-orange-600" :
-                              client.stage === 'Dropped' ? "bg-gray-500/10 text-gray-600" :
-                              "bg-blue-500/10 text-blue-600"
+                              client.stage === 'Hot' ? "bg-red-500/10 text-red-600 dark:text-red-300" :
+                              client.stage === 'Warm' ? "bg-orange-500/10 text-orange-600 dark:text-orange-300" :
+                              client.stage === 'Dropped' ? "bg-gray-500/10 text-foreground/80" :
+                              "bg-blue-500/10 text-blue-600 dark:text-blue-300"
                             )}>
                               {client.stage}
                             </Badge>
@@ -256,7 +256,7 @@ export default function Clients() {
                                 <DropdownMenuContent align="end" className="macos-panel">
                                   {isFounder && (
                                     <DropdownMenuItem
-                                      className="cursor-pointer text-orange-600 focus:text-orange-700"
+                                      className="cursor-pointer text-orange-600 dark:text-orange-300 focus:text-orange-700"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setClientToConvert(client.id);

@@ -62,7 +62,7 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     cardClass: "",
     borderColor: "#6ee7b7",
     strip: "bg-emerald-400",
-    dateClass: "text-emerald-600",
+    dateClass: "text-emerald-600 dark:text-emerald-300",
     titleClass: "",
   },
   warning: {
@@ -70,11 +70,11 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     borderColor: "#fb923c",
     strip: "bg-orange-400",
     badge: {
-      className: "bg-orange-100 text-orange-700 border-orange-200",
+      className: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/40",
       icon: <Clock className="h-2.5 w-2.5 mr-1" />,
       label: "Due Soon",
     },
-    dateClass: "text-orange-600 font-semibold",
+    dateClass: "text-orange-600 dark:text-orange-300 font-semibold",
     titleClass: "",
   },
   critical: {
@@ -82,24 +82,24 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     borderColor: "#f87171",
     strip: "bg-red-500",
     badge: {
-      className: "bg-red-100 text-red-700 border-red-200",
+      className: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40",
       icon: <AlertTriangle className="h-2.5 w-2.5 mr-1" />,
       label: "<24h",
     },
-    dateClass: "text-red-600 font-bold",
+    dateClass: "text-red-600 dark:text-red-300 font-bold",
     titleClass: "",
   },
   overdue: {
-    cardClass: "bg-red-50/40",
+    cardClass: "bg-red-50/40 dark:bg-red-500/20",
     borderColor: "#f87171",
     strip: "bg-red-600",
     badge: {
-      className: "bg-red-200 text-red-800 border-red-300",
+      className: "bg-red-200 dark:bg-red-500/25 text-red-800 dark:text-red-300 border-red-300 dark:border-red-500/40",
       icon: <AlertTriangle className="h-2.5 w-2.5 mr-1" />,
       label: "Overdue",
     },
-    dateClass: "text-red-700 font-bold",
-    titleClass: "text-red-900",
+    dateClass: "text-red-700 dark:text-red-300 font-bold",
+    titleClass: "text-red-900 dark:text-red-300",
   },
 };
 
@@ -309,11 +309,11 @@ export default function GlobalKanban() {
         <div className="flex w-full sm:w-auto items-center gap-3">
           <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="macos-input bg-white/50 gap-2">
+              <Button variant="outline" className="macos-input bg-white/50 dark:bg-white/[0.08] gap-2">
                 <Filter className="h-4 w-4" />
                 Filter
                 {activeFilterCount > 0 && (
-                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-white text-[10px]">
+                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-white dark:text-primary-foreground text-[10px]">
                     {activeFilterCount}
                   </Badge>
                 )}
@@ -500,7 +500,7 @@ export default function GlobalKanban() {
           </div>
 
           <Button
-            className="flex-1 sm:flex-none gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white shrink-0"
+            className="flex-1 sm:flex-none gap-2 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white dark:text-primary-foreground shrink-0"
             onClick={() => setIsCreateOpen(true)}
           >
             <Plus className="h-4 w-4" />
@@ -565,9 +565,9 @@ export default function GlobalKanban() {
                                 {clientName}
                               </Badge>
                               <Badge className={`text-[10px] font-semibold px-2 py-0.5 ${
-                                story.priority === 'High' ? 'bg-red-500/10 text-red-600 hover:bg-red-500/10' :
-                                story.priority === 'Medium' ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/10' :
-                                'bg-slate-500/10 text-slate-600 hover:bg-slate-500/10'
+                                story.priority === 'High' ? 'bg-red-500/10 text-red-600 dark:text-red-300 hover:bg-red-500/10' :
+                                story.priority === 'Medium' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-300 hover:bg-amber-500/10' :
+                                'bg-slate-500/10 text-foreground/80 hover:bg-slate-500/10'
                               }`}>
                                 {story.priority}
                               </Badge>
@@ -608,9 +608,9 @@ export default function GlobalKanban() {
                                   <Badge 
                                     variant="outline" 
                                     className={`text-[10px] font-semibold h-6 gap-1 ${
-                                      visibleBottleneck.severity === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
-                                      visibleBottleneck.severity === 'medium' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                                      'bg-blue-100 text-blue-700 border-blue-200'
+                                      visibleBottleneck.severity === 'high' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40' :
+                                      visibleBottleneck.severity === 'medium' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/40' :
+                                      'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/40'
                                     }`}
                                   >
                                     <AlertTriangle className="h-3 w-3" />

@@ -57,8 +57,8 @@
   /* Refined Apple Glassmorphism Palette - Cleaner, brighter, more depth */
   
   /* Base - The "Desktop" feel */
-  --background: 210 20% 98%;
-  --foreground: 220 10% 10%; /* Darker gray for better readability */
+  --background: 240 25% 97%; /* Apple system gray 6, a touch lighter so orange text keeps AA contrast */
+  --foreground: 220 10% 10%;
 
   /* Glass Cards - More opaque for better contrast */
   --card: 0 0% 100%; 
@@ -67,8 +67,8 @@
   --popover: 0 0% 100%;
   --popover-foreground: 220 10% 10%;
 
-  /* Agentix Orange - used sparingly as action color */
-  --primary: 21 90% 54%;
+  /* Agentix Orange. Deepened from the logo orange (21 90% 54%) so white text on it and orange text on white both pass WCAG AA (4.9:1). */
+  --primary: 21 96% 41%;
   --primary-foreground: 0 0% 100%;
 
   /* Secondary - Subtle gray surfaces */
@@ -77,34 +77,34 @@
 
   /* Muted - Auxiliary text */
   --muted: 220 14% 96%;
-  --muted-foreground: 220 10% 45%;
+  --muted-foreground: 220 10% 38%;
 
   /* Accent - Selection states */
   --accent: 215 25% 95%; /* Very slight blue tint for hover */
   --accent-foreground: 220 10% 10%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 72% 46%;
+  --destructive-foreground: 0 0% 100%;
 
   /* Borders - Ultra subtle */
-  --border: 220 13% 90%;
-  --input: 220 13% 90%;
-  --ring: 21 90% 54%;
+  --border: 220 13% 88%;
+  --input: 220 13% 84%;
+  --ring: 21 90% 48%;
 
   --radius: 0.75rem; /* 12px - Standard macOS rounded corner */
 
   /* Sidebar - Translucent material */
   --sidebar: 220 20% 97%; /* Slightly tinted off-white */
   --sidebar-foreground: 220 10% 40%;
-  --sidebar-primary: 21 90% 54%;
+  --sidebar-primary: 21 96% 41%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 0 0% 0%; /* Using alpha in utility */
   --sidebar-accent-foreground: 220 10% 10%;
   --sidebar-border: 0 0% 0%; /* Handled by opacity */
-  --sidebar-ring: 21 90% 54%;
+  --sidebar-ring: 21 90% 48%;
   
   /* Chart Colors - Professional Palette */
-  --chart-1: 21 90% 54%;   /* Agentix Orange */
+  --chart-1: 21 90% 50%;   /* Agentix Orange */
   --chart-2: 215 80% 55%;  /* Blue */
   --chart-3: 160 60% 45%;  /* Green */
   --chart-4: 280 60% 60%;  /* Purple */
@@ -112,42 +112,49 @@
 }
 
 .dark {
-  --background: 224 71% 4%;
+  /* Stepped surfaces: page < card < raised, so panels read as layers instead of one flat black */
+  --background: 222 47% 6%;
   --foreground: 210 40% 98%;
 
-  --card: 224 71% 4%;
+  --card: 222 36% 11%;
   --card-foreground: 210 40% 98%;
 
-  --popover: 224 71% 4%;
+  --popover: 222 36% 12%;
   --popover-foreground: 210 40% 98%;
 
   --primary: 21 90% 54%;
-  --primary-foreground: 222 47% 11.2%;
+  --primary-foreground: 222 47% 8%; /* dark text on orange = 6:1, white would be 3:1 */
 
-  --secondary: 217 19% 27%;
+  --secondary: 222 25% 17%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 217 19% 27%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 222 25% 17%;
+  --muted-foreground: 215 20% 70%;
 
-  --accent: 217 19% 27%;
+  --accent: 222 25% 20%;
   --accent-foreground: 210 40% 98%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 72% 52%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 217 19% 27%;
-  --input: 217 19% 27%;
-  --ring: 21 90% 54%;
-  
-  --sidebar: 224 71% 4%;
-  --sidebar-foreground: 215 20% 65%;
+  --border: 222 20% 24%;
+  --input: 222 20% 28%;
+  --ring: 21 90% 58%;
+
+  --sidebar: 222 47% 7%;
+  --sidebar-foreground: 215 20% 72%;
   --sidebar-primary: 21 90% 54%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 19% 27%;
+  --sidebar-primary-foreground: 222 47% 8%;
+  --sidebar-accent: 222 25% 20%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217 19% 27%;
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-border: 222 20% 22%;
+  --sidebar-ring: 21 90% 58%;
+
+  --chart-1: 21 90% 58%;
+  --chart-2: 215 85% 65%;
+  --chart-3: 160 60% 52%;
+  --chart-4: 280 65% 70%;
+  --chart-5: 340 80% 70%;
 }
 
 @layer base {
@@ -156,7 +163,6 @@
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-color: #f2f2f7; /* Apple system gray 6 */
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
     letter-spacing: -0.01em; /* Slightly tight tracking like SF Pro */
   }
@@ -197,26 +203,26 @@
 @layer utilities {
   /* The main sidebar material */
   .macos-sidebar {
-    @apply bg-white/80 dark:bg-[#1E1E1E]/80 backdrop-blur-2xl border-r border-black/[0.05] dark:border-white/[0.05];
+    @apply bg-white/80 dark:bg-[hsl(222_47%_7%)]/85 backdrop-blur-2xl border-r border-black/[0.05] dark:border-white/[0.05];
   }
 
   /* The main content area glass */
   .macos-panel {
-    @apply bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/40 dark:border-white/10 shadow-lg shadow-black/[0.03];
+    @apply bg-white/95 dark:bg-[hsl(222_36%_12%)]/95 backdrop-blur-xl border border-black/[0.06] dark:border-white/10 shadow-lg shadow-black/[0.03];
   }
   
   /* Interactive cards */
   .macos-card {
-    @apply bg-white/70 dark:bg-[#2C2C2E]/70 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm transition-all duration-200;
+    @apply bg-white/80 dark:bg-card/80 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm transition-all duration-200;
   }
   
   .macos-card:hover {
-    @apply bg-white/90 dark:bg-[#3A3A3C]/90 shadow-md transform scale-[1.01];
+    @apply bg-white dark:bg-[hsl(222_30%_15%)] shadow-md transform scale-[1.01];
   }
 
   /* Input fields */
   .macos-input {
-    @apply bg-white/50 dark:bg-white/10 border border-black/[0.05] dark:border-white/[0.1] focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all backdrop-blur-sm;
+    @apply bg-white dark:bg-white/[0.06] border border-input dark:border-white/[0.14] focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all backdrop-blur-sm;
   }
 
   /* Backdrop blur is very expensive on phones; use plain translucent surfaces there */
@@ -228,7 +234,7 @@
     .macos-card:hover { transform: none; }
     /* Without blur the glass panels (dialogs, menus) would show the page through them */
     .macos-panel { background-color: rgb(255 255 255 / 0.97); }
-    .dark .macos-panel { background-color: rgb(30 30 30 / 0.97); }
+    .dark .macos-panel { background-color: hsl(222 36% 12% / 0.98); }
   }
 
   .no-scrollbar::-webkit-scrollbar {

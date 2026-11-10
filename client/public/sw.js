@@ -2,7 +2,7 @@
  * - Never caches or intercepts /api/* (all CRM data stays live and per-user).
  * - Hashed build assets are cache-first; page navigations are network-first with an offline fallback.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `agentix-static-${VERSION}`;
 const SHELL = ["/offline.html", "/icon-192.png", "/icon-512.png", "/favicon.png"];
 

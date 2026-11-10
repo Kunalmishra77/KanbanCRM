@@ -44,6 +44,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   const [dueTime, setDueTime] = useState("end");
   const [forTeam, setForTeam] = useState("person");
   const [team, setTeam] = useState("");
+  const [excluded, setExcluded] = useState<string[]>([]); // team members who should NOT get the repeating task
   const [error, setError] = useState("");
   const { data: users = [] } = useUsers();
   const [clientId, setClientId] = useState(defaultClientId || "");
@@ -63,6 +64,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   }, [open, defaultClientId]);
 
   const resetForm = () => {
+    setExcluded([]);
     setClientId(defaultClientId || "");
     setTitle("");
     setDescription("");
@@ -88,6 +90,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
         dueTime: dueTime === "end" ? null : dueTime,
         startDate: istDate(),
         team: forTeam === "team" ? team : null,
+        excludeIds: forTeam === "team" ? excluded : [],
         assigneeIds: forTeam === "person" ? [assignedTo] : [],
       }, { onSuccess: () => { resetForm(); onOpenChange(false); }, onError: (e: Error) => setError(e.message) });
       return;
@@ -133,14 +136,14 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="macos-panel border-none sm:max-w-[600px] p-0 overflow-y-auto">
-        <div className="p-4 sm:p-6 border-b border-black/5 bg-white/50">
+        <div className="p-4 sm:p-6 border-b border-black/5 dark:border-white/10 bg-white/50 dark:bg-white/[0.08]">
           <DialogHeader>
             <DialogTitle className="text-xl">Create New Story</DialogTitle>
             <DialogDescription>Add a new task to track progress.</DialogDescription>
           </DialogHeader>
         </div>
         
-        <div className="p-4 sm:p-6 space-y-6 bg-white/30">
+        <div className="p-4 sm:p-6 space-y-6 bg-white/30 dark:bg-white/[0.05]">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Client *</Label>
@@ -202,7 +205,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
           </div>
 
           {isFounder && (
-            <div className="space-y-3 rounded-xl border bg-white/50 p-3" data-testid="repeat-section">
+            <div className="space-y-3 rounded-xl border bg-white/50 dark:bg-white/[0.08] p-3" data-testid="repeat-section">
               <div className="space-y-2">
                 <Label>Repeat</Label>
                 <Select value={repeat} onValueChange={setRepeat}>
@@ -261,10 +264,35 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                   {forTeam === "team" && (
                     <div className="space-y-2 sm:col-span-2">
                       <Label>Team</Label>
-                      <Select value={team} onValueChange={setTeam}>
+                      <Select value={team} onValueChange={(v) => { setTeam(v); setExcluded([]); }}>
                         <SelectTrigger className="macos-input" data-testid="select-team"><SelectValue placeholder="Choose a team" /></SelectTrigger>
                         <SelectContent>{TEAMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                       </Select>
+                    </div>
+                  )}
+                  {forTeam === "team" && team && (
+                    <div className="space-y-2 sm:col-span-2" data-testid="team-members">
+                      <Label>Who gets it <span className="font-normal text-muted-foreground">(untick anyone to leave them out, e.g. the team head)</span></Label>
+                      <div className="rounded-lg border border-black/10 dark:border-white/10 divide-y divide-black/5 dark:divide-white/10 max-h-48 overflow-y-auto">
+                        {(users as any[]).filter((u) => u.team === team && u.userType !== "founder").map((u) => {
+                          const on = !excluded.includes(u.id);
+                          return (
+                            <label key={u.id} className="flex items-center gap-3 px-3 min-h-11 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 accent-primary"
+                                checked={on}
+                                onChange={() => setExcluded((cur) => (on ? [...cur, u.id] : cur.filter((x) => x !== u.id)))}
+                                data-testid={`member-${u.id}`}
+                              />
+                              <span className={on ? "" : "text-muted-foreground line-through"}>{`${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email}</span>
+                            </label>
+                          );
+                        })}
+                        {(users as any[]).filter((u) => u.team === team && u.userType !== "founder").length === 0 && (
+                          <p className="px-3 py-3 text-sm text-muted-foreground">No one is on this team yet.</p>
+                        )}
+                      </div>
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground sm:col-span-2">A fresh story is created automatically on each of their working days (never on leave or days off). Unfinished ones stay open as missed.</p>
@@ -320,10 +348,10 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             </div>
             )}
           </div>
-          {error && <p role="alert" className="text-sm text-red-600 font-medium" data-testid="story-error">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600 dark:text-red-300 font-medium" data-testid="story-error">{error}</p>}
         </div>
 
-        <DialogFooter className="p-4 sm:p-6 border-t border-black/5 bg-white/50">
+        <DialogFooter className="p-4 sm:p-6 border-t border-black/5 dark:border-white/10 bg-white/50 dark:bg-white/[0.08]">
           <Button 
             variant="ghost" 
             onClick={() => onOpenChange(false)}
@@ -334,7 +362,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
           <Button 
             onClick={handleSubmit}
             disabled={!isValid || isPending || isCreatingRecurring}
-            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+            className="bg-primary hover:bg-primary/90 text-white dark:text-primary-foreground shadow-lg shadow-primary/20"
             data-testid="button-create-story"
           >
             {isPending || isCreatingRecurring ? (

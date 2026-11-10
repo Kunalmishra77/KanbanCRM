@@ -106,7 +106,7 @@ export default function ClientDetail() {
 
     if (past) {
       return (
-        <Badge className="bg-red-500/10 text-red-600 border border-red-200 gap-1 font-normal">
+        <Badge className="bg-red-500/10 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-500/40 gap-1 font-normal">
           <AlertTriangle className="h-3 w-3" />
           Contract ended: {format(endDate, 'MMM dd, yyyy')}
         </Badge>
@@ -114,7 +114,7 @@ export default function ClientDetail() {
     }
     if (daysUntil <= 30) {
       return (
-        <Badge className="bg-orange-500/10 text-orange-600 border border-orange-200 gap-1 font-normal">
+        <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-300 border border-orange-200 dark:border-orange-500/40 gap-1 font-normal">
           <AlertTriangle className="h-3 w-3" />
           Contract ends: {format(endDate, 'MMM dd, yyyy')}
         </Badge>
@@ -284,7 +284,7 @@ export default function ClientDetail() {
 
   return (
     <div className="min-h-[calc(100vh-8rem)] sm:h-[calc(100vh-8rem)] flex flex-col space-y-4 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-4 border-b border-white/10 pb-4">
+      <div className="flex flex-col gap-4 border-b border-white/10 dark:border-white/10 pb-4">
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/clients">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
@@ -541,11 +541,11 @@ export default function ClientDetail() {
                       </div>
                       <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                         {invoice.status === 'paid' ? (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Paid</span>
+                          <span className="text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">Paid</span>
                         ) : new Date(invoice.issuedOn) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? (
-                          <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Overdue</span>
+                          <span className="text-xs bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-medium">Overdue</span>
                         ) : (
-                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
+                          <span className="text-xs bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full font-medium">Pending</span>
                         )}
                         <span className="font-semibold text-lg">₹{parseFloat(invoice.amount).toLocaleString('en-IN')}</span>
                         <div className="flex gap-1">
@@ -553,7 +553,7 @@ export default function ClientDetail() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50 text-xs px-2"
+                              className="text-green-600 dark:text-green-300 hover:text-green-700 hover:bg-green-50 text-xs px-2"
                               onClick={() => updateInvoice({ id: invoice.id, data: { status: 'paid' } })}
                               data-testid={`mark-paid-${invoice.id}`}
                             >

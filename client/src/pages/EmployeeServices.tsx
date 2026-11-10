@@ -22,7 +22,7 @@ const KINDS: { id: Kind; label: string; icon: any; hint: string }[] = [
   { id: "ot", label: "Overtime", icon: Clock, hint: "Extra hours you worked beyond your normal day." },
 ];
 const KIND_LABEL: Record<string, string> = { leave: "Leave", wfh: "Work from home", ot: "Overtime" };
-const STATUS_TONE: Record<string, string> = { pending: "bg-amber-50 text-amber-700 border-amber-200", approved: "bg-green-50 text-green-700 border-green-200", rejected: "bg-red-50 text-red-700 border-red-200" };
+const STATUS_TONE: Record<string, string> = { pending: "bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/40", approved: "bg-green-50 dark:bg-green-500/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/40", rejected: "bg-red-50 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40" };
 
 const fmt = (d: string) => format(new Date(d + "T00:00:00"), "d MMM yyyy");
 const span = (r: EmployeeRequest) => (r.startDate === r.endDate ? fmt(r.startDate) : `${fmt(r.startDate)} – ${fmt(r.endDate)}`);
@@ -80,7 +80,7 @@ export default function EmployeeServices() {
           <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Request type">
             {KINDS.map((k) => (
               <button key={k.id} role="tab" aria-selected={kind === k.id} data-testid={`kind-${k.id}`} onClick={() => { setKind(k.id); setError(""); }}
-                className={cn("min-h-[56px] rounded-xl border px-2 py-2 text-sm font-medium flex flex-col items-center justify-center gap-1", kind === k.id ? "border-primary bg-primary/10 text-primary" : "bg-white/60")}>
+                className={cn("min-h-[56px] rounded-xl border px-2 py-2 text-sm font-medium flex flex-col items-center justify-center gap-1", kind === k.id ? "border-primary bg-primary/10 text-primary" : "bg-white/60 dark:bg-white/[0.08]")}>
                 <k.icon className="h-4 w-4" />{k.label}
               </button>
             ))}
@@ -108,7 +108,7 @@ export default function EmployeeServices() {
             <Label htmlFor="rq-reason">Reason</Label>
             <Textarea id="rq-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={kind === "ot" ? "What did you work on?" : "Why?"} data-testid="rq-reason" />
           </div>
-          {error && <p role="alert" className="text-sm text-red-600 font-medium" data-testid="rq-error">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600 dark:text-red-300 font-medium" data-testid="rq-error">{error}</p>}
           <Button className="h-11 w-full sm:w-auto" onClick={submit} disabled={raise.isPending} data-testid="rq-submit">
             {raise.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Send for approval
           </Button>
@@ -121,7 +121,7 @@ export default function EmployeeServices() {
           <CardContent className="space-y-2">
             {pending.length === 0 && <p className="text-sm text-muted-foreground">Nothing to approve.</p>}
             {pending.map((r) => (
-              <div key={r.id} className="rounded-xl border bg-white/60 p-3" data-testid={`pending-${nameOf(r.userId)}-${r.type}`}>
+              <div key={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3" data-testid={`pending-${nameOf(r.userId)}-${r.type}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{nameOf(r.userId)} · {KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""}</p>
@@ -145,7 +145,7 @@ export default function EmployeeServices() {
           {isLoading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
           {!isLoading && mine.length === 0 && <p className="text-sm text-muted-foreground">You have not raised any requests yet.</p>}
           {(mine as EmployeeRequest[]).map((r) => (
-            <div key={r.id} className="rounded-xl border bg-white/60 p-3 flex items-start justify-between gap-2">
+            <div key={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3 flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""} <span className="font-normal text-muted-foreground">· {span(r)}</span></p>
                 <p className="text-xs text-muted-foreground break-words">{r.reason}</p>

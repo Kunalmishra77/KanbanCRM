@@ -40,4 +40,15 @@ check("weekly task on a person's day off is skipped", plan([rule({ repeat: "week
 check("a new team member is picked up automatically", planStories({ rules: [rule({ assigneeIds: [], team: "Sales" })], people: [...people, person("e", "Sales")], leaves: [], existing: new Set(), date: "2026-11-06" }).map((x) => x.person.id), ["d", "e"]);
 check("due date is carried onto each planned story", plan([rule({ dueTime: "19:00" })], "2026-11-06")[0].dueDate.toISOString(), "2026-11-06T13:30:00.000Z");
 
+// Team rule with an excluded person (the team head) — everyone else in the team still gets it
+{
+  const people = [person("charu", "Sales"), person("divya", "Sales"), person("megha", "Sales"), person("kapil", "Development")];
+  const ids = (r: Rule) => planStories({ rules: [r], people, leaves: [], existing: new Set(), date: "2026-11-09" }).map((p) => p.person.id).sort();
+  check("team rule without exclusions reaches the whole team", ids(rule({ team: "Sales", assigneeIds: [] })), ["charu", "divya", "megha"]);
+  check("excluded team head does not get the task", ids(rule({ team: "Sales", assigneeIds: [], excludeIds: ["charu"] })), ["divya", "megha"]);
+  check("excluding someone from another team changes nothing", ids(rule({ team: "Sales", assigneeIds: [], excludeIds: ["kapil"] })), ["charu", "divya", "megha"]);
+  check("a person added to the team later is included automatically", planStories({ rules: [rule({ team: "Sales", assigneeIds: [], excludeIds: ["charu"] })], people: [...people, person("new", "Sales")], leaves: [], existing: new Set(), date: "2026-11-09" }).map((p) => p.person.id).sort(), ["divya", "megha", "new"]);
+  check("exclusions are ignored for a rule aimed at named people", ids(rule({ assigneeIds: ["charu"], excludeIds: ["charu"] })), ["charu"]);
+}
+
 console.log(`schedule: ${n} checks passed`);

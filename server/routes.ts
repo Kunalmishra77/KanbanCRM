@@ -989,7 +989,7 @@ export async function registerRoutes(
         const data = recurringTaskInputSchema.parse(body);
         const bad = await validTargets(data);
         if (bad) return res.status(400).json({ error: bad });
-        patch = { ...data, assigneeIds: data.team ? [] : data.assigneeIds, team: data.team || null, dueTime: data.dueTime || null, endDate: data.endDate || null };
+        patch = { ...data, assigneeIds: data.team ? [] : data.assigneeIds, excludeIds: data.team ? data.excludeIds : [], team: data.team || null, dueTime: data.dueTime || null, endDate: data.endDate || null };
         if (!data.startDate) delete patch.startDate;
       }
       const task = await storage.updateRecurringTask(req.params.id, patch);

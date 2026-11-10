@@ -57,7 +57,7 @@ export function GlobalSearch() {
         className="relative group cursor-pointer"
       >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-        <div className="macos-input pl-9 pr-3 sm:pr-4 py-2 w-full sm:w-[240px] md:w-[320px] rounded-full text-sm text-muted-foreground flex items-center justify-between border border-black/10 shadow-sm bg-white/40 group-hover:bg-white/60 transition-colors">
+        <div className="macos-input pl-9 pr-3 sm:pr-4 py-2 w-full sm:w-[240px] md:w-[320px] rounded-full text-sm text-muted-foreground flex items-center justify-between border border-black/10 dark:border-white/10 shadow-sm bg-white/40 dark:bg-white/[0.05] group-hover:bg-white/60 transition-colors">
           <span className="truncate">Search everything...</span>
           <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
             <span className="text-xs">⌘</span>K
@@ -119,7 +119,7 @@ export function GlobalSearch() {
                           <p className="text-sm font-medium">{l.name}</p>
                           {l.contactName && <p className="text-xs text-muted-foreground">{l.contactName}</p>}
                         </div>
-                        <span className="text-xs px-2 py-1 bg-yellow-500/10 text-yellow-700 rounded-full">{l.stage}</span>
+                        <span className="text-xs px-2 py-1 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 rounded-full">{l.stage}</span>
                       </div>
                     ))}
                   </div>

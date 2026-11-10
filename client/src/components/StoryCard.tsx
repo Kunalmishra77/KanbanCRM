@@ -56,7 +56,7 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     cardClass: "",
     borderColor: "#6ee7b7", // emerald-300
     strip: "bg-emerald-400",
-    dateClass: "text-emerald-600",
+    dateClass: "text-emerald-600 dark:text-emerald-300",
     titleClass: "",
   },
   warning: {
@@ -64,11 +64,11 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     borderColor: "#fb923c", // orange-400
     strip: "bg-orange-400",
     badge: {
-      className: "bg-orange-100 text-orange-700 border-orange-200",
+      className: "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/40",
       icon: <Clock className="h-2.5 w-2.5 mr-1" />,
       label: "Due Soon",
     },
-    dateClass: "text-orange-600 font-semibold",
+    dateClass: "text-orange-600 dark:text-orange-300 font-semibold",
     titleClass: "",
   },
   critical: {
@@ -76,24 +76,24 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
     borderColor: "#f87171", // red-400
     strip: "bg-red-500",
     badge: {
-      className: "bg-red-100 text-red-700 border-red-200",
+      className: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40",
       icon: <AlertTriangle className="h-2.5 w-2.5 mr-1" />,
       label: "<24h",
     },
-    dateClass: "text-red-600 font-bold",
+    dateClass: "text-red-600 dark:text-red-300 font-bold",
     titleClass: "",
   },
   overdue: {
-    cardClass: "bg-red-50/40",
+    cardClass: "bg-red-50/40 dark:bg-red-500/20",
     borderColor: "#f87171", // red-400 solid
     strip: "bg-red-600",
     badge: {
-      className: "bg-red-200 text-red-800 border-red-300",
+      className: "bg-red-200 dark:bg-red-500/25 text-red-800 dark:text-red-300 border-red-300 dark:border-red-500/40",
       icon: <AlertTriangle className="h-2.5 w-2.5 mr-1" />,
       label: "Overdue",
     },
-    dateClass: "text-red-700 font-bold",
-    titleClass: "text-red-900",
+    dateClass: "text-red-700 dark:text-red-300 font-bold",
+    titleClass: "text-red-900 dark:text-red-300",
   },
 };
 
@@ -105,10 +105,10 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
   const styles = DEADLINE_STYLES[status];
 
   const priorityConfig = {
-    Low: { color: "bg-blue-100 text-blue-700 border-blue-200", label: "Low" },
-    Medium: { color: "bg-yellow-100 text-yellow-700 border-yellow-200", label: "Med" },
-    High: { color: "bg-red-100 text-red-700 border-red-200", label: "High" },
-  }[story.priority as 'Low' | 'Medium' | 'High'] ?? { color: "bg-gray-100 text-gray-700 border-gray-200", label: story.priority || "—" };
+    Low: { color: "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/40", label: "Low" },
+    Medium: { color: "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-500/40", label: "Med" },
+    High: { color: "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40", label: "High" },
+  }[story.priority as 'Low' | 'Medium' | 'High'] ?? { color: "bg-muted text-foreground/80 border-border", label: story.priority || "—" };
   
   const bottleneck = getStoryBottleneck(story);
   const bottleneckBorderColor = bottleneck ? 
@@ -171,7 +171,7 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
             className={cn(
               "macos-card cursor-grab group-active:cursor-grabbing overflow-hidden hover:shadow-md",
               snapshot.isDragging
-                ? "shadow-xl ring-2 ring-primary/30 bg-white"
+                ? "shadow-xl ring-2 ring-primary/30 bg-white dark:bg-card"
                 : styles.cardClass,
               bottleneck && "border-l-4" // thick left border for bottlenecks
             )}
@@ -195,7 +195,7 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
                 )}
                 <div className="flex items-center gap-1 ml-auto shrink-0">
                   {status === 'done' && (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-gray-400" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                   {bottleneck && (
                     <Badge className={cn("text-[10px] px-1.5 py-0 h-5 font-semibold flex items-center whitespace-nowrap", bottleneck.color)}>
@@ -218,7 +218,7 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
                   {priorityConfig.label}
                 </Badge>
                 {story.tags.map(tag => (
-                  <span key={tag} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-[4px] border border-black/5 shrink-0 truncate max-w-[100px]" title={tag}>
+                  <span key={tag} className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-[4px] border border-black/5 dark:border-white/10 shrink-0 truncate max-w-[100px]" title={tag}>
                     {tag}
                   </span>
                 ))}
@@ -233,7 +233,7 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
               </h4>
 
               {/* Footer */}
-              <div className="flex items-center justify-between pt-2 border-t border-black/[0.03]">
+              <div className="flex items-center justify-between pt-2 border-t border-black/[0.03] dark:border-white/10">
                 <div className="flex items-center gap-1 text-xs">
                   {story.dueDate && (
                     <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-md", styles.dateClass)}>

@@ -30,7 +30,7 @@ export default function RecurringTasks() {
 
   const clientName = (id: string) => (clients as any[]).find((c) => c.id === id)?.name || "Client";
   const who = (t: RecurringTask) =>
-    t.team ? `Everyone in ${t.team}` : t.assigneeIds.map((id) => fullName((users as any[]).find((u) => u.id === id)) || "Unknown").join(", ");
+    t.team ? `Everyone in ${t.team}${(t.excludeIds || []).length ? ` except ${(t.excludeIds || []).map((id) => fullName((users as any[]).find((u) => u.id === id)) || "someone").join(", ")}` : ""}` : t.assigneeIds.map((id) => fullName((users as any[]).find((u) => u.id === id)) || "Unknown").join(", ");
 
   return (
     <div className="space-y-6">
@@ -56,7 +56,7 @@ export default function RecurringTasks() {
                   <p className="font-semibold break-words flex items-center gap-2"><Repeat className="h-4 w-4 text-primary shrink-0" />{t.title}</p>
                   <p className="text-xs text-muted-foreground">{clientName(t.clientId)}</p>
                 </div>
-                <Badge variant="outline" className={cn("shrink-0", t.active ? "border-green-300 text-green-700" : "border-slate-300 text-slate-600")}>{t.active ? "Active" : "Paused"}</Badge>
+                <Badge variant="outline" className={cn("shrink-0", t.active ? "border-green-300 dark:border-green-500/40 text-green-700 dark:text-green-300" : "border-border text-foreground/80")}>{t.active ? "Active" : "Paused"}</Badge>
               </div>
               <div className="text-sm space-y-0.5">
                 <p>{when(t)} · due {t.dueTime ? `${t.dueTime} India time` : "end of day"}</p>

@@ -37,7 +37,7 @@ export function InstallAppButton({ variant = "icon" }: InstallAppButtonProps) {
           variant="outline"
           size="sm"
           onClick={handleClick}
-          className="h-9 gap-2 rounded-full border-primary/30 bg-white/60 text-primary hover:bg-primary/10"
+          className="h-9 gap-2 rounded-full border-primary/30 bg-white/60 dark:bg-white/[0.08] text-primary hover:bg-primary/10"
           aria-label="Install AGENTiX app"
           data-testid="button-install-app"
         >

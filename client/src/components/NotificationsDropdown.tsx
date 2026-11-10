@@ -42,20 +42,20 @@ export function NotificationsDropdown() {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="rounded-full hover:bg-black/5 relative h-9 w-9"
+          className="rounded-full hover:bg-black/5 dark:hover:bg-white/10 relative h-9 w-9"
           data-testid="button-notifications"
           aria-label="Notifications"
         >
           <Bell className="h-5 w-5 text-muted-foreground" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-red-500 border-2 border-white text-[10px] font-medium text-white flex items-center justify-center">
+            <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-red-500 border-2 border-background text-[10px] font-medium text-white flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0 macos-panel rounded-xl" align="end">
-        <div className="p-3 border-b border-black/5">
+        <div className="p-3 border-b border-black/5 dark:border-white/10">
           <h3 className="font-semibold text-sm">Notifications</h3>
           <p className="text-xs text-muted-foreground">Recent activity in your workspace</p>
         </div>
@@ -69,11 +69,11 @@ export function NotificationsDropdown() {
               No recent activity
             </div>
           ) : (
-            <div className="divide-y divide-black/5">
+            <div className="divide-y divide-black/5 dark:divide-white/10">
               {activities.map((activity: ActivityLog) => (
                 <div 
                   key={activity.id} 
-                  className="p-3 hover:bg-black/5 transition-colors cursor-pointer"
+                  className="p-3 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
                   data-testid={`notification-${activity.id}`}
                 >
                   <div className="flex gap-3">

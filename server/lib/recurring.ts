@@ -18,7 +18,7 @@ export async function generateRecurringStories(date: string = istDate()): Promis
     .map((r) => ({ userId: r.userId, startDate: r.startDate, endDate: r.endDate }));
 
   const plan = planStories({
-    rules: rules.map((r) => ({ ...r, repeat: r.repeat as Repeat, description: r.description || "", assigneeIds: r.assigneeIds || [] })) as Rule[],
+    rules: rules.map((r) => ({ ...r, repeat: r.repeat as Repeat, description: r.description || "", assigneeIds: r.assigneeIds || [], excludeIds: r.excludeIds || [] })) as Rule[],
     people: users.map((u) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName, team: u.team, workPattern: u.workPattern, userType: u.userType })),
     leaves,
     existing,

@@ -35,7 +35,7 @@ export function CreateEmployeeModal({ open, onOpenChange }: { open: boolean; onO
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] macos-card border-none bg-white/80 backdrop-blur-xl">
+      <DialogContent className="sm:max-w-[425px] macos-card border-none bg-white/80 dark:bg-white/[0.1] backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
@@ -49,7 +49,7 @@ export function CreateEmployeeModal({ open, onOpenChange }: { open: boolean; onO
               value={firstName} 
               onChange={(e) => setFirstName(e.target.value)} 
               placeholder="e.g. John"
-              className="bg-white/60"
+              className="bg-white/60 dark:bg-white/[0.08]"
             />
           </div>
           <div className="grid gap-2">
@@ -58,7 +58,7 @@ export function CreateEmployeeModal({ open, onOpenChange }: { open: boolean; onO
               value={lastName} 
               onChange={(e) => setLastName(e.target.value)} 
               placeholder="e.g. Doe"
-              className="bg-white/60"
+              className="bg-white/60 dark:bg-white/[0.08]"
             />
           </div>
           <div className="grid gap-2">
@@ -68,13 +68,13 @@ export function CreateEmployeeModal({ open, onOpenChange }: { open: boolean; onO
               value={email} 
               onChange={(e) => setEmail(e.target.value)} 
               placeholder="e.g. john@example.com"
-              className="bg-white/60"
+              className="bg-white/60 dark:bg-white/[0.08]"
             />
           </div>
           <div className="grid gap-2">
             <Label>Role</Label>
             <Select value={userType} onValueChange={setUserType}>
-              <SelectTrigger className="bg-white/60">
+              <SelectTrigger className="bg-white/60 dark:bg-white/[0.08]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

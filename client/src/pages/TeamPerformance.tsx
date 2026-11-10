@@ -28,17 +28,17 @@ function TeamPerformanceContent() {
           
           <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-gray-900">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground/80">
                 Team Performance
               </h1>
-              <p className="text-gray-500 text-lg">
+              <p className="text-muted-foreground text-lg">
                 Track workload and completion metrics across your team
               </p>
             </div>
           </header>
 
           <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-3">
-            <Card className="macos-card border-none bg-white/60">
+            <Card className="macos-card border-none bg-white/60 dark:bg-white/[0.08]">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Assigned Tasks</CardTitle>
                 <Users className="h-4 w-4 text-blue-500" />
@@ -48,7 +48,7 @@ function TeamPerformanceContent() {
               </CardContent>
             </Card>
 
-            <Card className="macos-card border-none bg-white/60">
+            <Card className="macos-card border-none bg-white/60 dark:bg-white/[0.08]">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Completed</CardTitle>
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -58,7 +58,7 @@ function TeamPerformanceContent() {
               </CardContent>
             </Card>
 
-            <Card className="macos-card border-none bg-white/60">
+            <Card className="macos-card border-none bg-white/60 dark:bg-white/[0.08]">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Overdue</CardTitle>
                 <AlertCircle className="h-4 w-4 text-red-500" />
@@ -71,7 +71,7 @@ function TeamPerformanceContent() {
 
           <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3 mt-8">
             {teamStats?.map((stat: any) => (
-              <Card key={stat.user.id} className="macos-card border-none bg-white/80 hover:bg-white transition-colors duration-200">
+              <Card key={stat.user.id} className="macos-card border-none bg-white/80 dark:bg-white/[0.1] hover:bg-white dark:hover:bg-white/10 transition-colors duration-200">
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center gap-4 mb-6">
                     <Avatar className="h-12 w-12 rounded-full border-2 border-primary/10">
@@ -91,7 +91,7 @@ function TeamPerformanceContent() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Completed</p>
-                      <p className="text-2xl font-semibold text-green-600">{stat.completed}</p>
+                      <p className="text-2xl font-semibold text-green-600 dark:text-green-300">{stat.completed}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Overdue</p>
@@ -99,7 +99,7 @@ function TeamPerformanceContent() {
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Est. Hours</p>
-                      <p className="text-2xl font-semibold text-blue-600">{stat.totalEstimatedHours}h</p>
+                      <p className="text-2xl font-semibold text-blue-600 dark:text-blue-300">{stat.totalEstimatedHours}h</p>
                     </div>
                   </div>
                   

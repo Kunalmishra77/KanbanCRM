@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import agentixLogo from "@/assets/agentix-logo.png";
+import agentixLogoDark from "@/assets/agentix-logo-dark.png";
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -62,12 +63,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       <div className="h-16 flex items-center justify-between px-4 mb-2">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <img src={agentixLogo} alt="AGENTiX" className="h-12 w-auto" />
+            <img src={agentixLogo} alt="AGENTiX" className="h-12 w-auto dark:hidden" />
+            <img src={agentixLogoDark} alt="AGENTiX" className="h-12 w-auto hidden dark:block" />
           </div>
         )}
         {collapsed && (
           <div className="mx-auto">
-            <img src={agentixLogo} alt="AGENTiX" className="h-10 w-10 object-contain" />
+            <img src={agentixLogo} alt="AGENTiX" className="h-10 w-10 object-contain dark:hidden" />
+            <img src={agentixLogoDark} alt="AGENTiX" className="h-10 w-10 object-contain hidden dark:block" />
           </div>
         )}
         {!collapsed && (
@@ -76,7 +79,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
             aria-label="Collapse sidebar"
-            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 hidden sm:flex"
+            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 hidden sm:flex"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -87,7 +90,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           size="icon"
           onClick={onMobileClose}
           aria-label="Close menu"
-          className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 sm:hidden"
+          className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 sm:hidden"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -99,7 +102,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             size="icon"
             onClick={() => setCollapsed(!collapsed)}
             aria-label="Expand sidebar"
-            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 mx-auto"
+            className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 mx-auto"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -136,11 +139,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Bottom Actions */}
-      <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-black/5 space-y-2">
+      <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-black/5 dark:border-white/10 space-y-2">
         <Link href="/settings" onClick={onMobileClose}>
           <div
             className={cn(
-              "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 hover:bg-black/5 text-muted-foreground hover:text-foreground",
+              "flex items-center px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground",
               collapsed && "justify-center px-0"
             )}
           >
@@ -229,7 +232,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                 <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-black/5" />
+            <DropdownMenuSeparator className="bg-black/5 dark:bg-white/10" />
             <DropdownMenuItem
               className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary"
               onClick={() => setLocation("/settings")}
@@ -242,7 +245,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             >
               Settings
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-black/5" />
+            <DropdownMenuSeparator className="bg-black/5 dark:bg-white/10" />
             <DropdownMenuItem
               className="rounded-lg cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
               onClick={logout}

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import agentixLogo from '../assets/agentix-full-logo.png';
+import agentixLogoDark from '../assets/agentix-full-logo-dark.png';
 
 export default function Login() {
   const { login, isLoading } = useAuth();
@@ -20,11 +21,12 @@ export default function Login() {
 
       <div className="w-full max-w-md z-10 px-4">
         <div className="mb-8 text-center space-y-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <img src={agentixLogo} alt="AGENTiX" className="h-32 mx-auto mb-4" />
+          <img src={agentixLogo} alt="AGENTiX" className="h-32 mx-auto mb-4 dark:hidden" />
+          <img src={agentixLogoDark} alt="AGENTiX" className="h-32 mx-auto mb-4 hidden dark:block" />
           <p className="text-muted-foreground text-lg">Workspace for the modern era.</p>
         </div>
 
-        <Card className="macos-panel border-white/40 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+        <Card className="macos-panel border-white/40 dark:border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
           <CardHeader className="space-y-1 text-center pb-2">
             <CardTitle className="text-xl">Welcome</CardTitle>
             <CardDescription>Sign in with your preferred account to continue</CardDescription>
@@ -33,7 +35,7 @@ export default function Login() {
             {loginError && (
               <div
                 role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                className="rounded-lg border border-red-200 dark:border-red-500/40 bg-red-50 dark:bg-red-500/20 px-3 py-2 text-sm text-red-700 dark:text-red-300"
                 data-testid="login-error"
               >
                 {loginError === "not_registered"
@@ -74,7 +76,7 @@ export default function Login() {
               )}
             </Button>
           </CardContent>
-          <CardFooter className="justify-center border-t border-black/5 pt-4 pb-4">
+          <CardFooter className="justify-center border-t border-black/5 dark:border-white/10 pt-4 pb-4">
             <p className="text-sm text-muted-foreground text-center">
               Access is limited to registered AGENTiX team members.
             </p>

@@ -125,8 +125,8 @@ export default function Internal() {
         <Card className="macos-card border-none" data-testid="stat-card-team">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-blue-100/50">
-                <Users className="h-6 w-6 text-blue-600" />
+              <div className="p-3 rounded-xl bg-blue-100/50 dark:bg-blue-500/20">
+                <Users className="h-6 w-6 text-blue-600 dark:text-blue-300" />
               </div>
             </div>
             <div>
@@ -142,8 +142,8 @@ export default function Internal() {
         <Card className="macos-card border-none" data-testid="stat-card-investment">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-green-100/50">
-                <IndianRupee className="h-6 w-6 text-green-600" />
+              <div className="p-3 rounded-xl bg-green-100/50 dark:bg-green-500/20">
+                <IndianRupee className="h-6 w-6 text-green-600 dark:text-green-300" />
               </div>
             </div>
             <div>
@@ -159,8 +159,8 @@ export default function Internal() {
         <Card className="macos-card border-none" data-testid="stat-card-shareholding">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-purple-100/50">
-                <PieChart className="h-6 w-6 text-purple-600" />
+              <div className="p-3 rounded-xl bg-purple-100/50 dark:bg-purple-500/20">
+                <PieChart className="h-6 w-6 text-purple-600 dark:text-purple-300" />
               </div>
             </div>
             <div>
@@ -732,7 +732,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
                 </Avatar>
                 <div>
                   <h4 className="font-semibold">{user.firstName} {user.lastName}</h4>
-                  <p className="text-xl font-bold text-green-600">₹{total.toLocaleString('en-IN')}</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-300">₹{total.toLocaleString('en-IN')}</p>
                 </div>
               </div>
             </CardContent>
@@ -756,8 +756,8 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
                   data-testid={`investment-row-${inv.id}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-100/50">
-                      <IndianRupee className="h-4 w-4 text-green-600" />
+                    <div className="p-2 rounded-lg bg-green-100/50 dark:bg-green-500/20">
+                      <IndianRupee className="h-4 w-4 text-green-600 dark:text-green-300" />
                     </div>
                     <div>
                       <p className="font-medium">{getUserName(inv.userId)}</p>
@@ -766,7 +766,7 @@ function InvestmentsSection({ investments, users }: { investments: FounderInvest
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <p className="font-semibold text-green-600">₹{Number(inv.amount).toLocaleString('en-IN')}</p>
+                      <p className="font-semibold text-green-600 dark:text-green-300">₹{Number(inv.amount).toLocaleString('en-IN')}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {format(new Date(inv.investedOn), 'MMM d, yyyy')}
@@ -874,7 +874,7 @@ function ShareholdingSection({ coFounders, totalShareholding }: { coFounders: Us
             <div className="pt-4 border-t">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-gray-200" />
+                  <div className="w-3 h-3 rounded-full bg-muted" />
                   <span className="font-medium text-muted-foreground">Unallocated</span>
                 </div>
                 <span className="font-semibold text-muted-foreground">{(100 - totalShareholding).toFixed(1)}%</span>
@@ -896,10 +896,10 @@ function ActivitySection({ activityLog, users }: { activityLog: ActivityLog[], u
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'created': return 'bg-green-100 text-green-700';
-      case 'updated': return 'bg-blue-100 text-blue-700';
-      case 'deleted': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'created': return 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300';
+      case 'updated': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300';
+      case 'deleted': return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300';
+      default: return 'bg-muted text-foreground/80';
     }
   };
 
@@ -1062,11 +1062,11 @@ function DocumentsSection({ documents, users }: { documents: InternalDocument[],
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'legal': return 'bg-red-100 text-red-700';
-      case 'financial': return 'bg-green-100 text-green-700';
-      case 'contracts': return 'bg-blue-100 text-blue-700';
-      case 'general': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'legal': return 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300';
+      case 'financial': return 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300';
+      case 'contracts': return 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300';
+      case 'general': return 'bg-muted text-foreground/80';
+      default: return 'bg-muted text-foreground/80';
     }
   };
 

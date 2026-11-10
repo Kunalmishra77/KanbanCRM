@@ -34,12 +34,12 @@ export function EntityTimeline({ clientId }: { clientId: string }) {
   return (
     <div className="relative pl-6 py-4 space-y-6">
       {/* Vertical line */}
-      <div className="absolute left-[27px] top-4 bottom-4 w-px bg-black/10" />
+      <div className="absolute left-[27px] top-4 bottom-4 w-px bg-black/10 dark:bg-white/10" />
 
       {timeline.map((item: any) => (
         <div key={item.id} className="relative">
           {/* Timeline Dot */}
-          <div className="absolute -left-[30px] top-1 h-6 w-6 rounded-full border-2 border-white flex items-center justify-center bg-gray-100 text-gray-500 shadow-sm z-10">
+          <div className="absolute -left-[30px] top-1 h-6 w-6 rounded-full border-2 border-white flex items-center justify-center bg-muted text-muted-foreground shadow-sm z-10">
             {item.type === 'story' && <FileText className="h-3 w-3 text-blue-500" />}
             {item.type === 'invoice' && <Receipt className="h-3 w-3 text-green-500" />}
             {item.type === 'communication' && <MessageSquare className="h-3 w-3 text-purple-500" />}
@@ -57,7 +57,7 @@ export function EntityTimeline({ clientId }: { clientId: string }) {
               </span>
             </div>
 
-            <div className="bg-white/40 border border-black/5 rounded-xl p-3 shadow-sm inline-block min-w-[280px] max-w-full">
+            <div className="bg-white/40 dark:bg-white/[0.05] border border-black/5 dark:border-white/10 rounded-xl p-3 shadow-sm inline-block min-w-[280px] max-w-full">
               {item.type === 'story' && (
                 <div>
                   <div className="font-medium">{item.data.title}</div>

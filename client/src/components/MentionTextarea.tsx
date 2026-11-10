@@ -64,10 +64,10 @@ export function MentionTextarea({ value, onChange, className, ...rest }: Props) 
         }}
       />
       {query !== null && matches.length > 0 && (
-        <ul role="listbox" aria-label="Mention a teammate" data-testid="mention-list" className="absolute z-50 left-0 right-0 bottom-full mb-1 max-h-56 overflow-auto rounded-xl border bg-white shadow-lg p-1">
+        <ul role="listbox" aria-label="Mention a teammate" data-testid="mention-list" className="absolute z-50 left-0 right-0 bottom-full mb-1 max-h-56 overflow-auto rounded-xl border bg-white dark:bg-card shadow-lg p-1">
           {matches.map((m, i) => (
             <li key={m.id} role="option" aria-selected={i === active}>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(m.name)} className={cn("w-full text-left rounded-lg px-3 py-2 min-h-[44px] flex items-center justify-between gap-2", i === active ? "bg-primary/10" : "hover:bg-black/5")}>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(m.name)} className={cn("w-full text-left rounded-lg px-3 py-2 min-h-[44px] flex items-center justify-between gap-2", i === active ? "bg-primary/10" : "hover:bg-black/5 dark:hover:bg-white/10")}>
                 <span className="text-sm font-medium truncate">{m.name}</span>
                 {m.team && <span className="text-xs text-muted-foreground shrink-0">{m.team}</span>}
               </button>

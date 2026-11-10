@@ -28,6 +28,7 @@ export type Rule = {
   active: boolean;
   assigneeIds: string[];
   team: string | null; // when set, every current member of the team
+  excludeIds?: string[]; // team members who are left out (e.g. the team head); ignored when no team is set
 };
 export type Person = { id: string; firstName: string | null; lastName: string | null; team: string | null; workPattern: string | null; userType: string };
 export type Leave = { userId: string; startDate: string; endDate: string };
@@ -79,7 +80,7 @@ export function planStories(input: { rules: Rule[]; people: Person[]; leaves: Le
   for (const rule of input.rules) {
     if (!ruleRunsOn(rule, input.date)) continue;
     const targets = rule.team
-      ? input.people.filter((p) => p.team === rule.team && p.userType !== "founder")
+      ? input.people.filter((p) => p.team === rule.team && p.userType !== "founder" && !(rule.excludeIds || []).includes(p.id))
       : input.people.filter((p) => rule.assigneeIds.includes(p.id));
     for (const person of targets) {
       const key = occurrenceKey(rule.id, person.id, input.date);

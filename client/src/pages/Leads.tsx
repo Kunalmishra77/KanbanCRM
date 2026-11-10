@@ -27,13 +27,13 @@ const INDUSTRIES = [
 ];
 
 const STAGE_COLORS: Record<LeadStage, string> = {
-  New: "bg-blue-500/10 text-blue-600 border-blue-200",
-  Contacted: "bg-purple-500/10 text-purple-600 border-purple-200",
-  "Proposal Sent": "bg-orange-500/10 text-orange-600 border-orange-200",
-  Negotiation: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
-  Hold: "bg-amber-500/10 text-amber-700 border-amber-200",
-  Won: "bg-green-500/10 text-green-600 border-green-200",
-  Lost: "bg-gray-500/10 text-gray-600 border-gray-200",
+  New: "bg-blue-500/10 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-500/40",
+  Contacted: "bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-200 dark:border-purple-500/40",
+  "Proposal Sent": "bg-orange-500/10 text-orange-600 dark:text-orange-300 border-orange-200 dark:border-orange-500/40",
+  Negotiation: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-500/40",
+  Hold: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/40",
+  Won: "bg-green-500/10 text-green-600 dark:text-green-300 border-green-200 dark:border-green-500/40",
+  Lost: "bg-gray-500/10 text-foreground/80 border-border",
 };
 
 const STAGE_HEADER_COLORS: Record<LeadStage, string> = {
@@ -435,7 +435,7 @@ export default function Leads() {
                             
                             {/* Lead Identity & Industry */}
                             <div className="flex items-center gap-4 min-w-[240px] max-w-[340px] shrink-0">
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/15 to-violet-500/15 flex items-center justify-center border border-white/20 shrink-0">
+                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/15 to-violet-500/15 flex items-center justify-center border border-white/20 dark:border-white/10 shrink-0">
                                 <Briefcase className="h-5 w-5 text-primary" />
                               </div>
                               <div className="space-y-1 truncate">
@@ -447,7 +447,7 @@ export default function Leads() {
                                     {lead.name}
                                   </h3>
                                   {lead.stage === "Won" && (
-                                    <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] font-semibold gap-1">
+                                    <Badge className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/40 text-[10px] font-semibold gap-1">
                                       <Trophy className="h-2.5 w-2.5" />
                                       Won
                                     </Badge>
@@ -500,7 +500,7 @@ export default function Leads() {
                               {lead.estimatedValue ? (
                                 <div className="space-y-0.5">
                                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Est. Value</span>
-                                  <div className="flex items-center text-base sm:text-lg font-bold text-green-600">
+                                  <div className="flex items-center text-base sm:text-lg font-bold text-green-600 dark:text-green-300">
                                     <IndianRupee className="h-4 w-4 mr-0.5" />
                                     {Number(lead.estimatedValue).toLocaleString("en-IN")}
                                   </div>
@@ -540,7 +540,7 @@ export default function Leads() {
                                       Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                      className="cursor-pointer text-green-600 focus:text-green-700"
+                                      className="cursor-pointer text-green-600 dark:text-green-300 focus:text-green-700"
                                       onClick={() => openConvertModal(lead)}
                                     >
                                       <ArrowRightLeft className="h-4 w-4 mr-2" />
@@ -577,7 +577,7 @@ export default function Leads() {
               return (
                 <div
                   key={stage}
-                  className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 h-full`}
+                  className={`min-w-[260px] w-[80vw] sm:w-[280px] flex flex-col snap-center shrink-0 rounded-xl border border-white/10 dark:border-white/10 border-t-4 ${STAGE_HEADER_COLORS[stage]} bg-white/5 dark:bg-white/[0.05] h-full`}
                 >
                   {/* Column Header */}
                   <div className="px-4 py-3 flex items-center justify-between shrink-0">
@@ -635,12 +635,12 @@ export default function Leads() {
                                 <div
                                   className={cn(
                                     "macos-card p-3 space-y-2 relative group/card cursor-grab group-active:cursor-grabbing hover:border-primary/30 transition-colors",
-                                    snapshot.isDragging && "shadow-xl ring-2 ring-primary/30 bg-white"
+                                    snapshot.isDragging && "shadow-xl ring-2 ring-primary/30 bg-white dark:bg-card"
                                   )}
                                 >
                                   {/* Won celebration badge */}
                                   {lead.stage === "Won" && (
-                                    <div className="flex items-center gap-1 text-green-600 text-xs font-semibold mb-1">
+                                    <div className="flex items-center gap-1 text-green-600 dark:text-green-300 text-xs font-semibold mb-1">
                                       <Trophy className="h-3 w-3" />
                                       Won!
                                     </div>
@@ -682,7 +682,7 @@ export default function Leads() {
                                             Edit
                                           </DropdownMenuItem>
                                           <DropdownMenuItem
-                                            className="cursor-pointer text-green-600 focus:text-green-700"
+                                            className="cursor-pointer text-green-600 dark:text-green-300 focus:text-green-700"
                                             onClick={(e) => { e.stopPropagation(); openConvertModal(lead); }}
                                           >
                                             <ArrowRightLeft className="h-4 w-4 mr-2" />
@@ -711,7 +711,7 @@ export default function Leads() {
 
                                   {/* Last Contacted Badge */}
                                   {lead.updatedAt && (
-                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 w-fit px-1.5 py-0.5 rounded-sm">
+                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground bg-black/5 dark:bg-white/10 w-fit px-1.5 py-0.5 rounded-sm">
                                       <MessageSquare className="h-3 w-3" />
                                       Last Contacted: {new Date(lead.updatedAt).toLocaleDateString()}
                                     </div>
@@ -728,7 +728,7 @@ export default function Leads() {
                                       </Badge>
                                     )}
                                     {lead.estimatedValue && (
-                                      <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 ml-auto">
+                                      <div className="flex items-center gap-0.5 text-xs font-semibold text-green-600 dark:text-green-300 ml-auto">
                                         <IndianRupee className="h-3 w-3" />
                                         {Number(lead.estimatedValue).toLocaleString("en-IN")}
                                       </div>
@@ -762,7 +762,7 @@ export default function Leads() {
 
           {editingLead ? (
             <Tabs defaultValue="details" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4 bg-white/40">
+              <TabsList className="grid w-full grid-cols-2 mb-4 bg-white/40 dark:bg-white/[0.05]">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="notes">Notes & Comments</TabsTrigger>
               </TabsList>
@@ -983,7 +983,7 @@ export default function Leads() {
         <DialogContent className="macos-panel sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ArrowRightLeft className="h-5 w-5 text-green-600" />
+              <ArrowRightLeft className="h-5 w-5 text-green-600 dark:text-green-300" />
               Convert Lead to Client
             </DialogTitle>
             <DialogDescription>

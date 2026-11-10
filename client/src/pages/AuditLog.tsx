@@ -57,8 +57,8 @@ function AuditLogContent() {
         <p className="text-muted-foreground mt-1">Complete trail of all actions and changes across the system.</p>
       </div>
 
-      <Card className="glass-panel border-white/20">
-        <CardHeader className="border-b border-black/5 bg-white/40 pb-4">
+      <Card className="glass-panel border-white/20 dark:border-white/10">
+        <CardHeader className="border-b border-black/5 dark:border-white/10 bg-white/40 dark:bg-white/[0.05] pb-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <CardTitle className="text-xl flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
@@ -71,7 +71,7 @@ function AuditLogContent() {
                   placeholder="Search details..." 
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 bg-white/60"
+                  className="pl-9 bg-white/60 dark:bg-white/[0.08]"
                 />
               </div>
             </div>
@@ -81,7 +81,7 @@ function AuditLogContent() {
             <div className="space-y-1.5 flex-1 max-w-[200px]">
               <Label className="text-xs text-muted-foreground">User</Label>
               <Select value={filterUser} onValueChange={setFilterUser}>
-                <SelectTrigger className="bg-white/60 h-8">
+                <SelectTrigger className="bg-white/60 dark:bg-white/[0.08] h-8">
                   <SelectValue placeholder="All Users" />
                 </SelectTrigger>
                 <SelectContent>
@@ -97,7 +97,7 @@ function AuditLogContent() {
             <div className="space-y-1.5 flex-1 max-w-[200px]">
               <Label className="text-xs text-muted-foreground">Entity Type</Label>
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="bg-white/60 h-8">
+                <SelectTrigger className="bg-white/60 dark:bg-white/[0.08] h-8">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -123,14 +123,14 @@ function AuditLogContent() {
               No matching activity found.
             </div>
           ) : (
-            <div className="divide-y divide-black/5">
+            <div className="divide-y divide-black/5 dark:divide-white/10">
               {filteredLogs.map((log: any) => (
-                <div key={log.id} className="p-4 hover:bg-white/40 transition-colors flex gap-4">
+                <div key={log.id} className="p-4 hover:bg-white/40 dark:hover:bg-white/10 transition-colors flex gap-4">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-lg flex-shrink-0">
                     {getEntityIcon(log.entityType)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-foreground/80">
                       {log.details}
                     </p>
                     <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">

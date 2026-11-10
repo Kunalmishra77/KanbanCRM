@@ -214,7 +214,7 @@ export default function SalaryIncentives() {
                 className={`text-left rounded-xl p-3 border transition-all duration-150 flex items-center gap-3 group ${
                   isSelected
                     ? 'bg-primary/10 border-primary/40 shadow-sm'
-                    : 'bg-white/60 border-black/5 hover:bg-white/90 hover:border-primary/20 hover:shadow-sm'
+                    : 'bg-white/60 dark:bg-white/[0.08] border-black/5 dark:border-white/10 hover:bg-white/90 dark:hover:bg-white/10 hover:border-primary/20 hover:shadow-sm'
                 }`}
               >
                 <Avatar className={`h-10 w-10 shrink-0 ${isSelected ? 'ring-2 ring-primary/40' : ''}`}>
@@ -250,8 +250,8 @@ export default function SalaryIncentives() {
             </Card>
             <Card className="macos-card border-none">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                  <Gift className="h-5 w-5 text-amber-600" />
+                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                  <Gift className="h-5 w-5 text-amber-600 dark:text-amber-300" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Incentives</p>
@@ -261,8 +261,8 @@ export default function SalaryIncentives() {
             </Card>
             <Card className="macos-card border-none">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Compensation</p>
@@ -301,7 +301,7 @@ export default function SalaryIncentives() {
                     <XAxis dataKey="period" fontSize={11} tickLine={false} axisLine={false} stroke="#888" />
                     <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="#888" tickFormatter={v => `₹${v >= 1000 ? (v/1000)+'k' : v}`} />
                     <Tooltip
-                      contentStyle={{ borderRadius: '10px', border: 'none', background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                      contentStyle={{ borderRadius: '10px', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                       formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
                     />
                     <Legend iconSize={10} wrapperStyle={{ fontSize: '12px' }} />

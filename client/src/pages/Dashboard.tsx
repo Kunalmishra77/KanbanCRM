@@ -132,10 +132,10 @@ export default function Dashboard() {
           >
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-xl bg-green-100/50">
-                  <IndianRupee className="h-6 w-6 text-green-600" />
+                <div className="p-3 rounded-xl bg-green-100/50 dark:bg-green-500/20">
+                  <IndianRupee className="h-6 w-6 text-green-600 dark:text-green-300" />
                 </div>
-                <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300">
                   <TrendingUp className="h-3 w-3" />
                   {collectionRate}% collected
                 </div>
@@ -148,7 +148,7 @@ export default function Dashboard() {
                 <div className="h-px bg-border" />
                 <div>
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Received Revenue</h3>
-                  <div className="text-xl font-semibold tracking-tight text-green-600">₹{totalReceived.toLocaleString('en-IN')}</div>
+                  <div className="text-xl font-semibold tracking-tight text-green-600 dark:text-green-300">₹{totalReceived.toLocaleString('en-IN')}</div>
                 </div>
               </div>
             </CardContent>
@@ -161,10 +161,10 @@ export default function Dashboard() {
         >
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-blue-100/50">
-                <Briefcase className="h-6 w-6 text-blue-600" />
+              <div className="p-3 rounded-xl bg-blue-100/50 dark:bg-blue-500/20">
+                <Briefcase className="h-6 w-6 text-blue-600 dark:text-blue-300" />
               </div>
-              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300">
                 <ArrowUpRight className="h-3 w-3" />
                 +{newClientsLast30Days} new (30d)
               </div>
@@ -177,7 +177,7 @@ export default function Dashboard() {
               <div className="h-px bg-border" />
               <div>
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Clients</h3>
-                <div className="text-xl font-semibold tracking-tight text-blue-600">{activeClients}</div>
+                <div className="text-xl font-semibold tracking-tight text-blue-600 dark:text-blue-300">{activeClients}</div>
               </div>
             </div>
           </CardContent>
@@ -189,10 +189,10 @@ export default function Dashboard() {
         >
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-orange-100/50">
-                <Users className="h-6 w-6 text-orange-600" />
+              <div className="p-3 rounded-xl bg-orange-100/50 dark:bg-orange-500/20">
+                <Users className="h-6 w-6 text-orange-600 dark:text-orange-300" />
               </div>
-              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+              <div className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300">
                 <ArrowUpRight className="h-3 w-3" />
                 Pipeline
               </div>
@@ -205,7 +205,7 @@ export default function Dashboard() {
               <div className="h-px bg-border" />
               <div>
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active Leads</h3>
-                <div className="text-xl font-semibold tracking-tight text-orange-600">{activeLeads}</div>
+                <div className="text-xl font-semibold tracking-tight text-orange-600 dark:text-orange-300">{activeLeads}</div>
               </div>
             </div>
           </CardContent>
@@ -216,8 +216,8 @@ export default function Dashboard() {
           icon={Clock} 
           trend={`${storiesDueSoon} due in 7 days`}
           trendUp={false}
-          color="text-orange-600"
-          bgColor="bg-orange-100/50"
+          color="text-orange-600 dark:text-orange-300"
+          bgColor="bg-orange-100/50 dark:bg-orange-500/20"
           onClick={() => setLocation('/global-kanban')}
         />
         <StatCard 
@@ -226,8 +226,8 @@ export default function Dashboard() {
           icon={CheckCircle2} 
           trend={`${completedStories}/${totalStories} done`}
           trendUp={true}
-          color="text-purple-600"
-          bgColor="bg-purple-100/50"
+          color="text-purple-600 dark:text-purple-300"
+          bgColor="bg-purple-100/50 dark:bg-purple-500/20"
           onClick={() => setLocation('/insights/completion')}
         />
         <StatCard 
@@ -236,7 +236,7 @@ export default function Dashboard() {
           icon={UserMinus} 
           trend="Lost"
           trendUp={false}
-          color="text-gray-600"
+          color="text-foreground/80"
           bgColor="bg-gray-100/50"
           onClick={() => setLocation('/clients?stage=Dropped')}
         />
@@ -297,11 +297,10 @@ export default function Dashboard() {
                     dx={-10}
                   />
                   <Tooltip 
-                    cursor={{fill: 'rgba(0,0,0,0.05)'}}
+                    cursor={{fill: 'hsl(var(--muted-foreground) / 0.12)'}}
                     contentStyle={{ 
                       borderRadius: '12px', 
-                      border: 'none', 
-                      background: 'rgba(255,255,255,0.9)', 
+                      background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))', 
                       backdropFilter: 'blur(12px)', 
                       boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
                       padding: '12px'
@@ -355,8 +354,7 @@ export default function Dashboard() {
                   <Tooltip 
                     contentStyle={{ 
                       borderRadius: '12px', 
-                      border: 'none', 
-                      background: 'rgba(255,255,255,0.9)', 
+                      background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))', 
                       backdropFilter: 'blur(12px)', 
                       boxShadow: '0 8px 30px rgba(0,0,0,0.12)' 
                     }} 
@@ -417,7 +415,7 @@ export default function Dashboard() {
                   </div>
                   <Progress value={achievedPct} className="h-3" />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span className={cn(achievedPct >= 100 ? "text-green-600 font-medium" : achievedPct >= 70 ? "text-orange-600" : "text-red-600")}>{achievedPct.toFixed(0)}% of target achieved</span>
+                    <span className={cn(achievedPct >= 100 ? "text-green-600 dark:text-green-300 font-medium" : achievedPct >= 70 ? "text-orange-600 dark:text-orange-300" : "text-red-600 dark:text-red-300")}>{achievedPct.toFixed(0)}% of target achieved</span>
                     <span>{achievedPct < 100 ? `₹${(targetAmt - totalReceived).toLocaleString('en-IN')} remaining` : 'Target reached!'}</span>
                   </div>
                 </div>
@@ -445,7 +443,7 @@ export default function Dashboard() {
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                   Overdue Tasks
                   {overdueTasks.length > 0 && (
-                    <span className="ml-auto text-xs font-medium bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{overdueTasks.length}</span>
+                    <span className="ml-auto text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">{overdueTasks.length}</span>
                   )}
                 </CardTitle>
               </CardHeader>
@@ -453,7 +451,7 @@ export default function Dashboard() {
                 {overdueTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground px-6 py-2">No overdue tasks.</p>
                 ) : (
-                  <div className="divide-y divide-black/5 max-h-[220px] overflow-y-auto">
+                  <div className="divide-y divide-black/5 dark:divide-white/10 max-h-[220px] overflow-y-auto">
                     {overdueTasks.slice(0, 8).map((s: Story) => {
                       const client = clients.find((c: Client) => c.id === s.clientId);
                       return (
@@ -566,8 +564,8 @@ export default function Dashboard() {
             <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="p-3 rounded-xl bg-amber-100/60">
-                    <Gift className="h-5 w-5 text-amber-600" />
+                  <div className="p-3 rounded-xl bg-amber-100/60 dark:bg-amber-500/20">
+                    <Gift className="h-5 w-5 text-amber-600 dark:text-amber-300" />
                   </div>
                 </div>
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This Month Incentives</h3>
@@ -578,8 +576,8 @@ export default function Dashboard() {
             <Card className="macos-card border-none cursor-pointer hover:-translate-y-1 transition-transform duration-300" onClick={() => setLocation('/salary')}>
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="p-3 rounded-xl bg-emerald-100/60">
-                    <TrendingUp className="h-5 w-5 text-emerald-600" />
+                  <div className="p-3 rounded-xl bg-emerald-100/60 dark:bg-emerald-500/20">
+                    <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
                   </div>
                 </div>
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Payroll This Month</h3>
@@ -611,7 +609,7 @@ export default function Dashboard() {
                     <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888" dx={-8} tickFormatter={formatAxisRupees} />
                     <Tooltip
                       cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                      contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.95)', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', padding: '12px' }}
+                      contentStyle={{ borderRadius: '12px', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', padding: '12px' }}
                       formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, '']}
                     />
                     <Legend iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
@@ -631,16 +629,16 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-orange-500" />
             Active Bottlenecks
-            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{bottleneckStories.length}</span>
+            <span className="text-xs bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full">{bottleneckStories.length}</span>
           </h2>
           <Card className="macos-card border-none shadow-sm overflow-hidden">
             <CardContent className="p-0">
-              <div className="divide-y divide-black/5">
+              <div className="divide-y divide-black/5 dark:divide-white/10">
                 {bottleneckStories.map(({story, bottleneck}: any) => {
                   const client = clients.find(c => c.id === story.clientId);
                   const borderClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('border-'))?.replace('border-', 'border-l-4 border-') || 'border-l-4 border-gray-400';
-                  const bgClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('bg-')) || 'bg-gray-50';
-                  const textClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('text-')) || 'text-gray-700';
+                  const bgClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('bg-')) || 'bg-muted';
+                  const textClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('text-')) || 'text-foreground/80';
                   
                   return (
                     <div key={story.id} className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4", borderClass, bgClass, textClass)}>
@@ -650,7 +648,7 @@ export default function Dashboard() {
                       </div>
                       <div className="text-sm font-medium pl-4 text-right">
                          <div className="flex items-center gap-1.5 justify-end">
-                            <span className="bg-white/60 px-2 py-0.5 rounded-md shadow-sm border border-black/5 uppercase tracking-wide text-[10px]">{bottleneck.type}</span>
+                            <span className="bg-white/60 dark:bg-white/[0.08] px-2 py-0.5 rounded-md shadow-sm border border-black/5 dark:border-white/10 uppercase tracking-wide text-[10px]">{bottleneck.type}</span>
                          </div>
                          <p className="text-xs mt-1 opacity-90">{bottleneck.description}</p>
                       </div>
@@ -708,7 +706,7 @@ function StatCard({ title, value, icon: Icon, trend, trendUp, color, bgColor, on
           <div className="flex items-center gap-2">
             <div className={cn(
               "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full",
-              trendUp ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+              trendUp ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300" : "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300"
             )}>
               {trendUp ? <ArrowUpRight className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
               {trend}

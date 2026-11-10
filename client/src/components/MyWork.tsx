@@ -16,9 +16,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const STATUSES = ["To Do", "In Progress", "Blocked", "Review", "Done"] as const;
 
 const TEMPS = [
-  { stage: "Hot", icon: Flame, tone: "text-red-600 bg-red-50 border-red-200" },
-  { stage: "Warm", icon: Sun, tone: "text-amber-600 bg-amber-50 border-amber-200" },
-  { stage: "Cold", icon: Snowflake, tone: "text-sky-600 bg-sky-50 border-sky-200" },
+  { stage: "Hot", icon: Flame, tone: "text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/20 border-red-200 dark:border-red-500/40" },
+  { stage: "Warm", icon: Sun, tone: "text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/40" },
+  { stage: "Cold", icon: Snowflake, tone: "text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/20 border-sky-200 dark:border-sky-500/40" },
 ] as const;
 
 /**
@@ -61,9 +61,9 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
 
   const tiles = [
     { label: "Assigned to me", value: stats.total, sub: `${stats.open} open`, icon: ListTodo, tone: "bg-primary/10 text-primary" },
-    { label: "Overdue", value: stats.overdue, sub: "need attention", icon: AlertTriangle, tone: "bg-red-100 text-red-600" },
-    { label: "Due in 7 days", value: stats.dueSoon, sub: "coming up", icon: CalendarClock, tone: "bg-amber-100 text-amber-600" },
-    { label: "Completed", value: stats.byStatus["Done"], sub: "done", icon: CheckCircle2, tone: "bg-green-100 text-green-600" },
+    { label: "Overdue", value: stats.overdue, sub: "need attention", icon: AlertTriangle, tone: "bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-300" },
+    { label: "Due in 7 days", value: stats.dueSoon, sub: "coming up", icon: CalendarClock, tone: "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300" },
+    { label: "Completed", value: stats.byStatus["Done"], sub: "done", icon: CheckCircle2, tone: "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-300" },
   ];
 
   return (
@@ -75,7 +75,7 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AtSign className="h-4 w-4 text-primary" /> Mentioned you ({mentions.length})</CardTitle></CardHeader>
           <CardContent className="space-y-1">
             {mentions.slice(0, 8).map((m) => (
-              <button key={m.id} type="button" onClick={() => setLocation(`/clients/${m.clientId}`)} className="w-full min-w-0 text-left rounded-lg px-2 py-2 hover:bg-black/5 min-h-[44px]">
+              <button key={m.id} type="button" onClick={() => setLocation(`/clients/${m.clientId}`)} className="w-full min-w-0 text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
                 <span className="block text-sm break-words"><b>{m.authorName || "Someone"}</b>: <MentionText body={m.body} /></span>
                 <span className="block text-xs text-muted-foreground truncate">{m.storyTitle} · {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
               </button>
@@ -138,13 +138,13 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
                   key={s.id}
                   type="button"
                   onClick={() => setLocation(`/clients/${s.clientId}`)}
-                  className="w-full min-w-0 flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/5 min-h-[44px]"
+                  className="w-full min-w-0 flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{s.title}</span>
                     <span className="block text-xs text-muted-foreground truncate">{clientName(s.clientId)}</span>
                   </span>
-                  <span className={cn("text-xs shrink-0", late ? "text-red-600 font-semibold" : "text-muted-foreground")}>
+                  <span className={cn("text-xs shrink-0", late ? "text-red-600 dark:text-red-300 font-semibold" : "text-muted-foreground")}>
                     {format(new Date(s.dueDate), "d MMM")}
                   </span>
                 </button>

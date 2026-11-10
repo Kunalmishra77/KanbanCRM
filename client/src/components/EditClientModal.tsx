@@ -151,7 +151,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="macos-panel border-none sm:max-w-[650px] p-0 overflow-hidden max-h-[90vh]">
-        <div className="p-4 sm:p-6 border-b border-black/5 bg-white/50">
+        <div className="p-4 sm:p-6 border-b border-black/5 dark:border-white/10 bg-white/50 dark:bg-white/[0.08]">
           <DialogHeader>
             <DialogTitle className="text-xl">Edit Client</DialogTitle>
             <DialogDescription>Update client details and contact information.</DialogDescription>
@@ -159,7 +159,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
         </div>
 
         <ScrollArea className="max-h-[60vh]">
-          <div className="p-4 sm:p-6 space-y-5 bg-white/30">
+          <div className="p-4 sm:p-6 space-y-5 bg-white/30 dark:bg-white/[0.05]">
             <div className="space-y-2">
               <Label htmlFor="edit-client-name">Company Name *</Label>
               <Input
@@ -171,8 +171,8 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
               />
             </div>
 
-            <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-4">
-              <Label className="flex items-center gap-2 text-blue-700 font-medium">
+            <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-500/40 bg-blue-50/50 dark:bg-blue-500/20 space-y-4">
+              <Label className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium">
                 <User className="h-4 w-4" />
                 Client Contact Details
               </Label>
@@ -253,7 +253,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
             {canViewFinance && (
             <div className="space-y-2">
               <Label htmlFor="edit-revenue" className="flex items-center gap-2">
-                <IndianRupee className="h-4 w-4 text-green-600" />
+                <IndianRupee className="h-4 w-4 text-green-600 dark:text-green-300" />
                 Expected Revenue
               </Label>
               <div className="relative">
@@ -282,15 +282,15 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
               />
             </div>
 
-            <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-3">
-              <Label className="flex items-center gap-2 text-purple-700 font-medium">
+            <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-500/40 bg-purple-50/50 dark:bg-purple-500/20 space-y-3">
+              <Label className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-medium">
                 <FileUp className="h-4 w-4" />
                 Proposal Document
               </Label>
 
               {proposalFile ? (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-white/60 border border-purple-100">
-                  <FileText className="h-5 w-5 text-purple-600" />
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-white/60 dark:bg-white/[0.08] border border-purple-100 dark:border-purple-500/40">
+                  <FileText className="h-5 w-5 text-purple-600 dark:text-purple-300" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{proposalFile.name}</p>
                     <p className="text-xs text-muted-foreground">{(proposalFile.size / 1024).toFixed(1)} KB</p>
@@ -306,8 +306,8 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
                   </Button>
                 </div>
               ) : existingProposalName && !removeProposal ? (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-white/60 border border-purple-100">
-                  <FileText className="h-5 w-5 text-purple-600" />
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-white/60 dark:bg-white/[0.08] border border-purple-100 dark:border-purple-500/40">
+                  <FileText className="h-5 w-5 text-purple-600 dark:text-purple-300" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{existingProposalName}</p>
                     <p className="text-xs text-muted-foreground">Current proposal</p>
@@ -347,14 +347,14 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
                   />
                 </div>
               )}
-              <p className="text-xs text-purple-600">
+              <p className="text-xs text-purple-600 dark:text-purple-300">
                 Upload a proposal, quote, or contract document (PDF, DOC, XLS, PPT - max 5MB)
               </p>
             </div>
           </div>
         </ScrollArea>
 
-        <DialogFooter className="p-4 sm:p-6 border-t border-black/5 bg-white/50">
+        <DialogFooter className="p-4 sm:p-6 border-t border-black/5 dark:border-white/10 bg-white/50 dark:bg-white/[0.08]">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
@@ -364,7 +364,7 @@ export function EditClientModal({ open, onOpenChange, client }: EditClientModalP
           <Button
             onClick={handleSubmit}
             disabled={!isValid || isPending || isUploading}
-            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
+            className="bg-primary hover:bg-primary/90 text-white dark:text-primary-foreground shadow-lg shadow-primary/20"
           >
             {(isPending || isUploading) ? (
               <>

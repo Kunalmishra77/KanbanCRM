@@ -354,7 +354,8 @@ export class DatabaseStorage implements IStorage {
       repeat: data.repeat, weekday: data.repeat === 'weekly' ? (data.weekday ?? null) : null,
       monthDay: data.repeat === 'monthly' ? (data.monthDay ?? null) : null,
       dueTime: data.dueTime || null, startDate: data.startDate, endDate: data.endDate || null,
-      active: data.active ?? true, assigneeIds: data.team ? [] : data.assigneeIds, team: data.team || null, createdBy,
+      active: data.active ?? true, assigneeIds: data.team ? [] : data.assigneeIds, team: data.team || null,
+      excludeIds: data.team ? (data.excludeIds || []) : [], createdBy,
     }).returning();
     return row;
   }

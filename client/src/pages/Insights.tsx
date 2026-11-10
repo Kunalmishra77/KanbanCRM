@@ -92,8 +92,8 @@ export function RevenueInsight() {
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-green-100/50">
-                <IndianRupee className="h-6 w-6 text-green-600" />
+              <div className="p-3 rounded-xl bg-green-100/50 dark:bg-green-500/20">
+                <IndianRupee className="h-6 w-6 text-green-600 dark:text-green-300" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
@@ -105,8 +105,8 @@ export function RevenueInsight() {
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-blue-100/50">
-                <Briefcase className="h-6 w-6 text-blue-600" />
+              <div className="p-3 rounded-xl bg-blue-100/50 dark:bg-blue-500/20">
+                <Briefcase className="h-6 w-6 text-blue-600 dark:text-blue-300" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Avg per Client</p>
@@ -118,8 +118,8 @@ export function RevenueInsight() {
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-purple-100/50">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
+              <div className="p-3 rounded-xl bg-purple-100/50 dark:bg-purple-500/20">
+                <TrendingUp className="h-6 w-6 text-purple-600 dark:text-purple-300" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Top Client</p>
@@ -148,7 +148,7 @@ export function RevenueInsight() {
                   <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value/1000}k`} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                    contentStyle={{ borderRadius: '12px', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))', backdropFilter: 'blur(12px)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
                     formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Revenue']}
                   />
                   <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[6, 6, 0, 0]} />
@@ -172,7 +172,7 @@ export function RevenueInsight() {
                     ))}
                   </Pie>
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.9)' }}
+                    contentStyle={{ borderRadius: '12px', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))' }}
                     formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Revenue']}
                   />
                 </PieChart>
@@ -198,7 +198,7 @@ export function RevenueInsight() {
         <CardContent>
           <div className="space-y-4">
             {sortedClients.map((client, index) => (
-              <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 hover:bg-white/60 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`revenue-client-${client.id}`}>
+              <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`revenue-client-${client.id}`}>
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
                   {index + 1}
                 </div>
@@ -207,9 +207,9 @@ export function RevenueInsight() {
                   <p className="text-sm text-muted-foreground">{client.industry}</p>
                 </div>
                 <Badge variant="outline" className={cn(
-                  client.stage === 'Hot' ? 'bg-red-100 text-red-700 border-red-200' :
-                  client.stage === 'Warm' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                  'bg-gray-100 text-gray-700 border-gray-200'
+                  client.stage === 'Hot' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40' :
+                  client.stage === 'Warm' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-500/40' :
+                  'bg-muted text-foreground/80 border-border'
                 )}>
                   {client.stage}
                 </Badge>
@@ -260,28 +260,28 @@ export function ClientsInsight() {
       </div>
 
       <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-3">
-        <Card className="macos-card border-none bg-red-50/50">
+        <Card className="macos-card border-none bg-red-50/50 dark:bg-red-500/20">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">Hot Clients</p>
-                <p className="text-3xl font-bold text-red-600">{hotClients.length}</p>
+                <p className="text-3xl font-bold text-red-600 dark:text-red-300">{hotClients.length}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-red-600" />
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-red-600 dark:text-red-300" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="macos-card border-none bg-yellow-50/50">
+        <Card className="macos-card border-none bg-yellow-50/50 dark:bg-yellow-500/20">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">Warm Clients</p>
-                <p className="text-3xl font-bold text-yellow-600">{warmClients.length}</p>
+                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-300">{warmClients.length}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                <Briefcase className="h-6 w-6 text-yellow-600" />
+              <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-500/20 flex items-center justify-center">
+                <Briefcase className="h-6 w-6 text-yellow-600 dark:text-yellow-300" />
               </div>
             </div>
           </CardContent>
@@ -291,10 +291,10 @@ export function ClientsInsight() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-muted-foreground">Cold Clients</p>
-                <p className="text-3xl font-bold text-gray-600">{coldClients.length}</p>
+                <p className="text-3xl font-bold text-foreground/80">{coldClients.length}</p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-gray-600" />
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                <Clock className="h-6 w-6 text-foreground/80" />
               </div>
             </div>
           </CardContent>
@@ -319,7 +319,7 @@ export function ClientsInsight() {
                 const progress = getClientProgress(client.id);
                 const storyCount = getClientStories(client.id).length;
                 return (
-                  <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 hover:bg-white/60 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`client-row-${client.id}`}>
+                  <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`client-row-${client.id}`}>
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
                       {client.name.charAt(0)}
                     </div>
@@ -392,25 +392,25 @@ export function StoriesInsight() {
       <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-4">
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
-            <p className="text-3xl font-bold text-orange-600">{pendingStories.length}</p>
+            <p className="text-3xl font-bold text-orange-600 dark:text-orange-300">{pendingStories.length}</p>
             <p className="text-sm text-muted-foreground">Total Pending</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
-            <p className="text-3xl font-bold text-gray-600">{todoStories.length}</p>
+            <p className="text-3xl font-bold text-foreground/80">{todoStories.length}</p>
             <p className="text-sm text-muted-foreground">To Do</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
-            <p className="text-3xl font-bold text-blue-600">{inProgressStories.length}</p>
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">{inProgressStories.length}</p>
             <p className="text-sm text-muted-foreground">In Progress</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
-            <p className="text-3xl font-bold text-purple-600">{reviewStories.length}</p>
+            <p className="text-3xl font-bold text-purple-600 dark:text-purple-300">{reviewStories.length}</p>
             <p className="text-sm text-muted-foreground">In Review</p>
           </CardContent>
         </Card>
@@ -423,12 +423,12 @@ export function StoriesInsight() {
         <CardContent>
           <div className="space-y-3">
             {sortedPending.map((story) => (
-              <div key={story.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 hover:bg-white/60 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${story.clientId}`)} data-testid={`story-row-${story.id}`}>
+              <div key={story.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${story.clientId}`)} data-testid={`story-row-${story.id}`}>
                 <Badge variant="outline" className={cn(
                   "w-20 justify-center",
-                  story.priority === 'High' ? 'bg-red-100 text-red-700 border-red-200' :
-                  story.priority === 'Medium' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                  'bg-gray-100 text-gray-700 border-gray-200'
+                  story.priority === 'High' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/40' :
+                  story.priority === 'Medium' ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-500/40' :
+                  'bg-muted text-foreground/80 border-border'
                 )}>
                   {story.priority}
                 </Badge>
@@ -437,9 +437,9 @@ export function StoriesInsight() {
                   <p className="text-sm text-muted-foreground">{getClientName(story.clientId)}</p>
                 </div>
                 <Badge variant="outline" className={cn(
-                  story.status === 'To Do' ? 'bg-gray-100 text-gray-700' :
-                  story.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                  'bg-purple-100 text-purple-700'
+                  story.status === 'To Do' ? 'bg-muted text-foreground/80' :
+                  story.status === 'In Progress' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300' :
+                  'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
                 )}>
                   {story.status}
                 </Badge>
@@ -533,7 +533,7 @@ export function CompletionInsight() {
           <CardContent className="p-4 sm:p-6">
             <div className="relative h-32 w-32 mx-auto">
               <svg className="w-full h-full transform -rotate-90">
-                <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="12" fill="none" className="text-gray-200" />
+                <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="12" fill="none" className="text-border" />
                 <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="12" fill="none" strokeDasharray={`${completionRate * 3.52} 352`} strokeLinecap="round" className="text-green-500 transition-all duration-1000" />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -545,13 +545,13 @@ export function CompletionInsight() {
         </Card>
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
-            <p className="text-3xl font-bold text-green-600">{completedStories.length}</p>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-300">{completedStories.length}</p>
             <p className="text-sm text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
         <Card className="macos-card border-none">
           <CardContent className="p-4 sm:p-6 text-center">
-            <p className="text-3xl font-bold text-orange-600">{totalStories - completedStories.length}</p>
+            <p className="text-3xl font-bold text-orange-600 dark:text-orange-300">{totalStories - completedStories.length}</p>
             <p className="text-sm text-muted-foreground">Pending</p>
           </CardContent>
         </Card>
@@ -577,7 +577,7 @@ export function CompletionInsight() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.9)' }} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -603,7 +603,7 @@ export function CompletionInsight() {
                   <XAxis type="number" domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
                   <YAxis type="category" dataKey="name" width={60} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.9)' }}
+                    contentStyle={{ borderRadius: '12px', background: 'hsl(var(--popover))', color: 'hsl(var(--popover-foreground))', border: '1px solid hsl(var(--border))' }}
                     formatter={(value: number, name: string, props: any) => [`${value}%`, 'Completion Rate']}
                   />
                   <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
@@ -621,7 +621,7 @@ export function CompletionInsight() {
         <CardContent>
           <div className="space-y-4">
             {clientCompletion.map((client: any) => (
-              <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 hover:bg-white/60 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`completion-client-${client.id}`}>
+              <div key={client.id} className="flex items-center gap-4 p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] hover:bg-white/60 dark:hover:bg-white/10 transition-colors cursor-pointer" onClick={() => setLocation(`/clients/${client.id}`)} data-testid={`completion-client-${client.id}`}>
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
                   {client.fullName.charAt(0)}
                 </div>

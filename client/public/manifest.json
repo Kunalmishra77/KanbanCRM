@@ -1,7 +1,7 @@
 {
   "id": "/",
   "name": "AGENTiX CRM",
-  "short_name": "AGENTiX",
+  "short_name": "AGENTiX CRM",
   "description": "AGENTiX Kanban CRM - clients, leads, stories and team in one workspace",
   "start_url": "/?source=pwa",
   "scope": "/",

@@ -21,10 +21,10 @@ import { useState } from "react";
 const USER_TYPE_LABELS: Record<string, string> = ROLE_LABELS;
 
 const USER_TYPE_BADGE: Record<string, string> = {
-  'founder': 'bg-purple-100 text-purple-700 border-purple-200',
-  'hr': 'bg-blue-100 text-blue-700 border-blue-200',
-  'accountant': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  'employee': 'bg-gray-100 text-gray-700 border-gray-200',
+  'founder': 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/40',
+  'hr': 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/40',
+  'accountant': 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/40',
+  'employee': 'bg-muted text-foreground/80 border-border',
 };
 
 export default function Settings() {
@@ -154,7 +154,7 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-3">
               {(allUsers as any[]).map((u: any) => (
-                <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-secondary/40 border border-black/5">
+                <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-secondary/40 border border-black/5 dark:border-white/10">
                   <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={u.profileImageUrl || undefined} />

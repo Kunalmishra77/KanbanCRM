@@ -350,6 +350,7 @@ export const recurringTasks = pgTable("recurring_tasks", {
   active: boolean("active").default(true).notNull(),
   assigneeIds: text("assignee_ids").array().default(sql`ARRAY[]::text[]`).notNull(),
   team: text("team"), // when set, every current member of this team
+  excludeIds: text("exclude_ids").array().default(sql`ARRAY[]::text[]`).notNull(), // people in that team who do NOT get it (e.g. the team head)
   createdBy: varchar("created_by", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -370,6 +371,7 @@ export const recurringTaskInputSchema = z.object({
   active: z.boolean().optional(),
   assigneeIds: z.array(z.string()).default([]),
   team: z.string().nullable().optional(),
+  excludeIds: z.array(z.string()).default([]),
 }).superRefine((v, ctx) => {
   if (v.repeat === 'weekly' && (v.weekday === null || v.weekday === undefined)) ctx.addIssue({ code: 'custom', message: 'Pick the day of the week', path: ['weekday'] });
   if (v.repeat === 'monthly' && !v.monthDay) ctx.addIssue({ code: 'custom', message: 'Pick the day of the month', path: ['monthDay'] });
