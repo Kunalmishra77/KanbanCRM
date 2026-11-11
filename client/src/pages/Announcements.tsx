@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearch } from "wouter";
 import { useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement, useDeleteAnnouncement } from "@/lib/queries";
-import { useAuth, useIsFounder } from "@/lib/auth";
+import { useAuth, useIsFounder, usePerm } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -38,13 +39,26 @@ export default function Announcements() {
   const { mutate: createAnnouncement, isPending: isCreating } = useCreateAnnouncement();
   const { mutate: updateAnnouncement, isPending: isUpdating } = useUpdateAnnouncement();
   const { mutate: deleteAnnouncement } = useDeleteAnnouncement();
-  const isFounder = useIsFounder();
+  const isFounder = usePerm("manageAnnouncements"); // may post / edit / delete
   const { toast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [toDelete, setToDelete] = useState<Announcement | null>(null);
   const [form, setForm] = useState<AnnouncementForm>(defaultForm);
+
+  // Opened from the ticker or a notification (/announcements?id=<id>): scroll to it and flash it
+  const target = new URLSearchParams(useSearch()).get("id");
+  const [flashed, setFlashed] = useState<string | null>(null);
+  useEffect(() => {
+    if (!target || flashed === target) return;
+    const el = document.querySelector(`[data-ann="${CSS.escape(target)}"]`) as HTMLElement | null;
+    if (!el) return;
+    setFlashed(target);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary");
+    setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 4000);
+  });
 
   // Sort: pinned first, then by date descending
   const sorted = [...announcements].sort((a: Announcement, b: Announcement) => {
@@ -133,7 +147,8 @@ export default function Announcements() {
           {sorted.map((ann: Announcement) => (
             <div
               key={ann.id}
-              className={`macos-card p-5 space-y-3 ${ann.isPinned ? "border border-primary/20 ring-1 ring-primary/10" : ""}`}
+              data-ann={ann.id}
+              className={`macos-card p-5 space-y-3 transition-shadow ${ann.isPinned ? "border border-primary/20 ring-1 ring-primary/10" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">

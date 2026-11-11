@@ -386,7 +386,7 @@ export default function Leads() {
             </Button>
           </div>
 
-          {isFounder && (
+          {(
             <Button className="gap-2 shadow-lg shadow-primary/20 shrink-0" onClick={openAddModal}>
               <Plus className="h-4 w-4" />
               Add Lead
@@ -520,7 +520,7 @@ export default function Leads() {
                               >
                                 View Details & Notes
                               </Button>
-                              {isFounder && (
+                              {(
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button
@@ -649,7 +649,7 @@ export default function Leads() {
                                   {/* Card header: company + menu */}
                                   <div className="flex items-start justify-between gap-2">
                                     <p className="font-semibold text-sm leading-tight">{lead.name}</p>
-                                    {isFounder && (
+                                    {(
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                           <Button

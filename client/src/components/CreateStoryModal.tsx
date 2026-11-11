@@ -15,6 +15,7 @@ import { useClients, useCreateStory, useUsers } from "@/lib/queries";
 import { useAuth, useIsFounder } from "@/lib/auth";
 import { useCreateRecurringTask } from "@/lib/serviceQueries";
 import { TEAMS } from "@shared/teams";
+import { AssigneePicker } from "@/components/AssigneePicker";
 import { WEEKDAYS } from "@shared/schedule";
 import { istDate } from "@shared/istDate";
 
@@ -81,17 +82,19 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
 
     if (repeat !== "none") {
       setError("");
-      if (forTeam === "team" && !team) return setError("Choose the team.");
-      if (forTeam === "person" && assignedTo === "unassigned") return setError("Choose the person, or pick a whole team.");
+      // Only founders may set repeating tasks up for other people or teams; everyone else gets them themselves
+      const self = !isFounder;
+      if (!self && forTeam === "team" && !team) return setError("Choose the team.");
+      if (!self && forTeam === "person" && assignedTo === "unassigned") return setError("Choose the person, or pick a whole team.");
       createRecurring({
         clientId, title: title.trim(), description: description.trim(), priority, repeat,
         weekday: repeat === "weekly" ? Number(weekday) : null,
         monthDay: repeat === "monthly" ? Number(monthDay) : null,
         dueTime: dueTime === "end" ? null : dueTime,
         startDate: istDate(),
-        team: forTeam === "team" ? team : null,
-        excludeIds: forTeam === "team" ? excluded : [],
-        assigneeIds: forTeam === "person" ? [assignedTo] : [],
+        team: !self && forTeam === "team" ? team : null,
+        excludeIds: !self && forTeam === "team" ? excluded : [],
+        assigneeIds: self ? [user!.id] : forTeam === "person" ? [assignedTo] : [],
       }, { onSuccess: () => { resetForm(); onOpenChange(false); }, onError: (e: Error) => setError(e.message) });
       return;
     }
@@ -166,19 +169,13 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             </div>
             <div className="space-y-2">
               <Label>Assignee</Label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
-                <SelectTrigger className="macos-input" data-testid="select-story-assignee">
-                  <SelectValue placeholder="Select assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((u: any) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.firstName} {u.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AssigneePicker
+                users={users}
+                value={assignedTo}
+                onChange={setAssignedTo}
+                className="macos-input h-10"
+                testId="select-story-assignee"
+              />
             </div>
           </div>
 
@@ -204,7 +201,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
             />
           </div>
 
-          {isFounder && (
+          {(
             <div className="space-y-3 rounded-xl border bg-white/50 dark:bg-white/[0.08] p-3" data-testid="repeat-section">
               <div className="space-y-2">
                 <Label>Repeat</Label>
@@ -251,6 +248,9 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                       <Input type="time" className="macos-input" value={dueTime} onChange={(e) => setDueTime(e.target.value || "19:00")} data-testid="input-due-time" />
                     </div>
                   )}
+                  {!isFounder ? (
+                    <p className="text-xs text-muted-foreground sm:col-span-2">This repeating task will be created for you.</p>
+                  ) : (
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Create it for</Label>
                     <Select value={forTeam} onValueChange={setForTeam}>
@@ -261,7 +261,8 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                       </SelectContent>
                     </Select>
                   </div>
-                  {forTeam === "team" && (
+                  )}
+                  {isFounder && forTeam === "team" && (
                     <div className="space-y-2 sm:col-span-2">
                       <Label>Team</Label>
                       <Select value={team} onValueChange={(v) => { setTeam(v); setExcluded([]); }}>
@@ -270,7 +271,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                       </Select>
                     </div>
                   )}
-                  {forTeam === "team" && team && (
+                  {isFounder && forTeam === "team" && team && (
                     <div className="space-y-2 sm:col-span-2" data-testid="team-members">
                       <Label>Who gets it <span className="font-normal text-muted-foreground">(untick anyone to leave them out, e.g. the team head)</span></Label>
                       <div className="rounded-lg border border-black/10 dark:border-white/10 divide-y divide-black/5 dark:divide-white/10 max-h-48 overflow-y-auto">

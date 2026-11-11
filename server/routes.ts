@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupGoogleAuth, isAuthenticated, requireRole } from "./googleAuth.js";
-import { perms, isRole, ROLES, canDecideRequest } from "../shared/roles.js";
+import { perms, isRole, ROLES, canDecideRequest, canSeeStory, canDeleteStory } from "../shared/roles.js";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
@@ -12,6 +12,7 @@ import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
 import { generateRecurringStories } from "./lib/recurring.js";
+import { eventsHandler, broadcastOnWrite } from "./lib/live.js";
 import { notifyRequestRaised, notifyRequestDecided, clearWithdrawn, personName as fullNameOf } from "./lib/notify.js";
 import { analyzeProposal, generateStatusEmail } from "./ai.js";
 
@@ -58,6 +59,10 @@ export async function registerRoutes(
   // Setup Google OAuth FIRST - this sets up session middleware
   await setupGoogleAuth(app);
 
+  // Live updates: any successful write tells every open tab to refresh what it shows
+  app.use("/api", broadcastOnWrite);
+  app.get("/api/events", isAuthenticated, eventsHandler);
+
   // Malformed ids in the URL are "not found", not a database error
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   app.param(['storyId', 'clientId', 'leadId'], (_req, res, next, value) => {
@@ -67,9 +72,9 @@ export async function registerRoutes(
 
   const isFounder = perms.isFounder;
   const legacyRoleColumn = (userType: string) => (userType === 'founder' ? 'admin' : 'editor');
-  const requirePayrollView = requireRole(perms.viewPayroll, "Access denied. Founder, HR or Accountant role required.");
-  const requirePayrollEdit = requireRole(perms.editPayroll, "Access denied. Founder, HR or Accountant role required.");
-  const requireTeamManager = requireRole(perms.manageTeam, "Access denied. Founder or HR role required.");
+  const requirePayrollView = requireRole(perms.viewPayroll, "Access denied. Founder, Chief of Staff or Accountant role required.");
+  const requirePayrollEdit = requireRole(perms.editPayroll, "Access denied. Founder, Chief of Staff or Accountant role required.");
+  const requireTeamManager = requireRole(perms.manageTeam, "Access denied. Founder or Chief of Staff role required.");
 
   // File URLs that belong to a client (proposal, invoice files, story comment attachments).
   // Gathered before a client is removed, because their database rows disappear with it.
@@ -114,7 +119,7 @@ export async function registerRoutes(
     }
 
     // Invoices need finance access, internal documents are founder-only, matching their API routes
-    if ((bucket === 'invoices' && !perms.viewFinance(req.user)) || (bucket === 'documents' && !isFounder(req.user))) {
+    if ((bucket === 'invoices' && !perms.viewFinance(req.user)) || (bucket === 'documents' && !perms.manageInternal(req.user))) {
       return res.status(403).json({ error: "Access denied for this bucket" });
     }
 
@@ -140,7 +145,7 @@ export async function registerRoutes(
     if (!isUploadBucket(bucket) || !isValidStoredName(file)) {
       return res.status(404).json({ error: "File not found" });
     }
-    if ((bucket === 'invoices' && !perms.viewFinance(req.user)) || (bucket === 'documents' && !isFounder(req.user))) {
+    if ((bucket === 'invoices' && !perms.viewFinance(req.user)) || (bucket === 'documents' && !perms.manageInternal(req.user))) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -214,11 +219,12 @@ export async function registerRoutes(
       const clientId = req.params.id;
       
       const canSeeFinance = perms.viewFinance(req.user);
-      const [clientStories, clientInvoices, clientComms] = await Promise.all([
+      const [allClientStories, clientInvoices, clientComms] = await Promise.all([
         storage.getStoriesByClient(clientId),
         canSeeFinance ? storage.getInvoicesByClient(clientId) : Promise.resolve([]),
         storage.getCommunicationsByClient(clientId),
       ]);
+      const clientStories = allClientStories.filter((s) => canSeeStory(req.user, s));
       const allActivity = await storage.getActivityLogByEntities([
         clientId,
         ...clientStories.map(s => s.id),
@@ -268,9 +274,6 @@ export async function registerRoutes(
 
   app.post("/api/clients/:id/convert-to-lead", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only founders can convert clients to leads." });
-      }
 
       const client = await storage.getClient(req.params.id);
       if (!client) {
@@ -357,8 +360,8 @@ export async function registerRoutes(
 
   app.delete("/api/clients/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only founders can delete clients." });
+      if (!perms.deleteClients(req.user)) {
+        return res.status(403).json({ error: "Only founders can delete clients." });
       }
       const existing = await storage.getClient(req.params.id);
       // Collect file URLs first: the database rows cascade away with the client
@@ -383,6 +386,18 @@ export async function registerRoutes(
   });
 
   // Stories (all protected with authentication)
+  // Only founders and the chief of staff see every story; everyone else only the ones assigned to them.
+  // Anything addressed by story id answers 404 for a story the person may not see.
+  const storyAccess = async (req: any, res: any, next: any) => {
+    try {
+      const story = await storage.getStory(req.params.id || req.params.storyId);
+      if (!story || !canSeeStory(req.user, story)) return res.status(404).json({ error: "Story not found" });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+
   app.get("/api/stories", isAuthenticated, async (req: any, res) => {
     try {
       const clientId = req.query.clientId as string | undefined;
@@ -391,14 +406,14 @@ export async function registerRoutes(
         : await storage.getStories();
       // Finished repeating tasks older than a week would bury the boards; they stay in the history and the overview
       const weekAgo = Date.now() - 7 * 86400000;
-      res.json(storiesList.filter((s) => !(s.recurringTaskId && s.status === 'Done' && new Date(s.updatedAt).getTime() < weekAgo)));
+      res.json(storiesList.filter((s) => canSeeStory(req.user, s) && !(s.recurringTaskId && s.status === 'Done' && new Date(s.updatedAt).getTime() < weekAgo)));
     } catch (error) {
       console.error('Get stories error:', error);
       res.status(500).json({ error: "Failed to fetch stories" });
     }
   });
 
-  app.get("/api/stories/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stories/:id", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const story = await storage.getStory(req.params.id);
       if (!story) {
@@ -442,7 +457,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/stories/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/stories/:id", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const body = { ...req.body };
       delete body.recurringTaskId;
@@ -477,12 +492,12 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/stories/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/stories/:id", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
-      if (!perms.manageTeam(req.user)) {
-        return res.status(403).json({ error: "Access denied. Only admins can delete stories." });
-      }
       const existing = await storage.getStory(req.params.id);
+      if (!existing || !canDeleteStory(req.user, existing)) {
+        return res.status(403).json({ error: "You can only delete stories assigned to you." });
+      }
       const storyComments = await storage.getCommentsByStory(req.params.id);
       const success = await storage.deleteStory(req.params.id);
       if (!success) {
@@ -540,7 +555,7 @@ export async function registerRoutes(
   });
 
   // Comments (all protected with authentication)
-  app.get("/api/stories/:storyId/comments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stories/:storyId/comments", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const commentsList = await storage.getCommentsByStory(req.params.storyId);
       res.json(commentsList);
@@ -550,7 +565,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories/:storyId/comments", isAuthenticated, async (req: any, res) => {
+  app.post("/api/stories/:storyId/comments", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       // Author identity always comes from the session, never from the request body
       const data = insertCommentSchema.parse({
@@ -582,7 +597,7 @@ export async function registerRoutes(
   });
 
   // AI Email Draft Generation (protected)
-  app.post("/api/stories/:storyId/generate-email", isAuthenticated, async (req: any, res) => {
+  app.post("/api/stories/:storyId/generate-email", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const { storyId } = req.params;
       const { userNotes, progressPercent, senderName } = req.body;
@@ -628,7 +643,7 @@ export async function registerRoutes(
   });
 
   // Sent Emails - Store email when user clicks "Send" (protected)
-  app.get("/api/stories/:storyId/emails", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stories/:storyId/emails", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const emails = await storage.getSentEmailsByStory(req.params.storyId);
       res.json(emails);
@@ -638,7 +653,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories/:storyId/emails", isAuthenticated, async (req: any, res) => {
+  app.post("/api/stories/:storyId/emails", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const { storyId } = req.params;
 
@@ -944,8 +959,15 @@ export async function registerRoutes(
     }
   });
 
-  // ---- Repeating tasks (founders only) ----
-  const requireFounder = requireRole(perms.isFounder, "Founders only.");
+  // ---- Repeating tasks: founders for anyone; everyone else only their own, for themselves ----
+  const allRepeating = (u: any) => perms.manageAllRepeating(u);
+  const forSelf = (data: any, u: any) => (allRepeating(u) ? data : { ...data, team: null, excludeIds: [], assigneeIds: [u.id] });
+  const ownRule = async (req: any, res: any, next: any) => {
+    if (allRepeating(req.user)) return next();
+    const rule = (await storage.listRecurringTasks()).find((t) => t.id === req.params.id);
+    if (!rule || rule.createdBy !== req.user.id) return res.status(404).json({ error: "Repeating task not found" });
+    next();
+  };
   const validTargets = async (data: { team?: string | null; assigneeIds: string[] }) => {
     if (data.team && !isTeam(data.team)) return "Unknown team.";
     if (!data.team) {
@@ -955,18 +977,19 @@ export async function registerRoutes(
     return null;
   };
 
-  app.get("/api/recurring-tasks", requireFounder, async (_req, res) => {
+  app.get("/api/recurring-tasks", isAuthenticated, async (req: any, res) => {
     try {
-      res.json(await storage.listRecurringTasks());
+      const rules = await storage.listRecurringTasks();
+      res.json(allRepeating(req.user) ? rules : rules.filter((t) => t.createdBy === req.user.id));
     } catch (error) {
       console.error('List recurring tasks error:', error);
       res.status(500).json({ error: "Failed to fetch repeating tasks" });
     }
   });
 
-  app.post("/api/recurring-tasks", requireFounder, async (req: any, res) => {
+  app.post("/api/recurring-tasks", isAuthenticated, async (req: any, res) => {
     try {
-      const data = recurringTaskInputSchema.parse(req.body);
+      const data = forSelf(recurringTaskInputSchema.parse(req.body), req.user);
       const bad = await validTargets(data);
       if (bad) return res.status(400).json({ error: bad });
       if (!(await storage.getClient(data.clientId))) return res.status(404).json({ error: "Client not found" });
@@ -980,7 +1003,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/recurring-tasks/:id", requireFounder, async (req: any, res) => {
+  app.patch("/api/recurring-tasks/:id", isAuthenticated, ownRule, async (req: any, res) => {
     try {
       const body = req.body || {};
       const onlyToggle = Object.keys(body).length === 1 && typeof body.active === 'boolean';
@@ -988,7 +1011,7 @@ export async function registerRoutes(
       if (onlyToggle) {
         patch = { active: body.active };
       } else {
-        const data = recurringTaskInputSchema.parse(body);
+        const data = forSelf(recurringTaskInputSchema.parse(body), req.user);
         const bad = await validTargets(data);
         if (bad) return res.status(400).json({ error: bad });
         patch = { ...data, assigneeIds: data.team ? [] : data.assigneeIds, excludeIds: data.team ? data.excludeIds : [], team: data.team || null, dueTime: data.dueTime || null, endDate: data.endDate || null };
@@ -1005,7 +1028,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/recurring-tasks/:id", requireFounder, async (req, res) => {
+  app.delete("/api/recurring-tasks/:id", isAuthenticated, ownRule, async (req, res) => {
     try {
       if (!(await storage.deleteRecurringTask(req.params.id))) return res.status(404).json({ error: "Repeating task not found" });
       res.status(204).send(); // stories already created stay where they are
@@ -1046,7 +1069,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/requests/:id", requireRole(perms.approveRequests, "Access denied. Founder, Chief of Staff or HR role required."), async (req: any, res) => {
+  app.patch("/api/requests/:id", requireRole(perms.approveRequests, "Access denied. Founder or Chief of Staff role required."), async (req: any, res) => {
     try {
       const status = req.body?.status;
       if (status !== 'approved' && status !== 'rejected') return res.status(400).json({ error: "Status must be approved or rejected." });
@@ -1135,7 +1158,7 @@ export async function registerRoutes(
   app.get("/api/analytics/team", isAuthenticated, async (req: any, res) => {
     try {
       if (!perms.viewTeamStats(req.user)) {
-        return res.status(403).json({ error: "Access denied. Founder, Chief of Staff or HR role required." });
+        return res.status(403).json({ error: "Access denied. Founder or Chief of Staff role required." });
       }
 
       const allUsers = await storage.getAllUsers();
@@ -1168,7 +1191,7 @@ export async function registerRoutes(
     try {
       const usersList = await storage.getAllUsers();
       // Everyone needs names to assign tasks; contact details and shareholding are for managers only
-      if (!perms.manageTeam(req.user) && !perms.viewPayroll(req.user)) {
+      if (!perms.viewContactDetails(req.user)) {
         return res.json(usersList.map((u) => ({
           id: u.id,
           firstName: u.firstName,
@@ -1283,7 +1306,7 @@ export async function registerRoutes(
   // Founder Investments (verified by email allowlist)
   app.get("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can view investments" });
       }
 
@@ -1297,7 +1320,7 @@ export async function registerRoutes(
 
   app.post("/api/founder-investments", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can add investments" });
       }
 
@@ -1319,7 +1342,7 @@ export async function registerRoutes(
 
   app.patch("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can update investments" });
       }
 
@@ -1345,7 +1368,7 @@ export async function registerRoutes(
 
   app.delete("/api/founder-investments/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can delete investments" });
       }
 
@@ -1364,7 +1387,7 @@ export async function registerRoutes(
   // Internal Documents (founders only)
   app.get("/api/internal-documents", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can view documents" });
       }
 
@@ -1378,7 +1401,7 @@ export async function registerRoutes(
 
   app.post("/api/internal-documents", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can add documents" });
       }
 
@@ -1399,7 +1422,7 @@ export async function registerRoutes(
 
   app.patch("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can update documents" });
       }
 
@@ -1422,7 +1445,7 @@ export async function registerRoutes(
 
   app.delete("/api/internal-documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.manageInternal(req.user)) {
         return res.status(403).json({ error: "Only founders can delete documents" });
       }
 
@@ -1466,9 +1489,6 @@ export async function registerRoutes(
 
   app.post("/api/leads", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Only founders can create leads" });
-      }
       const data = insertLeadSchema.parse({ ...req.body, ownerId: req.user.id });
       const lead = await storage.createLead(data);
 
@@ -1494,9 +1514,6 @@ export async function registerRoutes(
 
   app.patch("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Only founders can update leads" });
-      }
       const data = updateLeadSchema.parse(req.body);
       const lead = await storage.updateLead(req.params.id, data);
       if (!lead) {
@@ -1514,9 +1531,6 @@ export async function registerRoutes(
 
   app.delete("/api/leads/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Only founders can delete leads" });
-      }
       const success = await storage.deleteLead(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Lead not found" });
@@ -1544,7 +1558,7 @@ export async function registerRoutes(
 
   app.post("/api/revenue-targets", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
+      if (!perms.setRevenueTargets(req.user)) {
         return res.status(403).json({ error: "Only founders can set revenue targets" });
       }
       const data = insertRevenueTargetSchema.parse({
@@ -1623,14 +1637,25 @@ export async function registerRoutes(
 
   app.post("/api/announcements", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Only founders can post announcements" });
+      if (!perms.manageAnnouncements(req.user)) {
+        return res.status(403).json({ error: "Only founders, the Chief of Staff or HR can post announcements" });
       }
       const data = insertAnnouncementSchema.parse({
         ...req.body,
         postedBy: req.user.firstName || req.user.email || req.user.id,
       });
       const announcement = await storage.createAnnouncement(data);
+      // Pop-up for everyone else (a failure here must not undo the announcement)
+      try {
+        const everyone = (await storage.getAllUsers()).filter((u) => u.id !== req.user.id);
+        await storage.createNotifications(everyone.map((u) => ({
+          userId: u.id, type: "announcement", entityType: "announcement", entityId: announcement.id, link: "/announcements",
+          title: `📢 ${announcement.title}`,
+          message: `${announcement.postedBy}: ${String(announcement.body).slice(0, 160)}`,
+        })));
+      } catch (e) {
+        console.error('Announcement notifications error:', e);
+      }
       res.status(201).json(announcement);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -1643,8 +1668,8 @@ export async function registerRoutes(
 
   app.patch("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Only founders can update announcements" });
+      if (!perms.manageAnnouncements(req.user)) {
+        return res.status(403).json({ error: "Only founders, the Chief of Staff or HR can edit announcements" });
       }
       const data = updateAnnouncementSchema.parse(req.body);
       const announcement = await storage.updateAnnouncement(req.params.id, data);
@@ -1663,8 +1688,8 @@ export async function registerRoutes(
 
   app.delete("/api/announcements/:id", isAuthenticated, async (req: any, res) => {
     try {
-      if (!isFounder(req.user)) {
-        return res.status(403).json({ error: "Only founders can delete announcements" });
+      if (!perms.manageAnnouncements(req.user)) {
+        return res.status(403).json({ error: "Only founders, the Chief of Staff or HR can delete announcements" });
       }
       const success = await storage.deleteAnnouncement(req.params.id);
       if (!success) {

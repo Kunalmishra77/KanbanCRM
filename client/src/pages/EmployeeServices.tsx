@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,19 @@ export default function EmployeeServices() {
   const raise = useRaiseRequest();
   const decide = useDecideRequest();
   const withdraw = useWithdrawRequest();
+
+  // Opened from a notification (/services?request=<id>): scroll to that request and flash it
+  const target = new URLSearchParams(useSearch()).get("request");
+  const [flashed, setFlashed] = useState<string | null>(null);
+  useEffect(() => {
+    if (!target || flashed === target) return;
+    const el = document.querySelector(`[data-req="${CSS.escape(target)}"]`) as HTMLElement | null;
+    if (!el) return; // not rendered yet; runs again when the lists load
+    setFlashed(target);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background");
+    setTimeout(() => el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-background"), 4000);
+  });
 
   const nameOf = (id: string) => fullName((users as any[]).find((u) => u.id === id)) || "Unknown";
   // Only the requests this person is actually allowed to decide (the server enforces the same rule)
@@ -144,7 +158,7 @@ export default function EmployeeServices() {
           <CardContent className="space-y-2">
             {pending.length === 0 && <p className="text-sm text-muted-foreground">Nothing to approve.</p>}
             {pending.map((r) => (
-              <div key={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3" data-testid={`pending-${nameOf(r.userId)}-${r.type}`}>
+              <div key={r.id} data-req={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3" data-testid={`pending-${nameOf(r.userId)}-${r.type}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{nameOf(r.userId)} · {KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""}</p>
@@ -182,7 +196,7 @@ export default function EmployeeServices() {
           <CardContent className="space-y-2">
             {decided.length === 0 && <p className="text-sm text-muted-foreground">Nothing has been approved or rejected yet.</p>}
             {decided.map((r) => (
-              <div key={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3 flex items-start justify-between gap-2" data-testid={`logged-${r.id}`}>
+              <div key={r.id} data-req={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3 flex items-start justify-between gap-2" data-testid={`logged-${r.id}`}>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">{nameOf(r.userId)} · {KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""} <span className="font-normal text-muted-foreground">· {span(r)}</span></p>
                   <p className="text-xs text-muted-foreground">{decisionLine(r)}</p>
@@ -201,7 +215,7 @@ export default function EmployeeServices() {
           {isLoading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
           {!isLoading && mine.length === 0 && <p className="text-sm text-muted-foreground">You have not raised any requests yet.</p>}
           {(mine as EmployeeRequest[]).map((r) => (
-            <div key={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3 flex items-start justify-between gap-2">
+            <div key={r.id} data-req={r.id} className="rounded-xl border bg-white/60 dark:bg-white/[0.08] p-3 flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{KIND_LABEL[r.type]}{r.type === "ot" ? ` · ${Number(r.hours)}h` : ""} <span className="font-normal text-muted-foreground">· {span(r)}</span></p>
                 <p className="text-xs text-muted-foreground break-words">{r.reason}</p>

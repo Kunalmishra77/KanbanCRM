@@ -108,7 +108,7 @@ export default function Clients() {
           </p>
         </div>
         <div className="flex w-full sm:w-auto flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          {canManageTeam && (
+          {(
             <Button
               className="w-full sm:w-auto gap-2 shadow-lg shadow-primary/20"
               onClick={() => setIsCreateOpen(true)}
@@ -239,7 +239,7 @@ export default function Clients() {
                                 View Details
                               </Button>
                             </Link>
-                            {canManageTeam && (
+                            {(
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -254,7 +254,7 @@ export default function Clients() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="macos-panel">
-                                  {isFounder && (
+                                  {(
                                     <DropdownMenuItem
                                       className="cursor-pointer text-orange-600 dark:text-orange-300 focus:text-orange-700"
                                       onClick={(e) => {
@@ -278,6 +278,7 @@ export default function Clients() {
                                     <Pencil className="h-4 w-4 mr-2" />
                                     Edit Client
                                   </DropdownMenuItem>
+                                  {isFounder && (
                                   <DropdownMenuItem
                                     className="text-destructive focus:text-destructive cursor-pointer"
                                     onClick={(e) => {
@@ -289,6 +290,7 @@ export default function Clients() {
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete Client
                                   </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}

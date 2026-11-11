@@ -86,6 +86,9 @@ export function useCanApproveRequests() {
 export function useCanViewOverview() {
   return perms.viewOverview(useAuth().user);
 }
+export function usePerm(name: keyof typeof perms) {
+  return perms[name](useAuth().user);
+}
 export function useCanViewTeamStats() {
   return perms.viewTeamStats(useAuth().user);
 }

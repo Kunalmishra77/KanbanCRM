@@ -18,7 +18,7 @@ const when = (t: RecurringTask) =>
 
 export default function RecurringTasks() {
   const isFounder = useIsFounder();
-  const { data: tasks = [], isLoading } = useRecurringTasks(isFounder);
+  const { data: tasks = [], isLoading } = useRecurringTasks(true);
   const { data: clients = [] } = useClients();
   const { data: users = [] } = useUsers();
   const toggle = useToggleRecurringTask();
@@ -26,7 +26,6 @@ export default function RecurringTasks() {
   const [adding, setAdding] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
 
-  if (!isFounder) return <RestrictedNotice message="Repeating tasks are managed by founders." />;
 
   const clientName = (id: string) => (clients as any[]).find((c) => c.id === id)?.name || "Client";
   const who = (t: RecurringTask) =>
@@ -37,7 +36,7 @@ export default function RecurringTasks() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Repeating tasks</h1>
-          <p className="text-muted-foreground">Set a task once. A fresh story is created for each person on every working day, week or month.</p>
+          <p className="text-muted-foreground">{isFounder ? "Set a task once. A fresh story is created for each person on every working day, week or month." : "Set up tasks that repeat for you. A fresh story is created for you on every working day, week or month."}</p>
         </div>
         <Button className="h-11 gap-2" onClick={() => setAdding(true)} data-testid="add-repeating"><Plus className="h-4 w-4" />New task</Button>
       </div>

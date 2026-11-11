@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieCha
 import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil, Gift, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAuth, useCanViewFinance, useCanManageTeam, useCanViewPayroll, useIsFounder, useCanViewOverview } from "@/lib/auth";
+import { useAuth, useCanViewFinance, useCanManageTeam, useCanViewPayroll, useIsFounder, useCanViewOverview, usePerm } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,14 @@ import { format, subMonths } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
 import { MyWork } from "@/components/MyWork";
 import { FounderOverview } from "@/components/FounderOverview";
+import { AnnouncementTicker } from "@/components/AnnouncementTicker";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const canViewFinance = useCanViewFinance();
   const canManageTeam = useCanManageTeam();
   const isFounderUser = useIsFounder();
+  const canSetTargets = usePerm("setRevenueTargets");
   const canViewOverview = useCanViewOverview();
   const canViewPayroll = useCanViewPayroll();
   const [, setLocation] = useLocation();
@@ -119,6 +121,8 @@ export default function Dashboard() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Overview</h1>
         <p className="text-muted-foreground">Welcome back, {user?.firstName || 'there'}. Here's what's happening today.</p>
       </div>
+
+      <AnnouncementTicker />
 
       {canViewOverview && <FounderOverview />}
       <MyWork stories={stories} clients={clients} />
@@ -393,9 +397,9 @@ export default function Dashboard() {
                   <Target className="h-4 w-4 text-primary" />
                   Target vs Achievement — {monthName}
                 </CardTitle>
-                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => { setTargetInput(targetAmt ? String(targetAmt) : ''); setEditingTarget(true); }}>
+                {canSetTargets && <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => { setTargetInput(targetAmt ? String(targetAmt) : ''); setEditingTarget(true); }}>
                   <Pencil className="h-3 w-3" /> Set Target
-                </Button>
+                </Button>}
               </div>
             </CardHeader>
             <CardContent className="space-y-3">

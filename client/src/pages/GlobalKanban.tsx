@@ -8,7 +8,9 @@ import { StoryModal } from "@/components/StoryModal";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
 import { useSearch } from "wouter";
-import { useIsFounder } from "@/lib/auth";
+import { useIsFounder, useAuth } from "@/lib/auth";
+import { perms } from "@shared/roles";
+import { MultiPicker } from "@/components/MultiPicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -112,6 +114,9 @@ export default function GlobalKanban() {
   const { mutate: updateStory } = useUpdateStory();
   const { toast } = useToast();
   const isFounder = useIsFounder();
+  const { user: me } = useAuth();
+  // Founders and the chief of staff see everyone's stories; everyone else only gets their own from the server
+  const seesAllStories = perms.viewAllStories(me);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -234,6 +239,16 @@ export default function GlobalKanban() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, filterAssigneeNames, stories.length]);
 
+  // Options for the two filter dropdowns. Clients: only those that have stories on this board
+  // (so an employee only sees the clients they work on), most stories first.
+  const clientOptions = useMemo(() => clients
+    .filter((c: any) => (storiesCountPerClient[c.id] || 0) > 0)
+    .map((c: any) => ({ value: c.id, label: c.name, count: storiesCountPerClient[c.id] || 0 }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)), [clients, storiesCountPerClient]);
+  const assigneeOptions = useMemo(() => uniqueAssigneeNames
+    .map((name) => ({ value: name, label: name, count: storiesCountPerAssignee[name] || 0 }))
+    .sort((a, b) => a.label.localeCompare(b.label)), [uniqueAssigneeNames, storiesCountPerAssignee]);
+
   // Count active filters
   const activeFilterCount = filterClientIds.length + filterAssigneeNames.length;
 
@@ -325,175 +340,6 @@ export default function GlobalKanban() {
           <p className="text-muted-foreground">Manage tasks across all active client accounts.</p>
         </div>
         <div className="flex w-full sm:w-auto items-center gap-3">
-          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="macos-input bg-white/50 dark:bg-white/[0.08] gap-2">
-                <Filter className="h-4 w-4" />
-                Filter
-                {activeFilterCount > 0 && (
-                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-primary text-white dark:text-primary-foreground text-[10px]">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-4 bg-background/95 backdrop-blur border border-border shadow-xl rounded-xl" align="end">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm">Filters</h4>
-                  {activeFilterCount > 0 && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground">
-                      <X className="h-3 w-3 mr-1" />
-                      Clear all
-                    </Button>
-                  )}
-                </div>
-
-                {/* Client Filter */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-foreground">Clients</label>
-                    {filteredClientsList.length > 0 && (
-                      <button
-                        onClick={handleToggleAllClients}
-                        className="text-xs text-primary hover:underline font-medium"
-                      >
-                        {isAllClientsSelected ? "Deselect All" : "Select All"}
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Client Search */}
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search clients..."
-                      value={clientSearch}
-                      onChange={(e) => setClientSearch(e.target.value)}
-                      className="pl-8 h-9 text-sm bg-muted/30 focus-visible:ring-primary"
-                    />
-                    {clientSearch && (
-                      <button
-                        onClick={() => setClientSearch("")}
-                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Scrollable list of clients with checkboxes */}
-                  <ScrollArea className="h-[140px] pr-2 border rounded-md p-2 bg-muted/10">
-                    {filteredClientsList.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-4">No clients found</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredClientsList.map((client: any) => {
-                          const count = storiesCountPerClient[client.id] || 0;
-                          return (
-                            <div key={client.id} className="flex items-center justify-between space-x-2 rounded-md hover:bg-muted/30 p-1 transition-colors">
-                              <label
-                                htmlFor={`client-${client.id}`}
-                                className="flex items-center space-x-2 text-xs font-medium leading-none cursor-pointer flex-1 select-none pr-2"
-                              >
-                                <Checkbox
-                                  id={`client-${client.id}`}
-                                  checked={filterClientIds.includes(client.id)}
-                                  onCheckedChange={() => handleClientToggle(client.id)}
-                                />
-                                <span className="truncate">{client.name}</span>
-                              </label>
-                              {count > 0 && (
-                                <Badge variant="secondary" className="h-5 text-[10px] px-1.5 font-normal bg-muted text-muted-foreground shrink-0">
-                                  {count}
-                                </Badge>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </div>
-
-                {/* Assignee Filter */}
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-foreground">Assignees</label>
-                    {filteredAssigneesList.length > 0 && (
-                      <button
-                        onClick={handleToggleAllAssignees}
-                        className="text-xs text-primary hover:underline font-medium"
-                      >
-                        {isAllAssigneesSelected ? "Deselect All" : "Select All"}
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Assignee Search */}
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search assignees..."
-                      value={assigneeSearch}
-                      onChange={(e) => setAssigneeSearch(e.target.value)}
-                      className="pl-8 h-9 text-sm bg-muted/30 focus-visible:ring-primary"
-                    />
-                    {assigneeSearch && (
-                      <button
-                        onClick={() => setAssigneeSearch("")}
-                        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Scrollable list of assignees with checkboxes */}
-                  <ScrollArea className="h-[140px] pr-2 border rounded-md p-2 bg-muted/10">
-                    {filteredAssigneesList.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-4">No assignees found</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredAssigneesList.map((name: string) => {
-                          const count = storiesCountPerAssignee[name] || 0;
-                          return (
-                            <div key={name} className="flex items-center justify-between space-x-2 rounded-md hover:bg-muted/30 p-1 transition-colors">
-                              <label
-                                htmlFor={`assignee-${name}`}
-                                className="flex items-center space-x-2 text-xs font-medium leading-none cursor-pointer flex-1 select-none pr-2"
-                              >
-                                <Checkbox
-                                  id={`assignee-${name}`}
-                                  checked={filterAssigneeNames.includes(name)}
-                                  onCheckedChange={() => handleAssigneeToggle(name)}
-                                />
-                                <span className="truncate">{name}</span>
-                              </label>
-                              {count > 0 && (
-                                <Badge variant="secondary" className="h-5 text-[10px] px-1.5 font-normal bg-muted text-muted-foreground shrink-0">
-                                  {count}
-                                </Badge>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </div>
-
-                {/* Filter summary */}
-                {activeFilterCount > 0 && (
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      Showing {filteredStories.length} of {stories.length} stories
-                    </p>
-                  </div>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
 
           {/* VIEW MODE TOGGLE */}
           <div className="flex border border-border rounded-lg p-0.5 bg-muted/30 shrink-0">
@@ -525,6 +371,38 @@ export default function GlobalKanban() {
             Add Story
           </Button>
         </div>
+      </div>
+
+      {/* Simple filters: pick clients and (for founders / chief of staff) people */}
+      <div className="flex flex-wrap items-center gap-2" data-testid="board-filters">
+        <MultiPicker
+          allLabel="All clients"
+          noun="client"
+          options={clientOptions}
+          selected={filterClientIds}
+          onChange={setFilterClientIds}
+          testId="filter-clients"
+        />
+        {seesAllStories ? (
+          <MultiPicker
+            allLabel="Everyone"
+            noun="person"
+            options={assigneeOptions}
+            selected={filterAssigneeNames}
+            onChange={setFilterAssigneeNames}
+            testId="filter-assignees"
+          />
+        ) : (
+          <span className="inline-flex h-9 items-center rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground">
+            My stories only
+          </span>
+        )}
+        {activeFilterCount > 0 && (
+          <>
+            <span className="text-xs text-muted-foreground">Showing {filteredStories.length} of {stories.length}</span>
+            <button type="button" onClick={clearFilters} className="text-xs text-primary hover:underline">Clear</button>
+          </>
+        )}
       </div>
 
       {scope && (

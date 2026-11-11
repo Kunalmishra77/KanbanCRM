@@ -34,12 +34,12 @@ export const useDeleteRecurringTask = () =>
   useInvalidating((id: string) => call("DELETE", `/api/recurring-tasks/${id}`), () => "Repeating task deleted. Tasks already created stay.", "Could not delete");
 
 // ---- personal notifications (the bell) ----
-export type NotificationRow = { id: string; type: string; title: string; message: string; link: string | null; isRead: boolean; createdAt: string };
+export type NotificationRow = { id: string; type: string; title: string; message: string; link: string | null; entityType?: string | null; entityId?: string | null; isRead: boolean; createdAt: string };
 export function useNotifications() {
   return useQuery<{ items: NotificationRow[]; unread: number }>({
     queryKey: ["notifications"],
     queryFn: () => call("GET", "/api/notifications"),
-    refetchInterval: 15_000, // new items (and the pop-up) show up within seconds without a reload
+    refetchInterval: 60_000, // live updates bring new items at once; this is only a safety net
     refetchOnWindowFocus: true,
     staleTime: 0,
   });

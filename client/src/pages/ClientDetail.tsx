@@ -306,7 +306,7 @@ export default function ClientDetail() {
             {getContractEndDateBadge()}
           </div>
           <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap gap-2">
-            {isFounder && (
+            {(
               <Button
                 variant="outline"
                 className="w-full sm:w-auto gap-2 border-primary/20 text-primary hover:bg-primary/5"

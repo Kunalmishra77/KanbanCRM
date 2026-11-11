@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { InstallAppButton } from "@/components/InstallAppButton";
 import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp, CalendarClock, Repeat } from "lucide-react";
-import { useIsFounder, useCanManageTeam, useCanViewPayroll, useCanViewTeamStats } from "@/lib/auth";
+import { useIsFounder, useCanManageTeam, useCanViewPayroll, useCanViewTeamStats, usePerm } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +28,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [location] = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const isFounder = useIsFounder();
+  const canManageInternal = usePerm("manageInternal");
   const canManageTeam = useCanManageTeam();
   const canViewTeamStats = useCanViewTeamStats();
   const canViewPayroll = useCanViewPayroll();
@@ -38,16 +39,17 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", access: "all" },
     { icon: Target, label: "Leads", href: "/leads", access: "all" },
     { icon: CalendarClock, label: "Employee Services", href: "/services", access: "all" },
-    { icon: Repeat, label: "Repeating Tasks", href: "/recurring", access: "founder" },
+    { icon: Repeat, label: "Repeating Tasks", href: "/recurring", access: "all" },
     { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },
     { icon: Wallet, label: "Salary & Incentives", href: "/salary", access: "payroll" },
-    { icon: Building2, label: "Internal", href: "/internal", access: "founder" },
+    { icon: Building2, label: "Internal", href: "/internal", access: "internal" },
     { icon: Activity, label: "Audit Log", href: "/audit-log", access: "team" },
     { icon: TrendingUp, label: "Team Performance", href: "/team", access: "stats" },
   ];
 
   const navItems = allNavItems.filter(item => {
     if (item.access === "founder") return isFounder;
+    if (item.access === "internal") return canManageInternal;
     if (item.access === "team") return canManageTeam;
     if (item.access === "stats") return canViewTeamStats;
     if (item.access === "payroll") return canViewPayroll;

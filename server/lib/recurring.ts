@@ -1,6 +1,7 @@
 import { storage } from "../storage.js";
 import { planStories, personName, type Rule, type Leave, type Repeat } from "../../shared/schedule.js";
 import { istDate } from "../../shared/istDate.js";
+import { broadcastChange } from "./live.js";
 
 /**
  * Creates today's stories from the repeating-task rules. Safe to run any number of times:
@@ -25,7 +26,7 @@ export async function generateRecurringStories(date: string = istDate()): Promis
     date,
   });
 
-  return storage.insertGeneratedStories(
+  const created = await storage.insertGeneratedStories(
     plan.map(({ rule, person, date: day, dueDate }) => ({
       clientId: rule.clientId,
       title: rule.title,
@@ -42,6 +43,8 @@ export async function generateRecurringStories(date: string = istDate()): Promis
       occurrenceDate: day,
     })),
   );
+  if (created > 0) broadcastChange(); // new stories appear on open boards straight away
+  return created;
 }
 
 export function startRecurringScheduler() {

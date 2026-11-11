@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Bell, Users, FileText, CheckCircle, Edit, Trash2, MessageSquare, CalendarClock, XCircle, Send } from "lucide-react";
+import { Bell, Users, FileText, CheckCircle, Edit, Trash2, MessageSquare, CalendarClock, XCircle, Send, Megaphone } from "lucide-react";
+import { ToastAction } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,7 +37,15 @@ function notificationIcon(n: NotificationRow) {
   }
   if (n.type === "request_submitted") return <Send className="h-4 w-4 text-blue-500" />;
   if (n.type === "request_pending") return <CalendarClock className="h-4 w-4 text-amber-500" />;
+  if (n.type === "announcement") return <Megaphone className="h-4 w-4 text-primary" />;
   return <Bell className="h-4 w-4 text-primary" />;
+}
+
+/** Where a notification takes you: straight to the exact request / announcement, not just the page. */
+export function linkFor(n: NotificationRow): string | null {
+  if (n.entityType === "request" && n.entityId) return `/services?request=${n.entityId}`;
+  if (n.entityType === "announcement" && n.entityId) return `/announcements?id=${n.entityId}`;
+  return n.link || null;
 }
 
 export function NotificationsDropdown() {
@@ -55,29 +64,40 @@ export function NotificationsDropdown() {
 
   // Pop-up: a toast for every notification that arrives while the app is open (and one summary on opening it)
   const seen = useRef<Set<string> | null>(null);
+  // A pop-up with an "Open" button that goes straight to the item
+  const popUp = (n: NotificationRow) => {
+    const to = linkFor(n);
+    toast({
+      title: n.title,
+      description: n.message,
+      duration: 10_000,
+      action: to ? (
+        <ToastAction altText="Open" onClick={() => { markRead.mutate([n.id]); setLocation(to); }}>Open</ToastAction>
+      ) : undefined,
+    });
+  };
   useEffect(() => {
     if (!mine || !Array.isArray(mine.items)) return;
     const unread = mine.items.filter((n) => !n.isRead);
     if (seen.current === null) {
       seen.current = new Set(mine.items.map((n) => n.id));
-      if (unread.length > 0) {
-        toast({
-          title: unread.length === 1 ? unread[0].title : `${unread.length} new notifications`,
-          description: unread.length === 1 ? unread[0].message : "Open the bell to read them.",
-        });
+      if (unread.length === 1) popUp(unread[0]);
+      else if (unread.length > 1) {
+        toast({ title: `${unread.length} new notifications`, description: "Open the bell to read them." });
       }
       return;
     }
     const fresh = unread.filter((n) => !seen.current!.has(n.id));
     fresh.forEach((n) => seen.current!.add(n.id));
-    fresh.slice(0, 3).forEach((n) => toast({ title: n.title, description: n.message }));
+    fresh.slice(0, 3).forEach(popUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mine]);
 
   const openItem = (n: NotificationRow) => {
     if (!n.isRead) markRead.mutate([n.id]);
     setOpen(false);
-    if (n.link) setLocation(n.link);
+    const to = linkFor(n);
+    if (to) setLocation(to);
   };
 
   return (
@@ -127,7 +147,7 @@ export function NotificationsDropdown() {
             loadingMine ? (
               <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
             ) : items.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground" data-testid="notifications-empty">Nothing for you yet. Leave, work-from-home and overtime updates will show up here.</div>
+              <div className="p-6 text-center text-sm text-muted-foreground" data-testid="notifications-empty">Nothing for you yet. Announcements and leave, work-from-home and overtime updates will show up here.</div>
             ) : (
               <div className="divide-y divide-black/5 dark:divide-white/10">
                 {items.map((n) => (

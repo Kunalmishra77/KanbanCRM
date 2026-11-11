@@ -72,7 +72,7 @@ export function KanbanBoard({ stories, onStoryMove, onStoryClick, clients = [] }
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex h-full gap-4 overflow-x-auto pb-4 snap-x snap-mandatory no-scrollbar items-start">
+      <div className="flex h-full gap-4 overflow-x-auto pb-3 snap-x snap-mandatory sm:snap-none visible-scrollbar items-start">
         {COLUMNS.map((status) => {
           const columnStories = localStories.filter((s: Story) => s.status === status);
 

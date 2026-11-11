@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AssigneePicker } from "@/components/AssigneePicker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
+import { canDeleteStory } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { useToast } from "@/hooks/use-toast";
 
@@ -469,6 +471,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           >
                             <Clock className="h-4 w-4" />
                           </Button>
+                          {canDeleteStory(user, story) && (
                           <Button
                             variant="outline"
                             size="icon"
@@ -480,6 +483,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -628,19 +632,13 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Assignee</Label>
-                              <select
+                              <AssigneePicker
+                                users={users}
                                 value={editAssignedTo}
-                                onChange={(e) => setEditAssignedTo(e.target.value)}
-                                className="w-full h-9 rounded-md border border-input bg-white/60 dark:bg-white/[0.08] px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                                data-testid="select-edit-assignee"
-                              >
-                                <option value="unassigned">Unassigned</option>
-                                {users.map((u: any) => (
-                                  <option key={u.id} value={u.id}>
-                                    {u.firstName} {u.lastName}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={setEditAssignedTo}
+                                className="h-9 bg-white/60 dark:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-ring"
+                                testId="select-edit-assignee"
+                              />
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Due Date</Label>

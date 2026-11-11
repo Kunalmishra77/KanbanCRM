@@ -1,4 +1,4 @@
-import { ROLES, ROLE_LABELS, roleOf } from "@shared/roles";
+import { ROLES, ROLE_LABELS, roleOf, perms } from "@shared/roles";
 import { TEAMS } from "@shared/teams";
 import { WORK_PATTERNS } from "@shared/schedule";
 import { useState } from "react";
@@ -86,7 +86,7 @@ export default function Internal() {
   const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog(20) as { data: ActivityLog[], isLoading: boolean };
   const { data: documents = [], isLoading: isLoadingDocuments } = useInternalDocuments() as { data: InternalDocument[], isLoading: boolean };
 
-  const isCoFounder = roleOf(currentUser) === 'founder';
+  const isCoFounder = perms.manageInternal(currentUser);
 
   if (!isCoFounder) {
     return (

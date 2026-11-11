@@ -124,7 +124,10 @@ export function getSession() {
         connectionString: process.env.DATABASE_URL,
         ssl: dbSsl(process.env.DATABASE_URL),
         max: 3,
+        idleTimeoutMillis: 30_000,
       });
+      // Keep one session-store connection in use (a new one costs ~1s to this far-away DB)
+      setInterval(() => { pool.query('select 1').catch(() => {}); }, 15_000).unref();
       const store = new pgStore({
         pool,
         createTableIfMissing: false, 

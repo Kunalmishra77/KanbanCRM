@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Layout from "@/components/Layout";
 import Login from "@/pages/Login";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { useLiveSync } from "@/lib/liveSync";
 import { useEffect, lazy, Suspense } from "react";
 
 // Each page is its own chunk so the first screen only downloads what it shows
@@ -114,12 +115,19 @@ function Router() {
   );
 }
 
+function LiveSync() {
+  const { user } = useAuth();
+  useLiveSync(!!user);
+  return null;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
+          <LiveSync />
           <Router />
         </TooltipProvider>
       </AuthProvider>
