@@ -4,7 +4,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import pg from "pg";
-import { dbSsl } from "../db/index.js";
+import { dbSsl, reportDbStall, settlesWithin } from "../db/index.js";
 import { randomBytes } from "crypto";
 import { storage } from "./storage.js";
 import { CachedSessionStore } from "./lib/cachedSessionStore.js";
@@ -106,6 +106,8 @@ export function getSession() {
   const sessionOptions: session.SessionOptions = {
     secret: secret || randomBytes(32).toString("hex"),
     resave: false,
+    // Keep people signed in while they use the app (the 7 days count from the last visit, not from login)
+    rolling: true,
     saveUninitialized: false,
     name: 'kanban.sid',
     cookie: {
@@ -125,9 +127,16 @@ export function getSession() {
         ssl: dbSsl(process.env.DATABASE_URL),
         max: 3,
         idleTimeoutMillis: 30_000,
+        // Never let a login or session lookup hang forever on a dead connection:
+        // a failed query releases (and discards) its connection, so the next one gets a fresh one.
+        connectionTimeoutMillis: 10_000,
+        query_timeout: 15_000,
       });
       // Keep one session-store connection in use (a new one costs ~1s to this far-away DB)
-      setInterval(() => { pool.query('select 1').catch(() => {}); }, 15_000).unref();
+      setInterval(async () => {
+        const ok = await settlesWithin(pool.query('select 1'), 16_000);
+        if (!ok) reportDbStall('session store ping');
+      }, 15_000).unref();
       const store = new pgStore({
         pool,
         createTableIfMissing: false, 

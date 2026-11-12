@@ -5,6 +5,7 @@ import { createServer } from "http";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import compression from "compression";
+import { reportDbStall } from "../db/index.js";
 
 console.log("App: Initializing Express app...");
 
@@ -85,6 +86,19 @@ app.use((req, res, next) => {
     }
   });
 
+  next();
+});
+
+// A page read that takes over 30s means the database connection is stuck: tell the watchdog,
+// which restarts the server after repeated stalls instead of leaving everyone hanging.
+app.use("/api", (req, res, next) => {
+  if (req.method !== "GET" || req.path === "/events" || req.path.startsWith("/files/")) return next();
+  const t = setTimeout(() => {
+    if (!res.writableEnded) reportDbStall(`GET /api${req.path}`);
+  }, 30_000);
+  const clear = () => clearTimeout(t);
+  res.on("finish", clear);
+  res.on("close", clear);
   next();
 });
 
