@@ -25,7 +25,7 @@ const HEALTH: Record<Health, { label: string; dot: string; chip: string }> = {
 
 const pct = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : null);
 
-export function FounderOverview() {
+export function FounderOverview({ title = "Company overview" }: { title?: string }) {
   const [period, setPeriod] = useState<Period>("today");
   const [team, setTeam] = useState<string | null>(null);
   const [, setLocation] = useLocation();
@@ -40,7 +40,7 @@ export function FounderOverview() {
     <section className="space-y-4" data-testid="founder-overview">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Company overview</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           {data && <p className="text-xs text-muted-foreground">{format(new Date(data.from), "d MMM")} – {format(new Date(new Date(data.to).getTime() - 1), "d MMM yyyy")}</p>}
         </div>
         <div className="inline-flex rounded-xl bg-black/5 dark:bg-white/10 p-1" role="tablist" aria-label="Period">

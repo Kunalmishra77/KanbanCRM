@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupGoogleAuth, isAuthenticated, requireRole } from "./googleAuth.js";
-import { perms, isRole, ROLES, canDecideRequest, canSeeStory, canDeleteStory } from "../shared/roles.js";
+import { perms, isRole, ROLES, canDecideRequest, canSeeStory, canDeleteStory, teamMatesOf } from "../shared/roles.js";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
@@ -72,6 +72,8 @@ export async function registerRoutes(
 
   const isFounder = perms.isFounder;
   const legacyRoleColumn = (userType: string) => (userType === 'founder' ? 'admin' : 'editor');
+  // A team lead also sees the stories of everyone in their team; for every other role this is empty.
+  const teamMatesFor = async (user: any) => (perms.isTeamLead(user) ? teamMatesOf(user, await storage.getAllUsers()) : []);
   const requirePayrollView = requireRole(perms.viewPayroll, "Access denied. Founder, Chief of Staff or Accountant role required.");
   const requirePayrollEdit = requireRole(perms.editPayroll, "Access denied. Founder, Chief of Staff or Accountant role required.");
   const requireTeamManager = requireRole(perms.manageTeam, "Access denied. Founder or Chief of Staff role required.");
@@ -224,7 +226,8 @@ export async function registerRoutes(
         canSeeFinance ? storage.getInvoicesByClient(clientId) : Promise.resolve([]),
         storage.getCommunicationsByClient(clientId),
       ]);
-      const clientStories = allClientStories.filter((s) => canSeeStory(req.user, s));
+      const mates = await teamMatesFor(req.user);
+      const clientStories = allClientStories.filter((s) => canSeeStory(req.user, s, mates));
       const allActivity = await storage.getActivityLogByEntities([
         clientId,
         ...clientStories.map(s => s.id),
@@ -391,7 +394,7 @@ export async function registerRoutes(
   const storyAccess = async (req: any, res: any, next: any) => {
     try {
       const story = await storage.getStory(req.params.id || req.params.storyId);
-      if (!story || !canSeeStory(req.user, story)) return res.status(404).json({ error: "Story not found" });
+      if (!story || !canSeeStory(req.user, story, await teamMatesFor(req.user))) return res.status(404).json({ error: "Story not found" });
       next();
     } catch (error) {
       next(error);
@@ -401,12 +404,13 @@ export async function registerRoutes(
   app.get("/api/stories", isAuthenticated, async (req: any, res) => {
     try {
       const clientId = req.query.clientId as string | undefined;
-      const storiesList = clientId
-        ? await storage.getStoriesByClient(clientId)
-        : await storage.getStories();
+      const [storiesList, mates] = await Promise.all([
+        clientId ? storage.getStoriesByClient(clientId) : storage.getStories(),
+        teamMatesFor(req.user),
+      ]);
       // Finished repeating tasks older than a week would bury the boards; they stay in the history and the overview
       const weekAgo = Date.now() - 7 * 86400000;
-      res.json(storiesList.filter((s) => canSeeStory(req.user, s) && !(s.recurringTaskId && s.status === 'Done' && new Date(s.updatedAt).getTime() < weekAgo)));
+      res.json(storiesList.filter((s) => canSeeStory(req.user, s, mates) && !(s.recurringTaskId && s.status === 'Done' && new Date(s.updatedAt).getTime() < weekAgo)));
     } catch (error) {
       console.error('Get stories error:', error);
       res.status(500).json({ error: "Failed to fetch stories" });
@@ -837,8 +841,25 @@ export async function registerRoutes(
       // to the people who decide them, plus the person who raised them
       const seeInvoices = perms.viewFinance(req.user);
       const seeRequests = perms.approveRequests(req.user);
-      const hidden = (l: any) => (l.entityType === 'invoice' && !seeInvoices) || (l.entityType === 'request' && !seeRequests && l.userId !== req.user.id);
-      const logs = (await storage.getActivityLog(seeInvoices && seeRequests ? limit : limit * 4)).filter((l) => !hidden(l)).slice(0, limit);
+      const seeAllWork = perms.viewAllStories(req.user);
+      const seeTeamAdmin = perms.manageTeam(req.user);
+      const mine = (l: any) => l.userId === req.user.id;
+      // Story work follows the same rule as the boards: founders and the chief of staff see everyone's,
+      // a team lead their team's, everyone else only their own.
+      let visibleStory = (_id: string) => true;
+      if (!seeAllWork) {
+        const [allStories, mates] = await Promise.all([storage.getStories(), teamMatesFor(req.user)]);
+        const ok = new Set(allStories.filter((s) => canSeeStory(req.user, s, mates)).map((s) => s.id));
+        visibleStory = (id) => ok.has(id);
+      }
+      const hidden = (l: any) =>
+        (l.entityType === 'invoice' && !seeInvoices) ||
+        (l.entityType === 'request' && !seeRequests && !mine(l)) ||
+        (l.entityType === 'story' && !mine(l) && !visibleStory(l.entityId)) ||
+        (l.entityType === 'comment' && !seeAllWork && !mine(l)) ||
+        (l.entityType === 'user' && !seeTeamAdmin && !mine(l));
+      const unfiltered = seeInvoices && seeRequests && seeAllWork && seeTeamAdmin;
+      const logs = (await storage.getActivityLog(unfiltered ? limit : Math.min(limit * 10, 500))).filter((l) => !hidden(l)).slice(0, limit);
       res.json(logs);
     } catch (error) {
       console.error('Get activity error:', error);
@@ -959,9 +980,20 @@ export async function registerRoutes(
     }
   });
 
-  // ---- Repeating tasks: founders for anyone; everyone else only their own, for themselves ----
+  // ---- Repeating tasks: founders and the chief of staff for anyone; a team lead for people in their own
+  // team (or the whole team); everyone else only for themselves. Each sees and edits the rules they made. ----
   const allRepeating = (u: any) => perms.manageAllRepeating(u);
-  const forSelf = (data: any, u: any) => (allRepeating(u) ? data : { ...data, team: null, excludeIds: [], assigneeIds: [u.id] });
+  const leadsTeam = (u: any) => (perms.isTeamLead(u) && u.team ? (u.team as string) : null);
+  const forSelf = (data: any, u: any) => (allRepeating(u) || leadsTeam(u) ? data : { ...data, team: null, excludeIds: [], assigneeIds: [u.id] });
+  /** A team lead may only target their own team or people in it. */
+  const leadTargetsOk = async (data: { team?: string | null; assigneeIds: string[] }, u: any) => {
+    const team = leadsTeam(u);
+    if (!team || allRepeating(u)) return null;
+    if (data.team) return data.team === team ? null : `You can only set up repeating tasks for the ${team} team.`;
+    const mates = new Set(teamMatesOf(u, await storage.getAllUsers()).map((m) => m.id));
+    mates.add(u.id);
+    return data.assigneeIds.every((id) => mates.has(id)) ? null : `You can only set up repeating tasks for people in the ${team} team.`;
+  };
   const ownRule = async (req: any, res: any, next: any) => {
     if (allRepeating(req.user)) return next();
     const rule = (await storage.listRecurringTasks()).find((t) => t.id === req.params.id);
@@ -990,7 +1022,7 @@ export async function registerRoutes(
   app.post("/api/recurring-tasks", isAuthenticated, async (req: any, res) => {
     try {
       const data = forSelf(recurringTaskInputSchema.parse(req.body), req.user);
-      const bad = await validTargets(data);
+      const bad = (await validTargets(data)) || (await leadTargetsOk(data, req.user));
       if (bad) return res.status(400).json({ error: bad });
       if (!(await storage.getClient(data.clientId))) return res.status(404).json({ error: "Client not found" });
       const task = await storage.createRecurringTask({ ...data, startDate: data.startDate || istDate() }, req.user.id);
@@ -1012,7 +1044,7 @@ export async function registerRoutes(
         patch = { active: body.active };
       } else {
         const data = forSelf(recurringTaskInputSchema.parse(body), req.user);
-        const bad = await validTargets(data);
+        const bad = (await validTargets(data)) || (await leadTargetsOk(data, req.user));
         if (bad) return res.status(400).json({ error: bad });
         patch = { ...data, assigneeIds: data.team ? [] : data.assigneeIds, excludeIds: data.team ? data.excludeIds : [], team: data.team || null, dueTime: data.dueTime || null, endDate: data.endDate || null };
         if (!data.startDate) delete patch.startDate;
@@ -1130,14 +1162,28 @@ export async function registerRoutes(
   // Founder overview: what happened per team and per person (founders and the chief of staff)
   app.get("/api/overview", isAuthenticated, async (req: any, res) => {
     try {
-      if (!perms.viewOverview(req.user)) return res.status(403).json({ error: "Founders and the Chief of Staff only." });
+      const asTeamLead = !perms.viewOverview(req.user) && perms.isTeamLead(req.user) && !!req.user.team;
+      if (!perms.viewOverview(req.user) && !asTeamLead) return res.status(403).json({ error: "Founders, the Chief of Staff and team leads only." });
       const period = isPeriod(req.query.period) ? req.query.period : "today";
       // Fetch a bit more than the period so "last active" has something to show
       const since = new Date(Math.min(periodRange(period).start.getTime(), Date.now() - 35 * 86400000));
       const [users, stories, clients, comments, activity, requests] = await Promise.all([
         storage.getAllUsers(), storage.getStories(), storage.getClients(), storage.getCommentsSince(since), storage.getActivitySince(since), storage.listEmployeeRequests(),
       ]);
-      res.json(computeOverview({ users, stories, clients, comments, activity, requests, period }));
+      if (!asTeamLead) return res.json(computeOverview({ users, stories, clients, comments, activity, requests, period }));
+      // A team lead gets the same overview, cut down to their own team
+      const mates = teamMatesOf(req.user, users);
+      const ids = new Set(mates.map((u) => u.id));
+      const teamStories = stories.filter((s) => canSeeStory(req.user, s, mates));
+      const storyIds = new Set(teamStories.map((s) => s.id));
+      const view = computeOverview({
+        users: mates, stories: teamStories, clients,
+        comments: comments.filter((c: any) => storyIds.has(c.storyId)),
+        activity: activity.filter((a: any) => ids.has(a.userId)),
+        requests: requests.filter((r: any) => ids.has(r.userId)),
+        period,
+      });
+      res.json({ ...view, teams: view.teams.filter((t) => t.team === req.user.team) });
     } catch (error) {
       console.error('Overview error:', error);
       res.status(500).json({ error: "Failed to build the overview" });
@@ -1199,6 +1245,7 @@ export async function registerRoutes(
           profileImageUrl: u.profileImageUrl,
           userType: u.userType,
           role: u.role,
+          team: u.team, // team leads filter their board by the people in their team
         })));
       }
       res.json(usersList);

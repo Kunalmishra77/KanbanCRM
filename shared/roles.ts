@@ -1,10 +1,11 @@
 // Single source of truth for roles and what each one may do. Used by both server and client.
-export const ROLES = ["founder", "chief_of_staff", "hr", "accountant", "employee"] as const;
+export const ROLES = ["founder", "chief_of_staff", "team_lead", "hr", "accountant", "employee"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   founder: "Founder",
   chief_of_staff: "Chief of Staff",
+  team_lead: "Team Lead",
   hr: "HR",
   accountant: "Accountant",
   employee: "Employee",
@@ -42,6 +43,8 @@ export const perms = {
   viewContactDetails: (u: U) => ["founder", "chief_of_staff", "accountant"].includes(roleOf(u)),
   // The company overview (every team and every person's tasks) on the dashboard.
   viewOverview: (u: U) => ["founder", "chief_of_staff"].includes(roleOf(u)),
+  // A team lead sees the overview, board and activity of their own team (users.team) only.
+  isTeamLead: (u: U) => roleOf(u) === "team_lead",
   // Team performance analytics.
   viewTeamStats: (u: U) => ["founder", "hr", "chief_of_staff"].includes(roleOf(u)),
   // Every story on the boards. Everyone else only sees the stories assigned to them.
@@ -52,8 +55,9 @@ export const perms = {
   manageInternal: (u: U) => ["founder", "chief_of_staff", "accountant"].includes(roleOf(u)),
   // Post, edit and delete announcements.
   manageAnnouncements: (u: U) => ["founder", "chief_of_staff", "hr"].includes(roleOf(u)),
-  // Repeating tasks for anyone or any team (everyone else may only set them up for themselves).
-  manageAllRepeating: (u: U) => roleOf(u) === "founder",
+  // Repeating tasks for anyone or any team. A team lead may set them up for people in their own team;
+  // everyone else only for themselves.
+  manageAllRepeating: (u: U) => ["founder", "chief_of_staff"].includes(roleOf(u)),
 };
 
 type P = { id?: string | null; userType?: string | null } | null | undefined;
@@ -68,7 +72,7 @@ export function canDecideRequest(approver: P, requester: P): boolean {
   const r = roleOf(requester);
   if (a === "founder") return true;
   if (approver.id && approver.id === requester.id) return false;
-  if (a === "chief_of_staff") return r === "employee" || r === "hr" || r === "accountant";
+  if (a === "chief_of_staff") return r === "employee" || r === "team_lead" || r === "hr" || r === "accountant";
   return false;
 }
 
@@ -82,9 +86,18 @@ export function ownsStory(story: OwnedStory, user: StoryOwner | null | undefined
   const person = normName(story.person);
   return !!person && person !== "unassigned" && person === normName(`${user.firstName || ""} ${user.lastName || ""}`);
 }
-/** May this person see (and work on) this story? Founders and the chief of staff see everything. */
-export function canSeeStory(user: (StoryOwner & { userType?: string | null }) | null | undefined, story: OwnedStory): boolean {
-  return perms.viewAllStories(user) || ownsStory(story, user);
+type Viewer = (StoryOwner & { userType?: string | null; team?: string | null }) | null | undefined;
+/** The people whose stories a team lead also sees: everyone in the lead's team. Empty for every other role. */
+export function teamMatesOf<T extends StoryOwner & { team?: string | null }>(user: Viewer, allUsers: T[]): T[] {
+  if (!perms.isTeamLead(user) || !user?.team) return [];
+  return allUsers.filter((u) => !!u.team && u.team === user.team);
+}
+/**
+ * May this person see (and work on) this story? Founders and the chief of staff see everything,
+ * a team lead also sees the stories of the people in `teamMates` (from teamMatesOf), everyone else only their own.
+ */
+export function canSeeStory(user: Viewer, story: OwnedStory, teamMates: StoryOwner[] = []): boolean {
+  return perms.viewAllStories(user) || ownsStory(story, user) || teamMates.some((m) => ownsStory(story, m));
 }
 /** Delete a story: founders any story, everyone else only stories assigned to them. */
 export function canDeleteStory(user: (StoryOwner & { userType?: string | null }) | null | undefined, story: OwnedStory): boolean {

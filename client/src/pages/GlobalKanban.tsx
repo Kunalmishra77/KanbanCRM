@@ -117,6 +117,9 @@ export default function GlobalKanban() {
   const { user: me } = useAuth();
   // Founders and the chief of staff see everyone's stories; everyone else only gets their own from the server
   const seesAllStories = perms.viewAllStories(me);
+  // A team lead gets their team's stories from the server and may filter them by person
+  const myTeam = perms.isTeamLead(me) ? ((me as any)?.team as string | null) || null : null;
+  const canPickPeople = seesAllStories || !!myTeam;
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -170,9 +173,11 @@ export default function GlobalKanban() {
 
   // Unique assignee names from the internal team panel
   const uniqueAssigneeNames = useMemo(() => {
-    const names = users.map((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim()).filter(Boolean);
+    const names = users
+      .filter((u: any) => seesAllStories || !myTeam || u.team === myTeam)
+      .map((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim()).filter(Boolean);
     return Array.from(new Set(names)) as string[];
-  }, [users]);
+  }, [users, seesAllStories, myTeam]);
 
   // Count stories per client
   const storiesCountPerClient = useMemo(() => {
@@ -383,9 +388,9 @@ export default function GlobalKanban() {
           onChange={setFilterClientIds}
           testId="filter-clients"
         />
-        {seesAllStories ? (
+        {canPickPeople ? (
           <MultiPicker
-            allLabel="Everyone"
+            allLabel={seesAllStories ? "Everyone" : `Whole ${myTeam} team`}
             noun="person"
             options={assigneeOptions}
             selected={filterAssigneeNames}

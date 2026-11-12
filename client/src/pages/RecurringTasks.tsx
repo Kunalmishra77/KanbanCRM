@@ -3,7 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Pause, Play, Trash2, Repeat } from "lucide-react";
-import { useIsFounder } from "@/lib/auth";
+import { useIsFounder, useAuth } from "@/lib/auth";
+import { perms } from "@shared/roles";
 import { useClients, useUsers } from "@/lib/queries";
 import { useRecurringTasks, useToggleRecurringTask, useDeleteRecurringTask } from "@/lib/serviceQueries";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
@@ -18,6 +19,7 @@ const when = (t: RecurringTask) =>
 
 export default function RecurringTasks() {
   const isFounder = useIsFounder();
+  const { user } = useAuth();
   const { data: tasks = [], isLoading } = useRecurringTasks(true);
   const { data: clients = [] } = useClients();
   const { data: users = [] } = useUsers();
@@ -36,7 +38,7 @@ export default function RecurringTasks() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Repeating tasks</h1>
-          <p className="text-muted-foreground">{isFounder ? "Set a task once. A fresh story is created for each person on every working day, week or month." : "Set up tasks that repeat for you. A fresh story is created for you on every working day, week or month."}</p>
+          <p className="text-muted-foreground">{perms.manageAllRepeating(user) || perms.isTeamLead(user) ? "Set a task once. A fresh story is created for each person on every working day, week or month." : "Set up tasks that repeat for you. A fresh story is created for you on every working day, week or month."}</p>
         </div>
         <Button className="h-11 gap-2" onClick={() => setAdding(true)} data-testid="add-repeating"><Plus className="h-4 w-4" />New task</Button>
       </div>

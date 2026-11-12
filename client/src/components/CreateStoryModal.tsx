@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useClients, useCreateStory, useUsers } from "@/lib/queries";
 import { useAuth, useIsFounder } from "@/lib/auth";
+import { perms } from "@shared/roles";
 import { useCreateRecurringTask } from "@/lib/serviceQueries";
 import { TEAMS } from "@shared/teams";
 import { AssigneePicker } from "@/components/AssigneePicker";
@@ -37,6 +38,10 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   const { mutate: createStory, isPending } = useCreateStory();
   const { user } = useAuth();
   const isFounder = useIsFounder();
+  // Repeating tasks: founders and the chief of staff for anyone, a team lead for their own team, everyone else for themselves
+  const canRepeatForAll = perms.manageAllRepeating(user);
+  const leadTeam = !canRepeatForAll && perms.isTeamLead(user) ? ((user as any)?.team as string | null) || null : null;
+  const canRepeatForOthers = canRepeatForAll || !!leadTeam;
   const { mutate: createRecurring, isPending: isCreatingRecurring } = useCreateRecurringTask();
   // Repeat options (founders only): none | daily | weekly | monthly
   const [repeat, setRepeat] = useState("none");
@@ -83,16 +88,19 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
     if (repeat !== "none") {
       setError("");
       // Only founders may set repeating tasks up for other people or teams; everyone else gets them themselves
-      const self = !isFounder;
-      if (!self && forTeam === "team" && !team) return setError("Choose the team.");
+      const self = !canRepeatForOthers;
+      const chosenTeam = leadTeam || team;
+      if (!self && forTeam === "team" && !chosenTeam) return setError("Choose the team.");
       if (!self && forTeam === "person" && assignedTo === "unassigned") return setError("Choose the person, or pick a whole team.");
+      if (leadTeam && forTeam === "person" && assignedTo !== user?.id && (users as any[]).find((u) => u.id === assignedTo)?.team !== leadTeam)
+        return setError(`Choose someone in the ${leadTeam} team.`);
       createRecurring({
         clientId, title: title.trim(), description: description.trim(), priority, repeat,
         weekday: repeat === "weekly" ? Number(weekday) : null,
         monthDay: repeat === "monthly" ? Number(monthDay) : null,
         dueTime: dueTime === "end" ? null : dueTime,
         startDate: istDate(),
-        team: !self && forTeam === "team" ? team : null,
+        team: !self && forTeam === "team" ? chosenTeam : null,
         excludeIds: !self && forTeam === "team" ? excluded : [],
         assigneeIds: self ? [user!.id] : forTeam === "person" ? [assignedTo] : [],
       }, { onSuccess: () => { resetForm(); onOpenChange(false); }, onError: (e: Error) => setError(e.message) });
@@ -248,7 +256,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                       <Input type="time" className="macos-input" value={dueTime} onChange={(e) => setDueTime(e.target.value || "19:00")} data-testid="input-due-time" />
                     </div>
                   )}
-                  {!isFounder ? (
+                  {!canRepeatForOthers ? (
                     <p className="text-xs text-muted-foreground sm:col-span-2">This repeating task will be created for you.</p>
                   ) : (
                   <div className="space-y-2 sm:col-span-2">
@@ -257,12 +265,12 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                       <SelectTrigger className="macos-input" data-testid="select-for"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="person">The person chosen above</SelectItem>
-                        <SelectItem value="team">Everyone in a team</SelectItem>
+                        <SelectItem value="team">{leadTeam ? `Everyone in the ${leadTeam} team` : "Everyone in a team"}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   )}
-                  {isFounder && forTeam === "team" && (
+                  {canRepeatForAll && forTeam === "team" && (
                     <div className="space-y-2 sm:col-span-2">
                       <Label>Team</Label>
                       <Select value={team} onValueChange={(v) => { setTeam(v); setExcluded([]); }}>
@@ -271,11 +279,11 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                       </Select>
                     </div>
                   )}
-                  {isFounder && forTeam === "team" && team && (
+                  {canRepeatForOthers && forTeam === "team" && (leadTeam || team) && (
                     <div className="space-y-2 sm:col-span-2" data-testid="team-members">
                       <Label>Who gets it <span className="font-normal text-muted-foreground">(untick anyone to leave them out, e.g. the team head)</span></Label>
                       <div className="rounded-lg border border-black/10 dark:border-white/10 divide-y divide-black/5 dark:divide-white/10 max-h-48 overflow-y-auto">
-                        {(users as any[]).filter((u) => u.team === team && u.userType !== "founder").map((u) => {
+                        {(users as any[]).filter((u) => u.team === (leadTeam || team) && u.userType !== "founder").map((u) => {
                           const on = !excluded.includes(u.id);
                           return (
                             <label key={u.id} className="flex items-center gap-3 px-3 min-h-11 cursor-pointer text-sm">
@@ -290,7 +298,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                             </label>
                           );
                         })}
-                        {(users as any[]).filter((u) => u.team === team && u.userType !== "founder").length === 0 && (
+                        {(users as any[]).filter((u) => u.team === (leadTeam || team) && u.userType !== "founder").length === 0 && (
                           <p className="px-3 py-3 text-sm text-muted-foreground">No one is on this team yet.</p>
                         )}
                       </div>

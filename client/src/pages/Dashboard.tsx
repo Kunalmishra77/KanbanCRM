@@ -15,6 +15,7 @@ import { format, subMonths } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
 import { MyWork } from "@/components/MyWork";
 import { FounderOverview } from "@/components/FounderOverview";
+import { perms } from "@shared/roles";
 import { AnnouncementTicker } from "@/components/AnnouncementTicker";
 
 export default function Dashboard() {
@@ -125,6 +126,7 @@ export default function Dashboard() {
       <AnnouncementTicker />
 
       {canViewOverview && <FounderOverview />}
+      {!canViewOverview && perms.isTeamLead(user) && (user as any)?.team && <FounderOverview title={`Team overview · ${(user as any).team}`} />}
       <MyWork stories={stories} clients={clients} />
 
       {/* Hero Stats Grid */}
