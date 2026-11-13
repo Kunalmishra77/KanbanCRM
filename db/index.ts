@@ -16,36 +16,36 @@ export function dbSsl(url: string) {
   return isSupabaseUrl(url) ? { ca: SUPABASE_CA, rejectUnauthorized: true } : undefined;
 }
 
-const client = postgres(process.env.DATABASE_URL, {
-  prepare: false, // Required for the Supabase pooler (transaction mode)
-  ssl: dbSsl(process.env.DATABASE_URL),
+const url = process.env.DATABASE_URL;
+/**
+ * Supabase's pooler has two modes. Transaction mode (port 6543) shares a few database connections
+ * between many clients; through it each query took ~300ms and, on 12-13 Nov, connections stopped
+ * getting answers and froze the app. Session mode (port 5432) gives each of our connections its own
+ * database connection: normal Postgres behaviour, prepared statements allowed, and measured 9x faster
+ * (200 queries: 1.8s vs 16s). It allows only 15 connections in total (Supabase "pool size"), so we use
+ * DB_POOL_MAX (9) here + 1 watchdog probe + SESSION_POOL_MAX (2) for the login session store.
+ */
+export const sessionMode = !isSupabaseUrl(url) || /:5432\//.test(url);
+const poolMax = Number(process.env.DB_POOL_MAX) || 9;
+// postgres.js supports max_pipeline (src/index.js) but its type definitions do not list it
+const ONE_QUERY_AT_A_TIME = { max_pipeline: 1 } as {};
+
+const client = postgres(url, {
+  // Prepared statements are fine in session mode and save a round trip per query;
+  // transaction mode does not support them.
+  prepare: sessionMode,
+  ssl: dbSsl(url),
+  max: poolMax,
+  // Transaction mode only: one query at a time per connection (a reply once went to the wrong query)
+  ...(sessionMode ? {} : ONE_QUERY_AT_A_TIME),
   // Close idle connections after 20s (some hop between here and Supabase silently drops
-  // long-idle ones, and a query on a dead connection hangs). A ping every 15s keeps a few
-  // connections in use so normal requests don't pay the ~1.1s cost of opening a new one.
+  // long-idle ones, and a query on a dead connection hangs). A ping every 30s keeps one
+  // connection in use so normal requests don't pay the ~1.1s cost of opening a new one.
   idle_timeout: 20,
   max_lifetime: 60 * 30,
   // Give up on opening a connection after 10s instead of waiting forever
   connect_timeout: 10,
 });
-
-/**
- * Self-healing. Sometimes a query sent to Supabase never gets an answer, and the connection stays
- * "busy" forever. Requests then pile up behind it and the whole app (login, board) hangs until
- * someone restarts it. Anything that notices a stall reports it here; after 3 stalls in 2 minutes
- * the process exits and Docker (restart policy unless-stopped) brings it back in a few seconds
- * with fresh connections.
- */
-const stalls: number[] = [];
-export function reportDbStall(source: string) {
-  const now = Date.now();
-  stalls.push(now);
-  while (stalls.length && now - stalls[0] > 120_000) stalls.shift();
-  console.error(`DB watchdog: stall in ${source} (${stalls.length} in the last 2 min)`);
-  if (stalls.length >= 3 && process.env.NODE_ENV === 'production') {
-    console.error('DB watchdog: restarting the server to drop stuck database connections');
-    setTimeout(() => process.exit(1), 200);
-  }
-}
 
 /** Resolves false if the promise has not settled within ms. */
 export function settlesWithin(p: Promise<unknown>, ms: number): Promise<boolean> {
@@ -58,10 +58,52 @@ export function settlesWithin(p: Promise<unknown>, ms: number): Promise<boolean>
   });
 }
 
-const warm = setInterval(async () => {
-  const ok = await settlesWithin(Promise.all([client`select 1`, client`select 1`, client`select 1`]), 10_000);
-  if (!ok) reportDbStall('database ping');
-}, 15_000);
+/** Slow requests are only logged; being busy is not a reason to restart. */
+export function reportDbStall(source: string) {
+  console.warn(`DB watchdog: slow (over 30s): ${source}`);
+}
+
+/**
+ * Self-healing, for one failure only: connections of the app's pool that never get an answer
+ * (12 Nov) while the database itself is fine. Every 30s a query goes through the app's pool AND,
+ * separately, through a dedicated one-connection "probe". Only when the pool has not answered for
+ * 2 checks in a row (over a minute) while the probe answers fine is the pool stuck; then the
+ * process exits and Docker restarts it with fresh connections.
+ *
+ * It never restarts when the database is slow or down for everyone (the probe fails too: a restart
+ * would not help and only knocks everyone out), within 5 minutes of starting, or more than once in
+ * 10 minutes (the last restart time is kept in a file that survives the container restart).
+ * On 13 Nov a "restart on any slow request" rule restarted the app every 40s under morning load.
+ */
+const probe = postgres(url, {
+  prepare: false, ssl: dbSsl(url), max: 1, ...ONE_QUERY_AT_A_TIME, idle_timeout: 0, connect_timeout: 10,
+});
+const RESTART_FILE = '/tmp/crm-db-watchdog-restart';
+const startedAt = Date.now();
+let poolFailures = 0;
+async function watchdog() {
+  const [poolOk, probeOk] = await Promise.all([
+    settlesWithin(client`select 1`, 30_000),
+    settlesWithin(probe`select 1`, 30_000),
+  ]);
+  if (poolOk) { poolFailures = 0; return; }
+  if (!probeOk) { poolFailures = 0; console.warn('DB watchdog: database slow or unreachable for everyone; not restarting'); return; }
+  poolFailures++;
+  console.error(`DB watchdog: app connections not answering while the database is fine (${poolFailures}/2)`);
+  if (poolFailures < 2 || process.env.NODE_ENV !== 'production') return;
+  if (Date.now() - startedAt < 5 * 60_000) return;
+  try {
+    const fs = await import('fs');
+    const last = Number(fs.readFileSync(RESTART_FILE, 'utf8')) || 0;
+    if (Date.now() - last < 10 * 60_000) return console.error('DB watchdog: restarted less than 10 min ago; waiting');
+    fs.writeFileSync(RESTART_FILE, String(Date.now()));
+  } catch {
+    try { (await import('fs')).writeFileSync(RESTART_FILE, String(Date.now())); } catch {}
+  }
+  console.error('DB watchdog: restarting the server to drop stuck database connections');
+  setTimeout(() => process.exit(1), 200);
+}
+const warm = setInterval(() => { watchdog().catch(() => {}); }, 30_000);
 warm.unref();
 
 export const db = drizzle(client, { schema });

@@ -89,12 +89,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// A page read that takes over 30s means the database connection is stuck: tell the watchdog,
-// which restarts the server after repeated stalls instead of leaving everyone hanging.
+// Log page reads that take over 30s (for diagnosis only; the watchdog in db/index.ts decides on restarts).
 app.use("/api", (req, res, next) => {
   if (req.method !== "GET" || req.path === "/events" || req.path.startsWith("/files/")) return next();
   const t = setTimeout(() => {
-    if (!res.writableEnded) reportDbStall(`GET /api${req.path}`);
+    if (!res.writableEnded) reportDbStall(`GET ${req.originalUrl.split("?")[0]}`);
   }, 30_000);
   const clear = () => clearTimeout(t);
   res.on("finish", clear);

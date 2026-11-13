@@ -4,7 +4,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import pg from "pg";
-import { dbSsl, reportDbStall, settlesWithin } from "../db/index.js";
+import { dbSsl, settlesWithin } from "../db/index.js";
 import { randomBytes } from "crypto";
 import { storage } from "./storage.js";
 import { CachedSessionStore } from "./lib/cachedSessionStore.js";
@@ -125,7 +125,8 @@ export function getSession() {
       const pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: dbSsl(process.env.DATABASE_URL),
-        max: 3,
+        // Counts toward the 15-connection limit of Supabase's session pooler (see db/index.ts)
+        max: Number(process.env.SESSION_POOL_MAX) || 2,
         idleTimeoutMillis: 30_000,
         // Never let a login or session lookup hang forever on a dead connection:
         // a failed query releases (and discards) its connection, so the next one gets a fresh one.
@@ -135,7 +136,7 @@ export function getSession() {
       // Keep one session-store connection in use (a new one costs ~1s to this far-away DB)
       setInterval(async () => {
         const ok = await settlesWithin(pool.query('select 1'), 16_000);
-        if (!ok) reportDbStall('session store ping');
+        if (!ok) console.warn('Auth: session store ping took over 16s');
       }, 15_000).unref();
       const store = new pgStore({
         pool,
