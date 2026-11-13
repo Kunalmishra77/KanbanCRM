@@ -38,10 +38,10 @@ const client = postgres(url, {
   max: poolMax,
   // Transaction mode only: one query at a time per connection (a reply once went to the wrong query)
   ...(sessionMode ? {} : ONE_QUERY_AT_A_TIME),
-  // Close idle connections after 20s (some hop between here and Supabase silently drops
-  // long-idle ones, and a query on a dead connection hangs). A ping every 30s keeps one
-  // connection in use so normal requests don't pay the ~1.1s cost of opening a new one.
-  idle_timeout: 20,
+  // Opening a connection costs ~1.1s (TLS to Mumbai), a query on an open one ~150ms, so keep them.
+  // Session mode: keep idle connections 5 minutes (TCP keepalive spots dead ones). Transaction mode
+  // silently dropped long-idle connections, so there they close after 20s.
+  idle_timeout: sessionMode ? 300 : 20,
   max_lifetime: 60 * 30,
   // Give up on opening a connection after 10s instead of waiting forever
   connect_timeout: 10,
