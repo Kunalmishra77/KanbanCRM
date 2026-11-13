@@ -39,7 +39,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", access: "all" },
     { icon: Target, label: "Leads", href: "/leads", access: "all" },
     { icon: CalendarClock, label: "Employee Services", href: "/services", access: "all" },
-    { icon: Repeat, label: "Repeating Tasks", href: "/recurring", access: "all" },
     { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },
     { icon: Wallet, label: "Salary & Incentives", href: "/salary", access: "payroll" },
     { icon: Building2, label: "Internal", href: "/internal", access: "internal" },

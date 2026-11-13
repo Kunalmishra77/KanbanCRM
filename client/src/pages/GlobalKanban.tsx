@@ -2,9 +2,10 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { isAssignedTo, assigneeName } from "@/lib/assignee";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, Loader2, X, Search, List, LayoutGrid, Clock, AlertTriangle, CheckCircle2, User, Receipt } from "lucide-react";
+import { Plus, Filter, Loader2, X, Search, List, LayoutGrid, Clock, AlertTriangle, CheckCircle2, User, Receipt, Repeat } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { StoryModal } from "@/components/StoryModal";
+import { RepeatingTaskList } from "@/pages/RecurringTasks";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
 import { useSearch } from "wouter";
@@ -123,7 +124,9 @@ export default function GlobalKanban() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  // "repeating" lists the repeating tasks (they used to have their own page; /recurring now points here)
+  const [viewMode, setViewMode] = useState<'list' | 'board' | 'repeating'>(() =>
+    new URLSearchParams(window.location.search).get('view') === 'repeating' ? 'repeating' : 'list');
   const [activeStatusTab, setActiveStatusTab] = useState<KanbanStatus>('In Progress');
   const pickedInitialTab = useRef(false);
   useEffect(() => {
@@ -366,6 +369,16 @@ export default function GlobalKanban() {
               <LayoutGrid className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Board</span>
             </Button>
+            <Button
+              variant={viewMode === 'repeating' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('repeating')}
+              className="h-8 px-3 gap-1.5 text-xs font-medium"
+              data-testid="view-repeating"
+            >
+              <Repeat className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Repeating</span>
+            </Button>
           </div>
 
           <Button
@@ -420,7 +433,9 @@ export default function GlobalKanban() {
       )}
 
       {/* RENDER VIEW */}
-      {viewMode === 'list' ? (
+      {viewMode === 'repeating' ? (
+        <RepeatingTaskList />
+      ) : viewMode === 'list' ? (
         <Tabs value={activeStatusTab} onValueChange={(val) => setActiveStatusTab(val as KanbanStatus)} className="w-full space-y-4">
           <TabsList className="mb-2 bg-muted/40 w-full sm:w-auto overflow-x-auto justify-start h-auto p-1 gap-1">
             {BOARD_COLUMNS.map(col => {
@@ -496,7 +511,7 @@ export default function GlobalKanban() {
                             </h3>
 
                             {story.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2 max-w-3xl">
+                              <p className="text-xs text-muted-foreground line-clamp-2 max-w-3xl whitespace-pre-line">
                                 {story.description}
                               </p>
                             )}

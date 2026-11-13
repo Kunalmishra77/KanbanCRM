@@ -11,7 +11,7 @@ import { isPeriod, periodRange, istDate, addDays } from "../shared/istDate.js";
 import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
-import { generateRecurringStories } from "./lib/recurring.js";
+import { generateRecurringStories, generateNextOccurrences } from "./lib/recurring.js";
 import { eventsHandler, broadcastOnWrite } from "./lib/live.js";
 import { notifyRequestRaised, notifyRequestDecided, clearWithdrawn, personName as fullNameOf } from "./lib/notify.js";
 import { analyzeProposal, generateStatusEmail } from "./ai.js";
@@ -1026,7 +1026,7 @@ export async function registerRoutes(
       if (bad) return res.status(400).json({ error: bad });
       if (!(await storage.getClient(data.clientId))) return res.status(404).json({ error: "Client not found" });
       const task = await storage.createRecurringTask({ ...data, startDate: data.startDate || istDate() }, req.user.id);
-      const created = await generateRecurringStories(); // today's story appears straight away
+      const created = await generateNextOccurrences(task.id); // its next story appears on the board straight away
       res.status(201).json({ task, created });
     } catch (error) {
       if (error instanceof ZodError) return res.status(400).json({ error: error.errors.map((e) => e.message).join('. ') });
@@ -1051,7 +1051,7 @@ export async function registerRoutes(
       }
       const task = await storage.updateRecurringTask(req.params.id, patch);
       if (!task) return res.status(404).json({ error: "Repeating task not found" });
-      const created = task.active ? await generateRecurringStories() : 0;
+      const created = task.active ? await generateNextOccurrences(task.id) : 0;
       res.json({ task, created });
     } catch (error) {
       if (error instanceof ZodError) return res.status(400).json({ error: error.errors.map((e) => e.message).join('. ') });

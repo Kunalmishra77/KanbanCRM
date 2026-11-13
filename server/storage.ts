@@ -57,6 +57,7 @@ export interface IStorage {
   updateRecurringTask(id: string, data: Partial<RecurringTaskInput>): Promise<RecurringTask | undefined>;
   deleteRecurringTask(id: string): Promise<boolean>;
   getOccurrenceKeys(date: string): Promise<Set<string>>;
+  getUpcomingOccurrencePeople(ruleId: string, fromDate: string): Promise<Set<string>>;
   insertGeneratedStories(rows: InsertStory[]): Promise<number>;
 
   // Leave / work from home / overtime
@@ -360,7 +361,9 @@ export class DatabaseStorage implements IStorage {
   async createRecurringTask(data: RecurringTaskInput & { startDate: string }, createdBy: string): Promise<RecurringTask> {
     const [row] = await db.insert(recurringTasks).values({
       clientId: data.clientId, title: data.title, description: data.description, priority: data.priority,
-      repeat: data.repeat, weekday: data.repeat === 'weekly' ? (data.weekday ?? null) : null,
+      repeat: data.repeat,
+      weekday: data.repeat === 'weekly' ? (data.weekdays?.[0] ?? data.weekday ?? null) : null,
+      weekdays: data.repeat === 'weekly' ? (data.weekdays?.length ? data.weekdays : data.weekday != null ? [data.weekday] : null) : null,
       monthDay: data.repeat === 'monthly' ? (data.monthDay ?? null) : null,
       dueTime: data.dueTime || null, startDate: data.startDate, endDate: data.endDate || null,
       active: data.active ?? true, assigneeIds: data.team ? [] : data.assigneeIds, team: data.team || null,
@@ -382,6 +385,13 @@ export class DatabaseStorage implements IStorage {
   async getOccurrenceKeys(date: string): Promise<Set<string>> {
     const rows = await db.select({ r: stories.recurringTaskId, u: stories.assignedTo, d: stories.occurrenceDate }).from(stories).where(eq(stories.occurrenceDate, date));
     return new Set(rows.filter((x) => x.r && x.u).map((x) => `${x.r}|${x.u}|${x.d}`));
+  }
+
+  /** People who already have a story from this rule dated fromDate or later. */
+  async getUpcomingOccurrencePeople(ruleId: string, fromDate: string): Promise<Set<string>> {
+    const rows = await db.select({ u: stories.assignedTo }).from(stories)
+      .where(and(eq(stories.recurringTaskId, ruleId), gte(stories.occurrenceDate, fromDate)));
+    return new Set(rows.map((x) => x.u).filter(Boolean) as string[]);
   }
 
   async insertGeneratedStories(rows: InsertStory[]): Promise<number> {

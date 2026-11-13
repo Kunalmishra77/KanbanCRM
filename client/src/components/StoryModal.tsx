@@ -682,7 +682,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                       ) : (
                         <div className="space-y-2">
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
-                          <div className="min-h-[150px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed">
+                          <div className="min-h-[150px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed whitespace-pre-wrap break-words">
                             {story.description || 'No description provided.'}
                           </div>
                         </div>

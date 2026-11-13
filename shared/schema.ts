@@ -342,7 +342,8 @@ export const recurringTasks = pgTable("recurring_tasks", {
   description: text("description").notNull().default(''),
   priority: text("priority").notNull().default('Medium'),
   repeat: text("repeat").notNull(), // daily | weekly | monthly
-  weekday: integer("weekday"), // 0 = Sunday, for weekly
+  weekday: integer("weekday"), // 0 = Sunday, for weekly (older rules: one day)
+  weekdays: integer("weekdays").array(), // 0 = Sunday, for weekly: every chosen day (newer rules)
   monthDay: integer("month_day"), // 1-31, for monthly
   dueTime: varchar("due_time", { length: 5 }), // HH:MM India time; null = end of day
   startDate: varchar("start_date", { length: 10 }).notNull(),
@@ -364,6 +365,7 @@ export const recurringTaskInputSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']).default('Medium'),
   repeat: z.enum(['daily', 'weekly', 'monthly']),
   weekday: z.coerce.number().int().min(0).max(6).nullable().optional(),
+  weekdays: z.array(z.coerce.number().int().min(0).max(6)).max(7).nullable().optional(),
   monthDay: z.coerce.number().int().min(1).max(31).nullable().optional(),
   dueTime: z.string().regex(/^\d{2}:\d{2}$/, "Use a time like 19:00").nullable().optional(),
   startDate: ymd.optional(),
@@ -373,7 +375,7 @@ export const recurringTaskInputSchema = z.object({
   team: z.string().nullable().optional(),
   excludeIds: z.array(z.string()).default([]),
 }).superRefine((v, ctx) => {
-  if (v.repeat === 'weekly' && (v.weekday === null || v.weekday === undefined)) ctx.addIssue({ code: 'custom', message: 'Pick the day of the week', path: ['weekday'] });
+  if (v.repeat === 'weekly' && !(v.weekdays && v.weekdays.length) && (v.weekday === null || v.weekday === undefined)) ctx.addIssue({ code: 'custom', message: 'Pick at least one day', path: ['weekdays'] });
   if (v.repeat === 'monthly' && !v.monthDay) ctx.addIssue({ code: 'custom', message: 'Pick the day of the month', path: ['monthDay'] });
   if (!v.team && v.assigneeIds.length === 0) ctx.addIssue({ code: 'custom', message: 'Choose who this is for (a person or a whole team)', path: ['assigneeIds'] });
   if (v.endDate && v.startDate && v.endDate < v.startDate) ctx.addIssue({ code: 'custom', message: 'The end date is before the start date', path: ['endDate'] });

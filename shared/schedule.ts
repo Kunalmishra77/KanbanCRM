@@ -20,7 +20,8 @@ export type Rule = {
   description: string;
   priority: string;
   repeat: Repeat;
-  weekday: number | null; // 0 = Sunday
+  weekday: number | null; // 0 = Sunday (older weekly rules: a single day)
+  weekdays?: number[] | null; // 0 = Sunday; weekly rules: every chosen day
   monthDay: number | null; // 1-31
   dueTime: string | null; // "HH:MM" India time, null = end of day
   startDate: string; // YYYY-MM-DD
@@ -47,10 +48,16 @@ export function isWorkingDay(pattern: string | null | undefined, date: string): 
 }
 
 /** Does this rule produce a task on this date (before looking at who is working that day)? */
-export function ruleRunsOn(rule: Pick<Rule, "repeat" | "weekday" | "monthDay" | "startDate" | "endDate" | "active">, date: string): boolean {
+/** The chosen days of a weekly rule (0 = Sunday). Older rules stored a single day. */
+export function ruleWeekdays(rule: Pick<Rule, "weekday" | "weekdays">): number[] {
+  if (rule.weekdays && rule.weekdays.length) return rule.weekdays.filter((d, i, a) => a.indexOf(d) === i).sort();
+  return rule.weekday === null || rule.weekday === undefined ? [] : [rule.weekday];
+}
+
+export function ruleRunsOn(rule: Pick<Rule, "repeat" | "weekday" | "weekdays" | "monthDay" | "startDate" | "endDate" | "active">, date: string): boolean {
   if (!rule.active || date < rule.startDate || (rule.endDate && date > rule.endDate)) return false;
   if (rule.repeat === "daily") return true;
-  if (rule.repeat === "weekly") return rule.weekday === dow(date);
+  if (rule.repeat === "weekly") return ruleWeekdays(rule).includes(dow(date));
   if (rule.repeat === "monthly") {
     const want = Math.min(rule.monthDay ?? 1, lastDayOfMonth(date)); // 31st rolls back to the last day in short months
     return Number(date.slice(8, 10)) === want;

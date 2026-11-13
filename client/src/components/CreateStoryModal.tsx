@@ -46,6 +46,8 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
   // Repeat options (founders only): none | daily | weekly | monthly
   const [repeat, setRepeat] = useState("none");
   const [weekday, setWeekday] = useState("1");
+  // Chosen days for "On chosen days" (0 = Sunday); starts with today's weekday
+  const [days, setDays] = useState<number[]>(() => [new Date().getDay()]);
   const [monthDay, setMonthDay] = useState("1");
   const [dueTime, setDueTime] = useState("end");
   const [forTeam, setForTeam] = useState("person");
@@ -77,7 +79,7 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
     setPriority("Medium");
     setAssignedTo("unassigned");
     setDate(undefined);
-    setRepeat("none"); setWeekday("1"); setMonthDay("1"); setDueTime("end"); setForTeam("person"); setTeam(""); setError("");
+    setRepeat("none"); setWeekday("1"); setDays([new Date().getDay()]); setMonthDay("1"); setDueTime("end"); setForTeam("person"); setTeam(""); setError("");
   };
 
   const handleSubmit = () => {
@@ -90,13 +92,15 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
       // Only founders may set repeating tasks up for other people or teams; everyone else gets them themselves
       const self = !canRepeatForOthers;
       const chosenTeam = leadTeam || team;
+      if (repeat === "weekly" && days.length === 0) return setError("Pick at least one day.");
       if (!self && forTeam === "team" && !chosenTeam) return setError("Choose the team.");
       if (!self && forTeam === "person" && assignedTo === "unassigned") return setError("Choose the person, or pick a whole team.");
       if (leadTeam && forTeam === "person" && assignedTo !== user?.id && (users as any[]).find((u) => u.id === assignedTo)?.team !== leadTeam)
         return setError(`Choose someone in the ${leadTeam} team.`);
       createRecurring({
         clientId, title: title.trim(), description: description.trim(), priority, repeat,
-        weekday: repeat === "weekly" ? Number(weekday) : null,
+        weekday: repeat === "weekly" ? [...days].sort()[0] : null,
+        weekdays: repeat === "weekly" ? [...days].sort() : null,
         monthDay: repeat === "monthly" ? Number(monthDay) : null,
         dueTime: dueTime === "end" ? null : dueTime,
         startDate: istDate(),
@@ -217,8 +221,8 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
                   <SelectTrigger className="macos-input" data-testid="select-repeat"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Does not repeat (one-time task)</SelectItem>
-                    <SelectItem value="daily">Every day</SelectItem>
-                    <SelectItem value="weekly">Every week</SelectItem>
+                    <SelectItem value="daily">Every working day</SelectItem>
+                    <SelectItem value="weekly">On chosen days (M T W T F S S)</SelectItem>
                     <SelectItem value="monthly">Every month</SelectItem>
                   </SelectContent>
                 </Select>
@@ -226,12 +230,33 @@ export function CreateStoryModal({ open, onOpenChange, defaultClientId }: Create
               {repeat !== "none" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {repeat === "weekly" && (
-                    <div className="space-y-2">
-                      <Label>Day of the week</Label>
-                      <Select value={weekday} onValueChange={setWeekday}>
-                        <SelectTrigger className="macos-input" data-testid="select-weekday"><SelectValue /></SelectTrigger>
-                        <SelectContent>{WEEKDAYS.map((d, i) => <SelectItem key={d} value={String(i)}>{d}</SelectItem>)}</SelectContent>
-                      </Select>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>On these days</Label>
+                      <div className="flex flex-wrap gap-2" role="group" aria-label="Days of the week" data-testid="weekday-toggles">
+                        {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+                          const on = days.includes(d);
+                          return (
+                            <button
+                              key={d}
+                              type="button"
+                              aria-pressed={on}
+                              title={WEEKDAYS[d]}
+                              aria-label={WEEKDAYS[d]}
+                              onClick={() => setDays((cur) => (on ? cur.filter((x) => x !== d) : [...cur, d]))}
+                              data-testid={`day-${d}`}
+                              className={cn(
+                                "h-11 w-11 rounded-full border text-sm font-semibold transition-colors",
+                                on ? "bg-primary text-primary-foreground border-primary" : "bg-transparent text-muted-foreground border-border hover:border-primary/60",
+                              )}
+                            >
+                              {WEEKDAYS[d][0]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {days.length === 0 ? "Pick at least one day." : `Every ${[1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d)).map((d) => WEEKDAYS[d].slice(0, 3)).join(", ")}`}
+                      </p>
                     </div>
                   )}
                   {repeat === "monthly" && (

@@ -95,5 +95,6 @@ export function MentionText({ body }: { body: string }) {
     parts.push({ mention: "@" + tail.slice(0, hit.length) });
     rest = tail.slice(hit.length);
   }
-  return <>{parts.map((p, i) => (typeof p === "string" ? <span key={i}>{p}</span> : <span key={i} className="font-semibold text-primary">{p.mention}</span>))}</>;
+  // whitespace-pre-wrap keeps the writer's line breaks and point lists as typed
+  return <span className="whitespace-pre-wrap break-words">{parts.map((p, i) => (typeof p === "string" ? <span key={i}>{p}</span> : <span key={i} className="font-semibold text-primary">{p.mention}</span>))}</span>;
 }

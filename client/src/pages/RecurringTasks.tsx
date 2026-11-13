@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,17 +8,25 @@ import { useIsFounder, useAuth } from "@/lib/auth";
 import { perms } from "@shared/roles";
 import { useClients, useUsers } from "@/lib/queries";
 import { useRecurringTasks, useToggleRecurringTask, useDeleteRecurringTask } from "@/lib/serviceQueries";
-import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { RestrictedNotice } from "@/components/RestrictedNotice";
 import { fullName } from "@/lib/assignee";
-import { WEEKDAYS } from "@shared/schedule";
+import { WEEKDAYS, ruleWeekdays } from "@shared/schedule";
 import { cn } from "@/lib/utils";
 import type { RecurringTask } from "@shared/schema";
 
-const when = (t: RecurringTask) =>
-  t.repeat === "daily" ? "Every working day" : t.repeat === "weekly" ? `Every ${WEEKDAYS[t.weekday ?? 1]}` : `Monthly on day ${t.monthDay}`;
+const MON_FIRST = [1, 2, 3, 4, 5, 6, 0];
+const when = (t: RecurringTask) => {
+  if (t.repeat === "daily") return "Every working day";
+  if (t.repeat === "monthly") return `Monthly on day ${t.monthDay}`;
+  const days = ruleWeekdays(t);
+  return `Every ${MON_FIRST.filter((d) => days.includes(d)).map((d) => (days.length > 1 ? WEEKDAYS[d].slice(0, 3) : WEEKDAYS[d])).join(", ")}`;
+};
 
-export default function RecurringTasks() {
+/**
+ * The list of repeating tasks (pause, resume, delete). Shown as the "Repeating" view of the Global
+ * Board; new ones are made with Add Story -> Repeat.
+ */
+export function RepeatingTaskList() {
   const isFounder = useIsFounder();
   const { user } = useAuth();
   const { data: tasks = [], isLoading } = useRecurringTasks(true);
@@ -25,7 +34,6 @@ export default function RecurringTasks() {
   const { data: users = [] } = useUsers();
   const toggle = useToggleRecurringTask();
   const remove = useDeleteRecurringTask();
-  const [adding, setAdding] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
 
 
@@ -34,18 +42,15 @@ export default function RecurringTasks() {
     t.team ? `Everyone in ${t.team}${(t.excludeIds || []).length ? ` except ${(t.excludeIds || []).map((id) => fullName((users as any[]).find((u) => u.id === id)) || "someone").join(", ")}` : ""}` : t.assigneeIds.map((id) => fullName((users as any[]).find((u) => u.id === id)) || "Unknown").join(", ");
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Repeating tasks</h1>
-          <p className="text-muted-foreground">{perms.manageAllRepeating(user) || perms.isTeamLead(user) ? "Set a task once. A fresh story is created for each person on every working day, week or month." : "Set up tasks that repeat for you. A fresh story is created for you on every working day, week or month."}</p>
-        </div>
-        <Button className="h-11 gap-2" onClick={() => setAdding(true)} data-testid="add-repeating"><Plus className="h-4 w-4" />New task</Button>
-      </div>
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {perms.manageAllRepeating(user) || perms.isTeamLead(user) ? "Each repeating task puts a fresh story on the board for its people on the chosen days." : "Your repeating tasks. Each puts a fresh story on your board on the chosen days."}{" "}
+        To add one, use <span className="font-medium text-foreground">Add Story</span> and turn on <span className="font-medium text-foreground">Repeat</span>.
+      </p>
 
       {isLoading && <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
       {!isLoading && tasks.length === 0 && (
-        <p className="text-center text-muted-foreground py-12">No repeating tasks yet. Tap "New task" and choose how often it repeats.</p>
+        <p className="text-center text-muted-foreground py-12">No repeating tasks yet. Use "Add Story" and choose how often it repeats.</p>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 [&>*]:min-w-0">
@@ -78,8 +83,13 @@ export default function RecurringTasks() {
           </Card>
         ))}
       </div>
-
-      <CreateStoryModal open={adding} onOpenChange={setAdding} />
     </div>
   );
+}
+
+// Old link (/recurring): repeating tasks now live on the Global Board
+export default function RecurringTasks() {
+  const [, setLocation] = useLocation();
+  useEffect(() => { setLocation("/global-kanban?view=repeating", { replace: true }); }, [setLocation]);
+  return null;
 }
