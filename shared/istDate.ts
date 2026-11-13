@@ -5,6 +5,19 @@ export function istDate(at: Date | number = Date.now()): string {
   return new Date(new Date(at).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/**
+ * A due date picked from the calendar arrives as midnight at the START of that day (India time), which
+ * made a story "due Nov 13" overdue from 00:00 on the 13th, while repeating stories are due at 23:59.
+ * A due date of exactly 00:00 India time therefore means "that day": it becomes 23:59 that day.
+ * Any other time (a time someone chose) is kept.
+ */
+export function endOfDayIfDateOnly(d: Date): Date {
+  const t = d.getTime();
+  if (Number.isNaN(t)) return d;
+  if ((t + IST_OFFSET_MS) % 86_400_000 !== 0) return d;
+  return new Date(t + 86_400_000 - 60_000);
+}
+
 export function addDays(date: string, days: number): string {
   const d = new Date(date + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + days);

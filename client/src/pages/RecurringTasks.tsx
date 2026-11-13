@@ -10,17 +10,11 @@ import { useClients, useUsers } from "@/lib/queries";
 import { useRecurringTasks, useToggleRecurringTask, useDeleteRecurringTask } from "@/lib/serviceQueries";
 import { RestrictedNotice } from "@/components/RestrictedNotice";
 import { fullName } from "@/lib/assignee";
-import { WEEKDAYS, ruleWeekdays } from "@shared/schedule";
+import { repeatLabel } from "@shared/schedule";
 import { cn } from "@/lib/utils";
 import type { RecurringTask } from "@shared/schema";
 
-const MON_FIRST = [1, 2, 3, 4, 5, 6, 0];
-const when = (t: RecurringTask) => {
-  if (t.repeat === "daily") return "Every working day";
-  if (t.repeat === "monthly") return `Monthly on day ${t.monthDay}`;
-  const days = ruleWeekdays(t);
-  return `Every ${MON_FIRST.filter((d) => days.includes(d)).map((d) => (days.length > 1 ? WEEKDAYS[d].slice(0, 3) : WEEKDAYS[d])).join(", ")}`;
-};
+const when = (t: RecurringTask) => repeatLabel(t as any);
 
 /**
  * The list of repeating tasks (pause, resume, delete). Shown as the "Repeating" view of the Global

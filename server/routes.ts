@@ -7,7 +7,7 @@ import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySc
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
 import { computeOverview, nameOf } from "./lib/overview.js";
-import { isPeriod, periodRange, istDate, addDays } from "../shared/istDate.js";
+import { isPeriod, periodRange, istDate, addDays, endOfDayIfDateOnly } from "../shared/istDate.js";
 import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
@@ -436,7 +436,7 @@ export async function registerRoutes(
         ...req.body,
         recurringTaskId: undefined, // only the repeating-task generator may link a story to a rule
         occurrenceDate: undefined,
-        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : new Date(),
+        dueDate: req.body.dueDate ? endOfDayIfDateOnly(new Date(req.body.dueDate)) : new Date(),
       };
       const data = insertStorySchema.parse(body);
       const story = await storage.createStory(data);
@@ -467,7 +467,7 @@ export async function registerRoutes(
       delete body.recurringTaskId;
       delete body.occurrenceDate;
       if (body.dueDate) {
-        body.dueDate = new Date(body.dueDate);
+        body.dueDate = endOfDayIfDateOnly(new Date(body.dueDate));
       }
       const data = updateStorySchema.parse(body);
       const story = await storage.updateStory(req.params.id, data);

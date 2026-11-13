@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { canDeleteStory } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
+import { RepeatControls } from "@/components/RepeatControls";
 import { useToast } from "@/hooks/use-toast";
 
 type StoryData = {
@@ -394,6 +395,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     </div>
                   </div>
                 </div>
+
+                {story.recurringTaskId && <RepeatControls ruleId={story.recurringTaskId} />}
 
                 <div className="mt-auto">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tags</h4>

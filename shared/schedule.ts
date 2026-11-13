@@ -54,6 +54,15 @@ export function ruleWeekdays(rule: Pick<Rule, "weekday" | "weekdays">): number[]
   return rule.weekday === null || rule.weekday === undefined ? [] : [rule.weekday];
 }
 
+const MON_FIRST = [1, 2, 3, 4, 5, 6, 0];
+/** "Every working day", "Every Mon, Wed, Fri", "Every Tuesday" or "Monthly on day 5". */
+export function repeatLabel(rule: Pick<Rule, "repeat" | "weekday" | "weekdays" | "monthDay">): string {
+  if (rule.repeat === "daily") return "Every working day";
+  if (rule.repeat === "monthly") return `Monthly on day ${rule.monthDay}`;
+  const days = ruleWeekdays(rule);
+  return `Every ${MON_FIRST.filter((d) => days.includes(d)).map((d) => (days.length > 1 ? WEEKDAYS[d].slice(0, 3) : WEEKDAYS[d])).join(", ")}`;
+}
+
 export function ruleRunsOn(rule: Pick<Rule, "repeat" | "weekday" | "weekdays" | "monthDay" | "startDate" | "endDate" | "active">, date: string): boolean {
   if (!rule.active || date < rule.startDate || (rule.endDate && date > rule.endDate)) return false;
   if (rule.repeat === "daily") return true;
