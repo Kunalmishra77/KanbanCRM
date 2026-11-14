@@ -101,7 +101,9 @@ const rk = await kapil.post('/api/recurring-tasks', rule({ team: 'Sales', assign
 ok(rk.status === 201 && rk.data.task.team === null && rk.data.task.assigneeIds.join() === kapilId, 'an employee always gets it for himself only', JSON.stringify(rk.data.task));
 ok((await sunita.get('/api/recurring-tasks')).data.length === 5, 'Sunita sees every repeating task');
 ok((await charu.get('/api/recurring-tasks')).data.length === 2, 'Charu sees the ones she made');
-ok((await sunita.req('DELETE', '/api/recurring-tasks/' + rk.data.task.id)).status === 204, "Sunita can delete anyone's repeating task");
+ok((await sunita.req('DELETE', '/api/recurring-tasks/' + rk.data.task.id)).status === 403, "Sunita cannot delete a repeating task (founders only; others pause)");
+ok((await kapil.req('DELETE', '/api/recurring-tasks/' + rk.data.task.id)).status === 403, 'an employee cannot delete his own repeating task either');
+ok((await founder.req('DELETE', '/api/recurring-tasks/' + rk.data.task.id)).status === 204, 'a founder can delete a repeating task');
 ok((await charu.req('DELETE', '/api/recurring-tasks/' + rs.data.task.id)).status === 404, "Charu cannot delete Sunita's");
 ok((await charu.patch('/api/recurring-tasks/' + rc.data.task.id, { active: false })).status === 200, 'Charu can pause her own');
 ok((await charu.patch('/api/recurring-tasks/' + rc2.data.task.id, rule({ assigneeIds: [kapilId] }))).status === 400, 'Charu cannot edit her rule to target another team');

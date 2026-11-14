@@ -1,5 +1,5 @@
 import { storage } from "../storage.js";
-import { planStories, personName, type Rule, type Leave, type Repeat, type Person } from "../../shared/schedule.js";
+import { planStories, personName, occurrenceKey, type Rule, type Leave, type Repeat, type Person } from "../../shared/schedule.js";
 import { istDate, addDays } from "../../shared/istDate.js";
 import { broadcastChange } from "./live.js";
 
@@ -32,6 +32,12 @@ const storyRow = ({ rule, person, date: day, dueDate }: { rule: Rule; person: Pe
  * what already exists is skipped (and the database enforces one story per rule, person and day).
  */
 export async function generateRecurringStories(date: string = istDate()): Promise<number> {
+  // A new day: yesterday's (and older) copies still open move to Done before today's fresh ones come in
+  const closed = await storage.closePastRepeatingCopies(date);
+  if (closed > 0) {
+    console.log(`Scheduler: moved ${closed} past repeating copies to Done`);
+    broadcastChange();
+  }
   const [rules, users, requests, existing] = await Promise.all([
     storage.listRecurringTasks(),
     storage.getAllUsers(),
@@ -52,21 +58,25 @@ export async function generateRecurringStories(date: string = istDate()): Promis
  */
 export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const today = istDate();
-  const [rules, users, requests, covered] = await Promise.all([
+  await storage.closePastRepeatingCopies(today);
+  const [rules, users, requests, copies] = await Promise.all([
     storage.listRecurringTasks(),
     storage.getAllUsers(),
     storage.listEmployeeRequests(),
-    storage.getUpcomingOccurrencePeople(ruleId, today),
+    storage.getRuleOccurrences(ruleId, today),
   ]);
   const raw = rules.find((r) => r.id === ruleId);
   if (!raw || !raw.active) return 0;
   const rule = asRule(raw);
   const leaves = approvedLeaves(requests);
-  let people = users.map(asPerson).filter((p) => !covered.has(p.id));
+  // Someone who already has an unfinished copy waiting is fine; finished copies do not count
+  const waiting = new Set(copies.filter((c) => c.status !== "Done").map((c) => c.assignedTo));
+  const existing = new Set(copies.map((c) => occurrenceKey(rule.id, c.assignedTo || "", c.occurrenceDate || "")));
+  let people = users.map(asPerson).filter((p) => !waiting.has(p.id));
   const rows: ReturnType<typeof storyRow>[] = [];
   for (let i = 0; i < 62 && people.length; i++) {
     const date = addDays(today, i);
-    const plan = planStories({ rules: [rule], people, leaves, existing: new Set(), date });
+    const plan = planStories({ rules: [rule], people, leaves, existing, date }); // days that already have a copy are skipped
     rows.push(...plan.map(storyRow));
     const done = new Set(plan.map((p) => p.person.id));
     people = people.filter((p) => !done.has(p.id));
@@ -87,9 +97,12 @@ export async function generateNextAfterDone(ruleId: string, personId: string, af
   if (!raw || !raw.active || !person) return 0;
   const rule = asRule(raw);
   const leaves = approvedLeaves(requests);
+  const copies = await storage.getRuleOccurrences(ruleId, addDays(afterDate, 1));
+  if (copies.some((c) => c.assignedTo === personId && c.status !== "Done")) return 0; // the next one is already waiting
+  const existing = new Set(copies.map((c) => occurrenceKey(rule.id, c.assignedTo || "", c.occurrenceDate || "")));
   for (let i = 1; i <= 62; i++) {
     const date = addDays(afterDate, i);
-    const plan = planStories({ rules: [rule], people: [asPerson(person)], leaves, existing: new Set(), date });
+    const plan = planStories({ rules: [rule], people: [asPerson(person)], leaves, existing, date }); // skips days already done
     if (plan.length) {
       const created = await storage.insertGeneratedStories(plan.map(storyRow));
       if (created > 0) broadcastChange();

@@ -5,17 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useRecurringTasks, useToggleRecurringTask, useDeleteRecurringTask } from "@/lib/serviceQueries";
 import { repeatLabel } from "@shared/schedule";
+import { perms } from "@shared/roles";
+import { useAuth } from "@/lib/auth";
 
 /**
- * Shown in a story that came from a repeating task: how often it repeats, and Pause / Resume /
- * Stop repeating for whoever may manage that repeating task (its creator, founders, the chief of staff).
- * Pausing or stopping never removes stories that already exist.
+ * Shown in a story that came from a repeating task: how often it repeats, and Pause / Resume for whoever
+ * may manage it (its creator, founders, the chief of staff). Finishing a copy never ends it; only founders
+ * can delete a repeating task. Pausing never removes stories that already exist.
  */
 export function RepeatControls({ ruleId }: { ruleId: string }) {
   const { data: rules = [], isLoading } = useRecurringTasks(true);
   const toggle = useToggleRecurringTask();
   const remove = useDeleteRecurringTask();
   const [confirming, setConfirming] = useState(false);
+  const canDelete = perms.isFounder(useAuth().user);
   const rule = rules.find((r) => r.id === ruleId);
 
   return (
@@ -47,7 +50,7 @@ export function RepeatControls({ ruleId }: { ruleId: string }) {
             >
               {rule.active ? <><Pause className="h-4 w-4" />Pause</> : <><Play className="h-4 w-4" />Resume</>}
             </Button>
-            {confirming ? (
+            {!canDelete ? null : confirming ? (
               <Button variant="destructive" className="h-10 flex-1" onClick={() => { remove.mutate(rule.id); setConfirming(false); }} data-testid="repeat-stop-confirm">
                 Stop repeating
               </Button>
@@ -57,7 +60,7 @@ export function RepeatControls({ ruleId }: { ruleId: string }) {
               </Button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{rule.active ? "Pausing stops new copies; this story stays." : "Paused: no new copies until resumed."}</p>
+          <p className="text-xs text-muted-foreground">{rule.active ? "Comes back after every finished copy. Pause to stop new copies; this story stays." : "Paused: no new copies until resumed."}</p>
         </div>
       )}
     </div>

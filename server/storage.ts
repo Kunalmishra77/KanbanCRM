@@ -58,6 +58,8 @@ export interface IStorage {
   deleteRecurringTask(id: string): Promise<boolean>;
   getOccurrenceKeys(date: string): Promise<Set<string>>;
   getUpcomingOccurrencePeople(ruleId: string, fromDate: string): Promise<Set<string>>;
+  closePastRepeatingCopies(today: string): Promise<number>;
+  getRuleOccurrences(ruleId: string, fromDate: string): Promise<{ assignedTo: string | null; occurrenceDate: string | null; status: string }[]>;
   insertGeneratedStories(rows: InsertStory[]): Promise<number>;
 
   // Leave / work from home / overtime
@@ -392,6 +394,24 @@ export class DatabaseStorage implements IStorage {
     const rows = await db.select({ u: stories.assignedTo }).from(stories)
       .where(and(eq(stories.recurringTaskId, ruleId), gte(stories.occurrenceDate, fromDate)));
     return new Set(rows.map((x) => x.u).filter(Boolean) as string[]);
+  }
+
+  /**
+   * A copy of a repeating task belongs to its own day. Once that day is over, a copy still open moves to
+   * Done, so yesterday's copy never sits in today's To Do next to today's fresh one. Its progress and
+   * comments stay as they were.
+   */
+  async closePastRepeatingCopies(today: string): Promise<number> {
+    const rows = await db.update(stories).set({ status: 'Done', updatedAt: new Date() })
+      .where(and(sql`${stories.recurringTaskId} is not null`, sql`${stories.occurrenceDate} < ${today}`, ne(stories.status, 'Done')))
+      .returning({ id: stories.id });
+    return rows.length;
+  }
+
+  /** Every copy of this rule dated fromDate or later (who, which day, its status). */
+  async getRuleOccurrences(ruleId: string, fromDate: string) {
+    return db.select({ assignedTo: stories.assignedTo, occurrenceDate: stories.occurrenceDate, status: stories.status }).from(stories)
+      .where(and(eq(stories.recurringTaskId, ruleId), gte(stories.occurrenceDate, fromDate)));
   }
 
   async insertGeneratedStories(rows: InsertStory[]): Promise<number> {

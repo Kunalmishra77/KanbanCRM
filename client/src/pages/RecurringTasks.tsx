@@ -67,7 +67,7 @@ export function RepeatingTaskList() {
                 <Button variant="outline" className="h-10 flex-1 gap-1" disabled={toggle.isPending} onClick={() => toggle.mutate({ id: t.id, active: !t.active })}>
                   {t.active ? <><Pause className="h-4 w-4" />Pause</> : <><Play className="h-4 w-4" />Resume</>}
                 </Button>
-                {confirming === t.id ? (
+                {!isFounder ? null : confirming === t.id ? (
                   <Button variant="destructive" className="h-10 flex-1" onClick={() => { remove.mutate(t.id); setConfirming(null); }} data-testid={`confirm-delete-${t.title}`}>Confirm delete</Button>
                 ) : (
                   <Button variant="outline" className="h-10 w-12 text-destructive" aria-label={`Delete ${t.title}`} onClick={() => setConfirming(t.id)}><Trash2 className="h-4 w-4" /></Button>

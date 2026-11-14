@@ -94,6 +94,43 @@ ok(nextGmb.length === 1 && nextGmb[0].occurrenceDate === ist(7) && nextGmb[0].st
 await pooja.patch('/api/stories/' + gmb.id, { status: 'Done' }); await new Promise((r) => setTimeout(r, 800));
 ok((await pooja.get('/api/stories')).data.filter((s) => s.title === 'GMB post' && s.occurrenceDate > today).length === 1, 'marking Done again does not add a second copy');
 
+// 10b. Daily: today's copy done -> tomorrow's is on the board as To Do (whoever finishes it)
+const daily = (await pooja.post('/api/recurring-tasks', { ...base, title: 'Daily report', repeat: 'daily', assigneeIds: [poojaId] })).data.task;
+const todayCopy = (await pooja.get('/api/stories')).data.find((s) => s.title === 'Daily report' && s.occurrenceDate === today);
+ok(!!todayCopy, "daily: today's copy is on the board");
+await founder.patch('/api/stories/' + todayCopy.id, { status: 'Done' }); // finished by someone else
+await new Promise((r) => setTimeout(r, 1500));
+const tmr = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Daily report' && s.occurrenceDate === ist(1));
+ok(tmr.length === 1 && tmr[0].status === 'To Do', "daily: finishing today's copy puts tomorrow's in To Do", JSON.stringify(tmr.map((s) => s.status)));
+// Pause: no new copy; Resume: back as before
+await pooja.patch('/api/recurring-tasks/' + daily.id, { active: false });
+const tmrCopy = tmr[0];
+await pooja.patch('/api/stories/' + tmrCopy.id, { status: 'Done' }); await new Promise((r) => setTimeout(r, 1200));
+ok(!(await pooja.get('/api/stories')).data.some((s) => s.title === 'Daily report' && s.occurrenceDate === ist(2)), 'paused: finishing a copy adds no new one');
+await pooja.patch('/api/recurring-tasks/' + daily.id, { active: true }); await new Promise((r) => setTimeout(r, 1200));
+ok((await pooja.get('/api/stories')).data.some((s) => s.title === 'Daily report' && s.occurrenceDate > ist(1) && s.status === 'To Do'), 'resumed: the next copy is back in To Do');
+// Only founders delete; every change is recorded
+ok((await pooja.req('DELETE', '/api/recurring-tasks/' + daily.id)).status === 403, 'an employee cannot delete a repeating task (pause instead)');
+const log = JSON.stringify((await founder.get('/api/activity?limit=100')).data);
+ok(log.includes('Set up repeating task: Daily report') && log.includes('Paused repeating task: Daily report') && log.includes('Resumed repeating task: Daily report'), 'create / pause / resume are recorded with who did it');
+ok((await founder.req('DELETE', '/api/recurring-tasks/' + daily.id)).status === 204, 'a founder can delete it');
+ok(JSON.stringify((await founder.get('/api/activity?limit=100')).data).includes('Deleted repeating task: Daily report'), 'the delete is recorded too');
+
+// 10c. A new day: yesterday's copy still open moves to Done; today's fresh copy is the only To Do
+{
+  const pg = (await import('postgres')).default(process.env.DATABASE_URL || 'postgres://postgres:pw@localhost:5433/crm', { max: 1 });
+  const r = (await pooja.post('/api/recurring-tasks', { ...base, title: 'Calling report', repeat: 'daily', assigneeIds: [poojaId] })).data.task;
+  await pg`insert into stories (client_id, title, description, assigned_to, priority, estimated_effort_hours, due_date, status, progress_percent, person, tags, recurring_task_id, occurrence_date)
+    values (${client.id}, 'Calling report', 'x', ${poojaId}, 'Medium', 0, now() - interval '1 day', 'To Do', 0, 'Pooja Singh', ${['recurring', 'daily']}, ${r.id}, ${ist(-1)})`;
+  await pooja.patch('/api/recurring-tasks/' + r.id, { active: false });
+  await pooja.patch('/api/recurring-tasks/' + r.id, { active: true }); // any create/resume (and the 12:00 AM run) tidies up
+  const copies = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Calling report');
+  const y = copies.find((s) => s.occurrenceDate === ist(-1)), t = copies.find((s) => s.occurrenceDate === today);
+  ok(y?.status === 'Done', "yesterday's unfinished copy moved to Done", y?.status);
+  ok(t?.status === 'To Do' && copies.filter((s) => s.status !== 'Done').length === 1, "only today's copy is in To Do", JSON.stringify(copies.map((s) => s.occurrenceDate + ':' + s.status)));
+  await pg.end();
+}
+
 // 11. Lists kept in memory are never stale after a change
 const c2 = (await founder.post('/api/clients', { name: 'Fresh Client', industry: 'Spa', stage: 'Hot', expectedRevenue: '1', revenueTotal: '0', contactEmail: 'f@x.com' })).data;
 ok((await founder.get('/api/clients')).data.some((c) => c.id === c2.id), 'a new client shows in the list at once');
@@ -107,6 +144,6 @@ const dh = await fetch(BASE + '/api/health/deep'); const dj = await dh.json();
 ok(dh.status === 200 && dj.database === 'ok', 'deep health check reaches the database', JSON.stringify(dj));
 
 // 5. The list shows them
-ok((await pooja.get('/api/recurring-tasks')).data.length === 4, 'repeating list has the 4 rules');
+ok((await pooja.get('/api/recurring-tasks')).data.length === 5, 'repeating list has the 5 rules');
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 process.exit(fail.length ? 1 : 0);

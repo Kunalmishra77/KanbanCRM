@@ -886,6 +886,7 @@ export async function registerRoutes(
         (l.entityType === 'request' && !seeRequests && !mine(l)) ||
         (l.entityType === 'story' && !mine(l) && !visibleStory(l.entityId)) ||
         (l.entityType === 'comment' && !seeAllWork && !mine(l)) ||
+        (l.entityType === 'recurring' && !seeAllWork && !mine(l)) ||
         (l.entityType === 'user' && !seeTeamAdmin && !mine(l));
       const unfiltered = seeInvoices && seeRequests && seeAllWork && seeTeamAdmin;
       const logs = (await storage.getActivityLog(unfiltered ? limit : Math.min(limit * 10, 500))).filter((l) => !hidden(l)).slice(0, limit);
@@ -1012,6 +1013,9 @@ export async function registerRoutes(
   // ---- Repeating tasks: founders and the chief of staff for anyone; a team lead for people in their own
   // team (or the whole team); everyone else only for themselves. Each sees and edits the rules they made. ----
   const allRepeating = (u: any) => perms.manageAllRepeating(u);
+  // Every change to a repeating task is recorded (who, what), so a task that stopped can always be traced
+  const logRule = (req: any, rule: { id: string; title: string }, action: string, details: string) =>
+    storage.createActivityLog({ entityType: 'recurring', entityId: rule.id, action, userId: req.user.id, details }).catch((e) => console.error('Repeating task log failed:', e));
   const leadsTeam = (u: any) => (perms.isTeamLead(u) && u.team ? (u.team as string) : null);
   const forSelf = (data: any, u: any) => (allRepeating(u) || leadsTeam(u) ? data : { ...data, team: null, excludeIds: [], assigneeIds: [u.id] });
   /** A team lead may only target their own team or people in it. */
@@ -1055,6 +1059,7 @@ export async function registerRoutes(
       if (bad) return res.status(400).json({ error: bad });
       if (!(await storage.getClient(data.clientId))) return res.status(404).json({ error: "Client not found" });
       const task = await storage.createRecurringTask({ ...data, startDate: data.startDate || istDate() }, req.user.id);
+      await logRule(req, task, 'created', `Set up repeating task: ${task.title}`);
       const created = await generateNextOccurrences(task.id); // its next story appears on the board straight away
       res.status(201).json({ task, created });
     } catch (error) {
@@ -1080,6 +1085,8 @@ export async function registerRoutes(
       }
       const task = await storage.updateRecurringTask(req.params.id, patch);
       if (!task) return res.status(404).json({ error: "Repeating task not found" });
+      await logRule(req, task, onlyToggle ? (task.active ? 'resumed' : 'paused') : 'updated',
+        `${onlyToggle ? (task.active ? 'Resumed' : 'Paused') : 'Changed'} repeating task: ${task.title}`);
       const created = task.active ? await generateNextOccurrences(task.id) : 0;
       res.json({ task, created });
     } catch (error) {
@@ -1089,9 +1096,13 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/recurring-tasks/:id", isAuthenticated, ownRule, async (req, res) => {
+  // A repeating task never ends because a copy is done; people pause it instead. Only founders delete one.
+  app.delete("/api/recurring-tasks/:id", isAuthenticated, ownRule, async (req: any, res) => {
     try {
+      if (!perms.isFounder(req.user)) return res.status(403).json({ error: "Pause it instead: only founders can delete a repeating task." });
+      const rule = (await storage.listRecurringTasks()).find((t) => t.id === req.params.id);
       if (!(await storage.deleteRecurringTask(req.params.id))) return res.status(404).json({ error: "Repeating task not found" });
+      if (rule) await logRule(req, rule, 'deleted', `Deleted repeating task: ${rule.title}`);
       res.status(204).send(); // stories already created stay where they are
     } catch (error) {
       console.error('Delete recurring task error:', error);
