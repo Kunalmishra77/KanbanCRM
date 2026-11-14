@@ -821,4 +821,39 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+/**
+ * Lists that every page asks for and that rarely change are kept in memory for up to 15s: each database
+ * round trip costs ~150ms (Supabase is in Mumbai). Any storage call that is not a read (get.../list...)
+ * clears the memory straight after it finishes, so a change is never served stale from this server.
+ */
+const CACHED = new Set(["getAllUsers", "getClients", "listRecurringTasks"]);
+const CACHE_MS = 15_000;
+function withListCache(target: DatabaseStorage): DatabaseStorage {
+  const memo = new Map<string, { at: number; value: Promise<unknown> }>();
+  const clear = () => memo.clear();
+  return new Proxy(target, {
+    get(obj, prop, receiver) {
+      const value = Reflect.get(obj, prop, receiver);
+      if (typeof value !== "function" || typeof prop !== "string") return value;
+      if (CACHED.has(prop)) {
+        return (...args: unknown[]) => {
+          const hit = memo.get(prop);
+          if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+          const fresh = (value as Function).apply(obj, args) as Promise<unknown>;
+          memo.set(prop, { at: Date.now(), value: fresh });
+          fresh.catch(() => memo.delete(prop)); // never keep a failure
+          return fresh;
+        };
+      }
+      if (/^(get|list)/.test(prop)) return (value as Function).bind(obj);
+      // A change: run it, then forget the cached lists (also when it fails part-way)
+      return (...args: unknown[]) => {
+        clear();
+        const out = (value as Function).apply(obj, args);
+        return out && typeof (out as Promise<unknown>).finally === "function" ? (out as Promise<unknown>).finally(clear) : (clear(), out);
+      };
+    },
+  });
+}
+
+export const storage = withListCache(new DatabaseStorage());

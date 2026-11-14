@@ -76,6 +76,29 @@ export async function generateNextOccurrences(ruleId: string): Promise<number> {
   return created;
 }
 
+/**
+ * When someone finishes a repeating story, put their NEXT copy on the board straight away (due on its
+ * day), so the next Saturday's (or tomorrow's) task is already visible. The daily run then skips it.
+ */
+export async function generateNextAfterDone(ruleId: string, personId: string, afterDate: string): Promise<number> {
+  const [rules, users, requests] = await Promise.all([storage.listRecurringTasks(), storage.getAllUsers(), storage.listEmployeeRequests()]);
+  const raw = rules.find((r) => r.id === ruleId);
+  const person = users.find((u) => u.id === personId);
+  if (!raw || !raw.active || !person) return 0;
+  const rule = asRule(raw);
+  const leaves = approvedLeaves(requests);
+  for (let i = 1; i <= 62; i++) {
+    const date = addDays(afterDate, i);
+    const plan = planStories({ rules: [rule], people: [asPerson(person)], leaves, existing: new Set(), date });
+    if (plan.length) {
+      const created = await storage.insertGeneratedStories(plan.map(storyRow));
+      if (created > 0) broadcastChange();
+      return created;
+    }
+  }
+  return 0;
+}
+
 export function startRecurringScheduler() {
   const tick = async () => {
     try {

@@ -1,4 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportClientError, reloadForNewVersion } from "@/lib/clientErrors";
+
+// A page file that no longer exists after a new version went live
+const isNewVersionError = (e: unknown) =>
+  /dynamically imported module|Importing a module script failed|error loading dynamically|ChunkLoadError|Loading chunk/i.test(String((e as any)?.message || e));
 
 interface Props {
   children: ReactNode;
@@ -17,6 +22,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("Unhandled UI error:", error, info.componentStack);
+    reportClientError(isNewVersionError(error) ? "new version" : "screen", `${error?.message || error} @ ${(info.componentStack || "").split("\n").filter(Boolean).slice(0, 3).join(" < ")}`);
+    if (isNewVersionError(error)) reloadForNewVersion();
   }
 
   render() {

@@ -60,7 +60,7 @@ export default function ClientDetail() {
 
   const { data: client, isLoading: isLoadingClient } = useClient(params?.id || '');
   const { data: allStories = [], isLoading: isLoadingStories } = useStories(params?.id);
-  const { data: invoices = [], isLoading: isLoadingInvoices } = useInvoices(params?.id || '');
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useInvoices(params?.id || '', useCanViewFinance());
   const { data: communications = [], isLoading: isLoadingComms } = useCommunications(params?.id || '');
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();

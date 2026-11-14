@@ -74,7 +74,8 @@ let s1, s2, s3, s4;
     mk(warm.id, 'Nobody story', null, 'Unassigned'),
   ])).map((r) => { ok(r.status === 201, 'create story', JSON.stringify(r.data).slice(0, 200)); return r.data; });
   const all = (await pooja.get('/api/stories')).data;
-  ok(all.length === 4, 'all stories listed');
+  ok(all.length === 2, 'an employee sees only her own stories (since 11 Nov)', String(all.length));
+  ok((await founder.get('/api/stories')).data.length === 4, 'a founder sees all stories');
   ok(all.filter((s) => s.assignedTo === poojaId).length === 2, "Pooja has exactly her 2 stories by id");
   ok(!all.filter((s) => s.assignedTo === poojaId).some((s) => s.title === 'Ranveer story'), "Ranveer's story is not Pooja's");
   const mv = await ranveer.patch(`/api/stories/${s3.id}`, { status: 'In Progress' });
@@ -86,16 +87,17 @@ let s1, s2, s3, s4;
   const cm = await pooja.post(`/api/stories/${s1.id}/comments`, { authorId: poojaId, authorName: 'Pooja Singh', body: 'hello', isSystem: false });
   ok(cm.status === 201 || cm.status === 200, 'add comment', JSON.stringify(cm.data).slice(0, 160));
   ok((await pooja.get(`/api/stories/${s1.id}/comments`)).data.length >= 1, 'comments listed');
-  ok((await pooja.del(`/api/stories/${s2.id}`)).status === 403, 'employee cannot delete a story');
+  ok((await pooja.del(`/api/stories/${s3.id}`)).status === 404, "employee cannot delete someone else's story (it is not even visible)");
 }
 
 // ---------- 4. Rename keeps stories in step (the fix) ----------
 {
-  const r = await hr.patch(`/api/users/${poojaId}`, { firstName: 'Pooja', lastName: 'Rani Singh' });
-  ok(r.status === 200 && r.data.lastName === 'Rani Singh', 'HR can rename an employee', JSON.stringify(r.data).slice(0, 160));
+  ok((await hr.patch(`/api/users/${poojaId}`, { lastName: 'X' })).status === 403, 'HR cannot rename (team management: founders + Chief of Staff)');
+  const r = await founder.patch(`/api/users/${poojaId}`, { firstName: 'Pooja', lastName: 'Rani Singh' });
+  ok(r.status === 200 && r.data.lastName === 'Rani Singh', 'founder can rename an employee', JSON.stringify(r.data).slice(0, 160));
   const st = (await founder.get('/api/stories')).data.filter((s) => s.assignedTo === poojaId);
   ok(st.length === 2 && st.every((s) => s.person === 'Pooja Rani Singh'), "rename updates the name on her stories", st.map((s) => s.person).join('|'));
-  await hr.patch(`/api/users/${poojaId}`, { firstName: 'Pooja', lastName: 'Singh' });
+  await founder.patch(`/api/users/${poojaId}`, { firstName: 'Pooja', lastName: 'Singh' });
   ok((await pooja.patch(`/api/users/${poojaId}`, { lastName: 'Hacker' })).status === 403, 'employee cannot rename');
   ok((await hr.patch(`/api/users/${U('vitalsaigorrela@gmail.com').id}`, { userType: 'employee' })).status === 403, 'HR cannot demote a founder');
   ok((await hr.patch(`/api/users/${poojaId}`, { userType: 'founder' })).status === 403, 'HR cannot promote to founder');
@@ -103,8 +105,9 @@ let s1, s2, s3, s4;
 
 // ---------- 5. Team analytics ----------
 {
-  const t = await hr.get('/api/analytics/team');
-  ok(t.status === 200, 'HR sees team analytics');
+  ok((await hr.get('/api/analytics/team')).status === 403, 'HR does not see team analytics (since 14 Nov)');
+  const t = await founder.get('/api/analytics/team');
+  ok(t.status === 200, 'founder sees team analytics');
   const row = t.data.find((x) => x.user.id === poojaId);
   ok(row && row.totalAssigned === 2, "analytics: Pooja has 2 stories", JSON.stringify(row && row.totalAssigned));
   const r2 = t.data.find((x) => x.user.id === ranveerId);
@@ -114,17 +117,18 @@ let s1, s2, s3, s4;
 
 // ---------- 6. Leads ----------
 {
-  ok((await pooja.post('/api/leads', { name: 'x', ownerId: poojaId })).status === 403, 'employee cannot create a lead (founder-only)');
+  const own = await pooja.post('/api/leads', { name: 'x', ownerId: poojaId });
+  ok(own.status === 201, 'everyone can create a lead (since 11 Nov)', String(own.status));
   const l = await founder.post('/api/leads', { name: 'Lead A', stage: 'New', ownerId: U('vitalsaigorrela@gmail.com').id, assignedTo: poojaId, estimatedValue: '5000', contactEmail: 'l@x.com' });
   ok(l.status === 201, 'create lead', JSON.stringify(l.data).slice(0, 200));
   const id = l.data.id;
   ok((await founder.patch(`/api/leads/${id}`, { stage: 'Contacted' })).data.stage === 'Contacted', 'move lead stage');
-  ok((await pooja.get('/api/leads')).data.length === 1, 'list leads');
+  ok((await pooja.get('/api/leads')).data.length === 2, 'list leads');
   const lc = await founder.post(`/api/leads/${id}/comments`, { authorId: poojaId, authorName: 'Pooja', body: 'called' });
   ok([200, 201].includes(lc.status), 'lead comment', JSON.stringify(lc.data).slice(0, 160));
   const conv = await founder.post(`/api/clients/${warm.id}/convert-to-lead`);
   ok([200, 201].includes(conv.status), 'convert client to lead', JSON.stringify(conv.data).slice(0, 160));
-  ok((await pooja.del(`/api/leads/${id}`)).status === 403, 'employee cannot delete a lead');
+  ok((await pooja.del(`/api/leads/${own.data.id}`)).status < 300, 'an employee can delete a lead');
   ok((await founder.del(`/api/leads/${id}`)).status < 300, 'founder deletes a lead');
 }
 
@@ -145,10 +149,11 @@ let s1, s2, s3, s4;
 // ---------- 8. Payroll ----------
 {
   const period = new Date().toISOString().slice(0, 7);
-  const s = await hr.post('/api/salary-records', { employeeId: poojaId, period, baseSalary: '30000', createdBy: 't-hr' });
-  ok([200, 201].includes(s.status), 'HR creates salary record', JSON.stringify(s.data).slice(0, 200));
-  const i = await hr.post('/api/incentives', { employeeId: poojaId, period, amount: '2000', reason: 'closed deal', createdBy: 't-hr' });
-  ok([200, 201].includes(i.status), 'HR creates incentive', JSON.stringify(i.data).slice(0, 200));
+  ok((await hr.post('/api/salary-records', { employeeId: poojaId, period, baseSalary: '1', createdBy: 't-hr' })).status === 403, 'HR has no payroll access (since 11 Nov)');
+  const s = await acc.post('/api/salary-records', { employeeId: poojaId, period, baseSalary: '30000', createdBy: 't-acc' });
+  ok([200, 201].includes(s.status), 'accountant creates salary record', JSON.stringify(s.data).slice(0, 200));
+  const i = await acc.post('/api/incentives', { employeeId: poojaId, period, amount: '2000', reason: 'closed deal', createdBy: 't-acc' });
+  ok([200, 201].includes(i.status), 'accountant creates incentive', JSON.stringify(i.data).slice(0, 200));
   ok((await pooja.get('/api/salary-records')).status === 403 && (await pooja.get('/api/incentives')).status === 403, 'employee blocked from payroll');
   ok((await acc.get('/api/salary-records')).status === 200, 'accountant can view payroll');
 }
@@ -171,11 +176,12 @@ let s1, s2, s3, s4;
 
 // ---------- 10. Team management ----------
 {
-  const n = await hr.post('/api/users', { firstName: 'New', lastName: 'Hire', email: 'new.hire@test.dev', userType: 'employee', role: 'editor' });
-  ok([200, 201].includes(n.status), 'HR adds an employee', JSON.stringify(n.data).slice(0, 200));
+  ok((await hr.post('/api/users', { firstName: 'H', lastName: 'R', email: 'hr.add@test.dev', userType: 'employee' })).status === 403, 'HR cannot add employees (since 11 Nov)');
+  const n = await founder.post('/api/users', { firstName: 'New', lastName: 'Hire', email: 'new.hire@test.dev', userType: 'employee', role: 'editor' });
+  ok([200, 201].includes(n.status), 'founder adds an employee', JSON.stringify(n.data).slice(0, 200));
   ok((await new Client().login('new.hire@test.dev', { given: 'Whoever' })).status === 200, 'new employee can then sign in');
   ok((await pooja.post('/api/users', { firstName: 'a', lastName: 'b', email: 'z@z.com', userType: 'employee' })).status === 403, 'employee cannot add users');
-  const dup = await hr.post('/api/users', { firstName: 'New', lastName: 'Hire', email: 'new.hire@test.dev', userType: 'employee' });
+  const dup = await founder.post('/api/users', { firstName: 'New', lastName: 'Hire', email: 'new.hire@test.dev', userType: 'employee' });
   ok(dup.status === 409, 'duplicate email gives a clear 409, not a crash', String(dup.status));
   const newId = (await founder.get('/api/users')).data.find((u) => u.email === 'new.hire@test.dev').id;
   const del = await founder.del(`/api/users/${newId}`);

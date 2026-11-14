@@ -4,6 +4,12 @@ import { ThemeProvider, useTheme } from "next-themes";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
+import { reportClientError, reloadForNewVersion } from "./lib/clientErrors";
+
+window.addEventListener("vite:preloadError", (e) => {
+  reportClientError("new version", (e as any).payload);
+  if (reloadForNewVersion()) e.preventDefault();
+});
 
 // Offline fallback + installability. Skipped in dev so Vite HMR is never intercepted.
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

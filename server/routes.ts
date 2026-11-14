@@ -11,7 +11,7 @@ import { isPeriod, periodRange, istDate, addDays, endOfDayIfDateOnly } from "../
 import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
-import { generateRecurringStories, generateNextOccurrences } from "./lib/recurring.js";
+import { generateRecurringStories, generateNextOccurrences, generateNextAfterDone } from "./lib/recurring.js";
 import { eventsHandler, broadcastOnWrite } from "./lib/live.js";
 import { notifyRequestRaised, notifyRequestDecided, clearWithdrawn, personName as fullNameOf } from "./lib/notify.js";
 import { analyzeProposal, generateStatusEmail } from "./ai.js";
@@ -391,6 +391,10 @@ export async function registerRoutes(
   // Stories (all protected with authentication)
   // Only founders and the chief of staff see every story; everyone else only the ones assigned to them.
   // Anything addressed by story id answers 404 for a story the person may not see.
+  // Emailing clients from a story: founders only for now (everyone else sees "Coming soon")
+  const foundersOnlyEmail = (req: any, res: any, next: any) =>
+    perms.isFounder(req.user) ? next() : res.status(403).json({ error: "Emailing is coming soon." });
+
   const storyAccess = async (req: any, res: any, next: any) => {
     try {
       const story = await storage.getStory(req.params.id || req.params.storyId);
@@ -400,6 +404,13 @@ export async function registerRoutes(
       next(error);
     }
   };
+
+  // The browser reports errors that showed the "Something went wrong" screen, so they can be diagnosed later
+  app.post("/api/client-error", isAuthenticated, (req: any, res) => {
+    const clip = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').slice(0, n);
+    console.warn(`Client error [${req.user?.firstName || req.user?.id}] ${clip(req.body?.where, 80)} ${clip(req.body?.url, 120)}: ${clip(req.body?.message, 400)}`);
+    res.status(204).send();
+  });
 
   app.get("/api/stories", isAuthenticated, async (req: any, res) => {
     try {
@@ -469,11 +480,29 @@ export async function registerRoutes(
       if (body.dueDate) {
         body.dueDate = endOfDayIfDateOnly(new Date(body.dueDate));
       }
+      // The progress bar moves the story along: 100% = Done; any progress on a "To Do" story = In Progress;
+      // dropping a Done story below 100% reopens it. An explicit status in the same save always wins.
+      if (typeof body.progressPercent === 'number' && body.status === undefined) {
+        const current = await storage.getStory(req.params.id);
+        if (current) {
+          const p = body.progressPercent;
+          if (p >= 100 && current.status !== 'Done') body.status = 'Done';
+          else if (p > 0 && p < 100 && current.status === 'To Do') body.status = 'In Progress';
+          else if (p < 100 && current.status === 'Done') body.status = p > 0 ? 'In Progress' : 'To Do';
+        }
+      }
+      // Marking a story Done fills the bar
+      if (body.status === 'Done' && body.progressPercent === undefined) body.progressPercent = 100;
       const data = updateStorySchema.parse(body);
       const story = await storage.updateStory(req.params.id, data);
 
       if (!story) {
         return res.status(404).json({ error: "Story not found" });
+      }
+
+      // A finished repeating story: its next copy goes on the board now (not only on its day)
+      if (data.status === 'Done' && story.recurringTaskId && story.assignedTo && story.occurrenceDate) {
+        generateNextAfterDone(story.recurringTaskId, story.assignedTo, story.occurrenceDate).catch((e) => console.error('Next repeating story failed:', e));
       }
 
       if (req.user?.id) {
@@ -601,7 +630,7 @@ export async function registerRoutes(
   });
 
   // AI Email Draft Generation (protected)
-  app.post("/api/stories/:storyId/generate-email", isAuthenticated, storyAccess, async (req: any, res) => {
+  app.post("/api/stories/:storyId/generate-email", isAuthenticated, foundersOnlyEmail, storyAccess, async (req: any, res) => {
     try {
       const { storyId } = req.params;
       const { userNotes, progressPercent, senderName } = req.body;
@@ -647,7 +676,7 @@ export async function registerRoutes(
   });
 
   // Sent Emails - Store email when user clicks "Send" (protected)
-  app.get("/api/stories/:storyId/emails", isAuthenticated, storyAccess, async (req: any, res) => {
+  app.get("/api/stories/:storyId/emails", isAuthenticated, foundersOnlyEmail, storyAccess, async (req: any, res) => {
     try {
       const emails = await storage.getSentEmailsByStory(req.params.storyId);
       res.json(emails);
@@ -657,7 +686,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories/:storyId/emails", isAuthenticated, storyAccess, async (req: any, res) => {
+  app.post("/api/stories/:storyId/emails", isAuthenticated, foundersOnlyEmail, storyAccess, async (req: any, res) => {
     try {
       const { storyId } = req.params;
 

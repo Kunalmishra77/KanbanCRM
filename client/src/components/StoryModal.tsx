@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
-import { canDeleteStory } from "@shared/roles";
+import { canDeleteStory, perms } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { RepeatControls } from "@/components/RepeatControls";
 import { useToast } from "@/hooks/use-toast";
@@ -61,10 +61,17 @@ interface StoryModalProps {
 }
 
 export function StoryModal({ story: initialStory, client, open, onOpenChange }: StoryModalProps) {
-  const { data: freshStory } = useStory(initialStory?.id || '');
+  const { data: freshStory, error: storyError } = useStory(initialStory?.id || '');
   const story = freshStory || initialStory;
   const { user } = useAuth();
   const { toast } = useToast();
+  // Someone else deleted this story (or took it off your board) while it was open: close it with a clear note
+  useEffect(() => {
+    if (open && storyError && /not found|404/i.test(String((storyError as any)?.message || storyError))) {
+      toast({ title: "This story is no longer available", description: "It was deleted or reassigned by someone else." });
+      onOpenChange(false);
+    }
+  }, [open, storyError]);
   const [activeTab, setActiveTab] = useState("details");
   const [showMeta, setShowMeta] = useState(false);
   const [newComment, setNewComment] = useState("");
@@ -96,7 +103,9 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
-  const { data: sentEmails = [], isLoading: isLoadingSentEmails, refetch: refetchEmails } = useSentEmails(story?.id || '');
+  // Emailing clients is for founders only for now; everyone else sees "Coming soon"
+  const canEmail = perms.isFounder(user);
+  const { data: sentEmails = [], isLoading: isLoadingSentEmails, refetch: refetchEmails } = useSentEmails(canEmail ? story?.id || '' : '');
   const { data: users = [] } = useUsers();
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
@@ -571,20 +580,33 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     >
                       Comments ({comments.length})
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="email"
-                      className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
-                      data-testid="tab-email"
-                    >
-                      Email Draft
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="emails"
-                      className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
-                      data-testid="tab-emails"
-                    >
-                      Emails ({sentEmails.length})
-                    </TabsTrigger>
+                    {canEmail ? (
+                      <>
+                        <TabsTrigger
+                          value="email"
+                          className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
+                          data-testid="tab-email"
+                        >
+                          Email Draft
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="emails"
+                          className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
+                          data-testid="tab-emails"
+                        >
+                          Emails ({sentEmails.length})
+                        </TabsTrigger>
+                      </>
+                    ) : (
+                      <TabsTrigger
+                        value="email-soon"
+                        className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all gap-1.5"
+                        data-testid="tab-email-soon"
+                      >
+                        Email
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">Coming soon</span>
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </div>
 
@@ -883,6 +905,15 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                       </div>
                     </TabsContent>
 
+                    <TabsContent value="email-soon" className="mt-0 outline-none">
+                      <div className="flex flex-col items-center justify-center text-center gap-2 py-16 text-muted-foreground" data-testid="email-coming-soon">
+                        <Mail className="h-10 w-10 opacity-40" />
+                        <p className="text-base font-medium text-foreground">Emailing clients is coming soon</p>
+                        <p className="text-sm max-w-sm">You'll be able to draft and send emails about this story from here.</p>
+                      </div>
+                    </TabsContent>
+
+                    {canEmail && (<>
                     <TabsContent value="email" className="mt-0 space-y-6 outline-none">
                       <div className="grid gap-4 p-4 sm:p-6 rounded-xl border border-white/20 dark:border-white/10 bg-white/30 dark:bg-white/[0.05]">
                         <div className="flex items-center justify-between">
@@ -1022,6 +1053,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         </div>
                       )}
                     </TabsContent>
+                    </>)}
                   </div>
                 </ScrollArea>
               </Tabs>

@@ -106,6 +106,20 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// For the downtime alert: also checks that the database answers within 10s
+app.get("/api/health/deep", async (_req, res) => {
+  const started = Date.now();
+  try {
+    const { db } = await import("../db/index.js");
+    const { sql } = await import("drizzle-orm");
+    const ok = await Promise.race([db.execute(sql`select 1`).then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 10_000))]);
+    if (!ok) return res.status(503).json({ status: "database not answering", ms: Date.now() - started });
+    res.json({ status: "ok", database: "ok", ms: Date.now() - started });
+  } catch (e: any) {
+    res.status(503).json({ status: "database error", error: String(e?.message || e).slice(0, 200) });
+  }
+});
+
 // Initialization wrapper to ensure routes are registered only once
 let initialized = false;
 export async function initApp() {

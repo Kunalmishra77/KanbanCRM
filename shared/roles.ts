@@ -45,8 +45,8 @@ export const perms = {
   viewOverview: (u: U) => ["founder", "chief_of_staff"].includes(roleOf(u)),
   // A team lead sees the overview, board and activity of their own team (users.team) only.
   isTeamLead: (u: U) => roleOf(u) === "team_lead",
-  // Team performance analytics.
-  viewTeamStats: (u: U) => ["founder", "hr", "chief_of_staff"].includes(roleOf(u)),
+  // Team performance analytics (HR works like an employee here: no team performance, no internal panel).
+  viewTeamStats: (u: U) => ["founder", "chief_of_staff"].includes(roleOf(u)),
   // Every story on the boards. Everyone else only sees the stories assigned to them.
   viewAllStories: (u: U) => ["founder", "chief_of_staff"].includes(roleOf(u)),
   // May open the approvals queue for leave / work-from-home / overtime (what they can decide is canDecideRequest below).

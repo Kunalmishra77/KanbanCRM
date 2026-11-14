@@ -43,8 +43,8 @@ const created = await founder.post('/api/users', { firstName: 'Sunita', lastName
 ok(created.status === 201 || created.status === 200, 'founder can create a Chief of Staff', JSON.stringify(created.data).slice(0, 140));
 const cos = await as('cos@test.dev');
 ok(cos.me.userType === 'chief_of_staff', 'Chief of Staff can sign in with the new role', cos.me.userType);
-ok((await hr.post('/api/users', { firstName: 'X', lastName: 'Y', email: 'x@test.dev', userType: 'chief_of_staff' })).status < 400, 'HR can add people (existing rule), including this role');
-ok((await cos.post('/api/users', { firstName: 'N', lastName: 'M', email: 'nm@test.dev', userType: 'employee' })).status === 403, 'Chief of Staff cannot add or edit team members');
+ok((await hr.post('/api/users', { firstName: 'X', lastName: 'Y', email: 'x@test.dev', userType: 'chief_of_staff' })).status === 403, 'HR cannot add people (team management: founders + Chief of Staff, since 11 Nov)');
+ok((await cos.post('/api/users', { firstName: 'N', lastName: 'M', email: 'nm@test.dev', userType: 'employee' })).status < 400, 'Chief of Staff can add team members');
 ok((await ranveer.patch(`/api/users/${cos.me.id}`, { userType: 'founder' })).status === 403, 'an employee cannot change roles');
 
 // ---------- 2. raising a request notifies the right people ----------
@@ -57,7 +57,7 @@ ok(forReq(nPooja, reqId).some((i) => i.type === 'request_submitted' && !i.isRead
 ok(/waiting for approval/i.test(forReq(nPooja, reqId)[0]?.message || ''), 'it says the request is waiting for approval', forReq(nPooja, reqId)[0]?.message);
 ok(forReq(nFounder, reqId).some((i) => i.type === 'request_pending' && /Pooja Singh/.test(i.title)), 'the founder is notified, naming the person');
 ok(forReq(nCos, reqId).some((i) => i.type === 'request_pending'), 'the Chief of Staff is notified');
-ok(forReq(nHr, reqId).some((i) => i.type === 'request_pending'), 'HR is notified (employee request)');
+ok(!forReq(nHr, reqId).some((i) => i.type === 'request_pending'), 'HR is not asked to decide (only founders + Chief of Staff approve)');
 ok(forReq(nAcc, reqId).length === 0, 'the accountant is NOT notified');
 ok(forReq(nRan, reqId).length === 0, 'other employees are NOT notified');
 ok(nPooja.unread >= 1 && nFounder.unread >= 1, 'unread counts go up', `${nPooja.unread}/${nFounder.unread}`);
@@ -89,7 +89,7 @@ ok(/approved/i.test(decided?.title || ''), 'the title says approved', decided?.t
 ok(forReq(nPooja, reqId).filter((i) => i.type === 'request_submitted').every((i) => i.isRead), 'the "request sent" notification is cleared');
 ok(forReq(nFounder, reqId).some((i) => i.type === 'request_decided_fyi' && /Sunita Arya approved Pooja Singh/.test(i.title)), 'the founder is told the Chief of Staff approved it');
 ok(forReq(nFounder, reqId).filter((i) => i.type === 'request_pending').every((i) => i.isRead), "the founder's pending prompt is cleared");
-ok(forReq(nHr, reqId).some((i) => i.type === 'request_decided_fyi'), 'HR is told too');
+ok(!forReq(nHr, reqId).some((i) => i.type === 'request_decided_fyi'), 'HR is not sent decisions either');
 ok(!forReq(nCos, reqId).some((i) => i.type === 'request_decided_fyi'), 'the person who decided is not notified about their own decision');
 ok((await founder.patch(`/api/requests/${reqId}`, { status: 'rejected' })).status === 409, 'a request can only be decided once');
 const mine = (await pooja.get('/api/requests')).data.find((r) => r.id === reqId);
@@ -124,8 +124,8 @@ const rule = async (requester, type, who, expect, label) => {
 };
 await rule(hr, 'hr', cos, 200, 'Chief of Staff can approve an HR request');
 await rule(acc, 'acc', cos, 200, 'Chief of Staff can approve an accountant request');
-await rule(ranveer, 'emp', hr, 200, 'HR can approve an employee request');
-await rule(acc, 'acc2', hr, 200, 'HR can approve an accountant request');
+await rule(ranveer, 'emp', hr, 403, 'HR cannot approve requests');
+await rule(acc, 'acc2', hr, 403, 'HR cannot approve an accountant request either');
 await rule(hr, 'hr2', hr, 403, 'HR cannot approve their own request');
 await rule(cos, 'cos', cos, 403, 'Chief of Staff cannot approve their own request');
 await rule(cos, 'cos2', hr, 403, "HR cannot approve the Chief of Staff's request");
@@ -147,13 +147,13 @@ ok(await status(cos, '/api/analytics/team') === 200, 'and team performance');
 ok(await status(cos, '/api/stories') === 200, 'and all stories');
 ok(await status(founder, '/api/overview?period=today') === 200, 'founder still sees the overview');
 for (const [who, c] of [['HR', hr], ['accountant', acc], ['employee', ranveer]]) ok(await status(c, '/api/overview?period=today') === 403, `${who} cannot see the company overview`);
-ok(await status(hr, '/api/analytics/team') === 200, 'HR still sees team performance');
+ok(await status(hr, '/api/analytics/team') === 403, 'HR does not see team performance (since 14 Nov)');
 ok(await status(acc, '/api/analytics/team') === 403 && await status(ranveer, '/api/analytics/team') === 403, 'accountant and employee still cannot');
-ok(await status(cos, '/api/salary-records') === 403, 'Chief of Staff cannot see salaries');
-ok(await status(cos, '/api/incentives') === 403, 'or incentives');
-ok(await status(cos, '/api/internal-documents') === 403, 'or internal documents');
-ok(await status(cos, '/api/founder-investments') === 403, 'or investments');
-ok(await status(cos, '/api/recurring-tasks') === 403, 'or the repeating-task rules (founders only)');
+ok(await status(cos, '/api/salary-records') === 200, 'Chief of Staff sees salaries (payroll, since 11 Nov)');
+ok(await status(cos, '/api/incentives') === 200, 'and incentives');
+ok(await status(cos, '/api/internal-documents') === 200, 'and internal documents');
+ok(await status(cos, '/api/founder-investments') === 200, 'and investments');
+ok(await status(cos, '/api/recurring-tasks') === 200, 'and every repeating task (since 12 Nov)');
 ok(await status(cos, '/api/revenue-targets') === 403 || await status(cos, '/api/revenue-targets') === 200, 'revenue targets follow the existing rule');
 const cl = (await founder.post('/api/clients', { name: 'Notif Co', industry: 'Retail', stage: 'Hot', ownerId: founder.me.id })).data;
 ok(await status(cos, `/api/clients/${cl.id}/invoices`) === 403, 'or invoices');
@@ -203,7 +203,7 @@ ok(await item.isVisible(), 'the notification is listed under the bell');
 ok(/Pooja Singh needs your approval/.test(await item.innerText()), 'it names the person', (await item.innerText()).replace(/\n/g, ' | '));
 await item.click();
 await F.page.waitForTimeout(900);
-ok(F.page.url().endsWith('/services'), 'clicking it opens Employee Services', F.page.url());
+ok(F.page.url().includes('/services'), 'clicking it opens Employee Services (at that request)', F.page.url());
 ok(await F.page.getByTestId(`pending-Pooja Singh-leave`).first().isVisible(), 'and the request is waiting in the approval queue');
 // Approve from the UI
 await F.page.getByTestId(`note-${live.data.id}`).fill('Approved, enjoy the break');
@@ -244,13 +244,13 @@ await C.page.goto(BASE + '/', { waitUntil: 'load' }); await C.page.waitForTimeou
 ok(await C.page.getByTestId('founder-overview').isVisible(), 'Chief of Staff sees the company overview on the dashboard');
 const nav = await C.page.locator('aside').first().innerText();
 ok(/Team Performance/.test(nav) && /Employee Services/.test(nav), 'the menu has Team Performance and Employee Services');
-ok(!/Salary/.test(nav) && !/Internal/.test(nav) && !/Repeating Tasks/.test(nav) && !/Audit Log/.test(nav), 'but not Salary, Internal, Repeating Tasks or Audit Log');
+ok(/Salary/.test(nav) && /Internal/.test(nav) && /Audit Log/.test(nav) && !/Repeating Tasks/.test(nav), 'and Salary, Internal and Audit Log; Repeating Tasks now lives on the Global Board');
 await C.page.goto(BASE + '/services', { waitUntil: 'load' }); await C.page.waitForTimeout(1200);
 ok(await C.page.getByTestId('approvals').isVisible(), 'Chief of Staff gets the approvals queue');
 await C.page.goto(BASE + '/team', { waitUntil: 'load' }); await C.page.waitForTimeout(1000);
 ok(!(await C.page.locator('body').innerText()).includes('available to founders'), 'and can open Team Performance');
 await C.page.goto(BASE + '/salary', { waitUntil: 'load' }); await C.page.waitForTimeout(800);
-ok(/restricted|only|not available|access/i.test(await C.page.locator('main').innerText()), 'Salary is closed to the Chief of Staff');
+ok(!/restricted|not available/i.test(await C.page.locator('main').innerText()), 'Salary is open to the Chief of Staff');
 
 const E = await openAs('ranveer@test.dev');
 await E.page.goto(BASE + '/services', { waitUntil: 'load' }); await E.page.waitForTimeout(1200);

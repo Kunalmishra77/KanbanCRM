@@ -204,11 +204,12 @@ export function useActivityLog(limit = 10) {
 }
 
 // Invoice queries
-export function useInvoices(clientId: string) {
+/** Invoices are for founders and the accountant; others skip the request (it would only be refused, 4 times). */
+export function useInvoices(clientId: string, allowed = true) {
   return useQuery({
     queryKey: ['invoices', clientId],
     queryFn: () => invoicesAPI.getByClient(clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && allowed,
   });
 }
 
