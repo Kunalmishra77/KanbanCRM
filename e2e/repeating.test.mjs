@@ -29,18 +29,19 @@ const r1 = await pooja.post('/api/recurring-tasks', { ...base, title: 'Blog post
 ok(r1.status === 201, 'create weekly rule with two chosen days', JSON.stringify(r1.data).slice(0, 200));
 ok(JSON.stringify(r1.data.task?.weekdays?.slice().sort()) === JSON.stringify([dow(d2), dow(d4)].sort()), 'both chosen days are saved', JSON.stringify(r1.data.task?.weekdays));
 let mine = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Blog post');
-ok(mine.length === 1 && mine[0].occurrenceDate === d2, 'next occurrence is on the board right away (in 2 days)', JSON.stringify(mine.map((s) => s.occurrenceDate)));
-ok(mine[0]?.description === 'Point 1\nPoint 2\n- Point 3', 'description keeps its lines');
+ok(mine.length === 0, 'no copy before its day: later days arrive only in the 12:00 AM run (16 Nov rule)', JSON.stringify(mine.map((s) => s.occurrenceDate)));
+
 // running create-side generation again does not duplicate
 await pooja.patch('/api/recurring-tasks/' + r1.data.task.id, { active: false });
 await pooja.patch('/api/recurring-tasks/' + r1.data.task.id, { active: true });
 mine = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Blog post');
-ok(mine.length === 1, 'pause + resume does not create a duplicate', String(mine.length));
+ok(mine.length === 0, 'pause + resume does not create a copy for a later day', String(mine.length));
 
 // 2. Weekly including today: today's story appears
 const r2 = await pooja.post('/api/recurring-tasks', { ...base, title: 'GMB post', repeat: 'weekly', weekdays: [dow(today)], assigneeIds: [poojaId] });
 mine = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'GMB post');
 ok(r2.status === 201 && mine.length === 1 && mine[0].occurrenceDate === today, "today's occurrence appears when today is chosen", JSON.stringify(mine.map((s) => s.occurrenceDate)));
+ok(mine[0]?.description === 'Point 1\nPoint 2\n- Point 3', 'description keeps its lines');
 
 // 3. Old style single weekday still accepted; no day at all is rejected
 ok((await pooja.post('/api/recurring-tasks', { ...base, title: 'Old style', repeat: 'weekly', weekday: dow(d4), assigneeIds: [poojaId] })).status === 201, 'old single-weekday request still works');
@@ -50,7 +51,7 @@ ok((await pooja.post('/api/recurring-tasks', { ...base, title: 'No day', repeat:
 const day = Number(ist(10).slice(8, 10));
 await pooja.post('/api/recurring-tasks', { ...base, title: 'Monthly report', repeat: 'monthly', monthDay: day, assigneeIds: [poojaId] });
 mine = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Monthly report');
-ok(mine.length === 1, 'monthly: next occurrence appears on the board', JSON.stringify(mine.map((s) => s.occurrenceDate)));
+ok(mine.length === 0, 'monthly: no copy until its day', JSON.stringify(mine.map((s) => s.occurrenceDate)));
 
 // 6. A calendar-picked due date (midnight India time) means the END of that day
 const pick = new Date(ist(1) + 'T00:00:00+05:30').toISOString();
@@ -90,9 +91,9 @@ const gmb = (await pooja.get('/api/stories')).data.find((s) => s.title === 'GMB 
 await pooja.patch('/api/stories/' + gmb.id, { status: 'Done' });
 await new Promise((r) => setTimeout(r, 1500));
 const nextGmb = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'GMB post' && s.occurrenceDate > today);
-ok(nextGmb.length === 1 && nextGmb[0].occurrenceDate === ist(7) && nextGmb[0].status === 'To Do', "finishing this week's copy shows next week's as To Do", JSON.stringify(nextGmb.map((s) => s.occurrenceDate)));
+ok(nextGmb.length === 0, "finishing this week's copy does NOT create next week's early (it comes at 12:00 AM on its day)", JSON.stringify(nextGmb.map((s) => s.occurrenceDate)));
 await pooja.patch('/api/stories/' + gmb.id, { status: 'Done' }); await new Promise((r) => setTimeout(r, 800));
-ok((await pooja.get('/api/stories')).data.filter((s) => s.title === 'GMB post' && s.occurrenceDate > today).length === 1, 'marking Done again does not add a second copy');
+ok((await pooja.get('/api/stories')).data.filter((s) => s.title === 'GMB post' && s.occurrenceDate > today).length === 0, 'marking Done again adds nothing either');
 
 // 10b. Daily: today's copy done -> tomorrow's is on the board as To Do (whoever finishes it)
 const daily = (await pooja.post('/api/recurring-tasks', { ...base, title: 'Daily report', repeat: 'daily', assigneeIds: [poojaId] })).data.task;
@@ -101,14 +102,14 @@ ok(!!todayCopy, "daily: today's copy is on the board");
 await founder.patch('/api/stories/' + todayCopy.id, { status: 'Done' }); // finished by someone else
 await new Promise((r) => setTimeout(r, 1500));
 const tmr = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Daily report' && s.occurrenceDate === ist(1));
-ok(tmr.length === 1 && tmr[0].status === 'To Do', "daily: finishing today's copy puts tomorrow's in To Do", JSON.stringify(tmr.map((s) => s.status)));
+ok(tmr.length === 0, "daily: finishing today's copy does not create tomorrow's early", JSON.stringify(tmr.map((s) => s.status)));
 // Pause: no new copy; Resume: back as before
 await pooja.patch('/api/recurring-tasks/' + daily.id, { active: false });
-const tmrCopy = tmr[0];
+const tmrCopy = todayCopy;
 await pooja.patch('/api/stories/' + tmrCopy.id, { status: 'Done' }); await new Promise((r) => setTimeout(r, 1200));
 ok(!(await pooja.get('/api/stories')).data.some((s) => s.title === 'Daily report' && s.occurrenceDate === ist(2)), 'paused: finishing a copy adds no new one');
 await pooja.patch('/api/recurring-tasks/' + daily.id, { active: true }); await new Promise((r) => setTimeout(r, 1200));
-ok((await pooja.get('/api/stories')).data.some((s) => s.title === 'Daily report' && s.occurrenceDate > ist(1) && s.status === 'To Do'), 'resumed: the next copy is back in To Do');
+ok(!(await pooja.get('/api/stories')).data.some((s) => s.title === 'Daily report' && s.occurrenceDate > today), 'resumed: still nothing before 12:00 AM (the next copy arrives on its day)');
 // Only founders delete; every change is recorded
 ok((await pooja.req('DELETE', '/api/recurring-tasks/' + daily.id)).status === 403, 'an employee cannot delete a repeating task (pause instead)');
 const log = JSON.stringify((await founder.get('/api/activity?limit=100')).data);

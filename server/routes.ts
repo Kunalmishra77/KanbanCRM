@@ -11,7 +11,7 @@ import { isPeriod, periodRange, istDate, addDays, endOfDayIfDateOnly } from "../
 import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
-import { generateRecurringStories, generateNextOccurrences, generateNextAfterDone } from "./lib/recurring.js";
+import { generateRecurringStories, generateNextOccurrences } from "./lib/recurring.js";
 import { eventsHandler, broadcastOnWrite } from "./lib/live.js";
 import { notifyRequestRaised, notifyRequestDecided, clearWithdrawn, personName as fullNameOf } from "./lib/notify.js";
 import { analyzeProposal, generateStatusEmail } from "./ai.js";
@@ -500,10 +500,6 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Story not found" });
       }
 
-      // A finished repeating story: its next copy goes on the board now (not only on its day)
-      if (data.status === 'Done' && story.recurringTaskId && story.assignedTo && story.occurrenceDate) {
-        generateNextAfterDone(story.recurringTaskId, story.assignedTo, story.occurrenceDate).catch((e) => console.error('Next repeating story failed:', e));
-      }
 
       if (req.user?.id) {
         await storage.createActivityLog({

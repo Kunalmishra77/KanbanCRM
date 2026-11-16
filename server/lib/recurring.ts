@@ -51,10 +51,9 @@ export async function generateRecurringStories(date: string = istDate()): Promis
 }
 
 /**
- * Right after a repeating task is created (or resumed): put its next occurrence on the board for everyone
- * it is for, even when that day is later in the week or month, so it never "disappears" after saving.
- * Each person gets the first day from today on (within ~2 months) that the rule runs for them. Later days
- * are created by the daily scheduler as before; the database refuses duplicates.
+ * Right after a repeating task is created (or resumed): if it runs TODAY, today's copy appears at once.
+ * Copies for later days are created only by the 12:00 AM IST run on their own day, never earlier; finishing
+ * a copy does not create the next one. The database refuses duplicates.
  */
 export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const today = istDate();
@@ -74,7 +73,8 @@ export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const existing = new Set(copies.map((c) => occurrenceKey(rule.id, c.assignedTo || "", c.occurrenceDate || "")));
   let people = users.map(asPerson).filter((p) => !waiting.has(p.id));
   const rows: ReturnType<typeof storyRow>[] = [];
-  for (let i = 0; i < 62 && people.length; i++) {
+  // Only TODAY: new copies for later days arrive in the 12:00 AM IST run, never earlier (user's rule, 16 Nov)
+  for (let i = 0; i < 1 && people.length; i++) {
     const date = addDays(today, i);
     const plan = planStories({ rules: [rule], people, leaves, existing, date }); // days that already have a copy are skipped
     rows.push(...plan.map(storyRow));
@@ -84,32 +84,6 @@ export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const created = await storage.insertGeneratedStories(rows);
   if (created > 0) broadcastChange();
   return created;
-}
-
-/**
- * When someone finishes a repeating story, put their NEXT copy on the board straight away (due on its
- * day), so the next Saturday's (or tomorrow's) task is already visible. The daily run then skips it.
- */
-export async function generateNextAfterDone(ruleId: string, personId: string, afterDate: string): Promise<number> {
-  const [rules, users, requests] = await Promise.all([storage.listRecurringTasks(), storage.getAllUsers(), storage.listEmployeeRequests()]);
-  const raw = rules.find((r) => r.id === ruleId);
-  const person = users.find((u) => u.id === personId);
-  if (!raw || !raw.active || !person) return 0;
-  const rule = asRule(raw);
-  const leaves = approvedLeaves(requests);
-  const copies = await storage.getRuleOccurrences(ruleId, addDays(afterDate, 1));
-  if (copies.some((c) => c.assignedTo === personId && c.status !== "Done")) return 0; // the next one is already waiting
-  const existing = new Set(copies.map((c) => occurrenceKey(rule.id, c.assignedTo || "", c.occurrenceDate || "")));
-  for (let i = 1; i <= 62; i++) {
-    const date = addDays(afterDate, i);
-    const plan = planStories({ rules: [rule], people: [asPerson(person)], leaves, existing, date }); // skips days already done
-    if (plan.length) {
-      const created = await storage.insertGeneratedStories(plan.map(storyRow));
-      if (created > 0) broadcastChange();
-      return created;
-    }
-  }
-  return 0;
 }
 
 export function startRecurringScheduler() {

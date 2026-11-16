@@ -5,6 +5,9 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
 import { reportClientError, reloadForNewVersion } from "./lib/clientErrors";
+import { startAutoUpdate } from "./lib/autoUpdate";
+
+startAutoUpdate();
 
 window.addEventListener("vite:preloadError", (e) => {
   reportClientError("new version", (e as any).payload);

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Clock, Paperclip, Send, Wand2, Mail, X, Loader2, Image, FileText, Trash2, History, Pencil, Check, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers, useStory } from "@/lib/queries";
 import {
@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { canDeleteStory, perms } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { RepeatControls } from "@/components/RepeatControls";
+import { istDate } from "@shared/istDate";
 import { useToast } from "@/hooks/use-toast";
 
 type StoryData = {
@@ -95,8 +96,32 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const [editHours, setEditHours] = useState('');
   const [editTags, setEditTags] = useState('');
 
-  // Sync local progress when story prop changes (e.g., when modal opens with different story)
+  // Progress is saved ONCE, shortly after the bar stops moving (dragging used to send a save per 5% step;
+  // they finished out of order and refreshes pulled the bar back). While a save is pending or running,
+  // refreshed data never overwrites the bar.
+  const progressSave = useRef<{ timer: ReturnType<typeof setTimeout> | null; pending: number | null; seq: number }>({ timer: null, pending: null, seq: 0 });
+  const saveProgress = (value: number, delayMs: number) => {
+    const ps = progressSave.current;
+    ps.pending = value;
+    if (ps.timer) clearTimeout(ps.timer);
+    ps.timer = setTimeout(() => {
+      ps.timer = null;
+      const seq = ++ps.seq;
+      updateStory(
+        { id: story.id, data: { progressPercent: value } },
+        {
+          onSettled: () => { if (seq === ps.seq) ps.pending = null; },
+          onSuccess: () => toast({ title: "Progress updated", description: `Progress set to ${value}%` }),
+          onError: (e: Error) => { if (seq === ps.seq) { ps.pending = null; setLocalProgress(story?.progressPercent || 0); } toast({ title: "Could not save progress", description: e.message, variant: "destructive" }); },
+        },
+      );
+    }, delayMs);
+  };
+  useEffect(() => () => { if (progressSave.current.timer) clearTimeout(progressSave.current.timer); }, []);
+
+  // Sync local progress when the story changes (another story opened, or someone else changed it)
   useEffect(() => {
+    if (progressSave.current.pending !== null) return; // our own save is still on its way
     setLocalProgress(story?.progressPercent || 0);
   }, [story?.id, story?.progressPercent]);
 
@@ -290,7 +315,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
     setEditPriority(story.priority);
     setEditPerson(story.person || '');
     setEditAssignedTo(story.assignedTo || 'unassigned');
-    setEditDueDate(story.dueDate ? new Date(story.dueDate).toISOString().slice(0, 10) : '');
+    setEditDueDate(story.dueDate ? istDate(new Date(story.dueDate)) : ''); // the date in India, not in UTC
     setEditHours(String(story.estimatedEffortHours || 0));
     setEditTags((story.tags || []).join(', '));
     setIsEditing(true);
@@ -310,16 +335,20 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
         personName = "Unassigned";
       }
 
+      // Send only what was changed: re-sending the status as it was when Edit opened undid progress-bar moves,
+      // and re-sending the date moved the due time to 5:30 AM (a date box is read as UTC midnight).
+      const originalDue = story.dueDate ? istDate(new Date(story.dueDate)) : '';
       updateStory({
         id: story.id,
         data: {
           title: editTitle.trim() || story.title,
           description: editDescription.trim(),
-          status: editStatus,
+          ...(editStatus !== story.status ? { status: editStatus } : {}),
           priority: editPriority,
           person: personName,
           assignedTo: finalAssignedTo,
-          dueDate: editDueDate ? new Date(editDueDate) : undefined,
+          // midnight India time = "that day"; the server makes it 11:59 PM
+          ...(editDueDate && editDueDate !== originalDue ? { dueDate: new Date(`${editDueDate}T00:00:00+05:30`) } : {}),
         estimatedEffortHours: parseInt(editHours) || 0,
         tags: editTags ? editTags.split(',').map(t => t.trim()).filter(Boolean) : [],
       }
@@ -733,15 +762,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                             value={localProgress}
                             onChange={(e) => {
                               const newProgress = parseInt(e.target.value);
-                              setLocalProgress(newProgress); // Update local state immediately
-                              updateStory({
-                                id: story.id,
-                                data: { progressPercent: newProgress }
-                              });
-                              toast({
-                                title: "Progress updated",
-                                description: `Progress set to ${newProgress}%`
-                              });
+                              setLocalProgress(newProgress); // the bar follows the finger; saved once it stops
+                              saveProgress(newProgress, 600);
                             }}
                             className="flex-1 h-2 accent-primary cursor-pointer"
                             data-testid="input-progress-slider"
@@ -757,15 +779,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                   localProgress === val && "bg-primary/10 text-primary"
                                 )}
                                 onClick={() => {
-                                  setLocalProgress(val); // Update local state immediately
-                                  updateStory({
-                                    id: story.id,
-                                    data: { progressPercent: val }
-                                  });
-                                  toast({
-                                    title: "Progress updated",
-                                    description: `Progress set to ${val}%`
-                                  });
+                                  setLocalProgress(val);
+                                  saveProgress(val, 0);
                                 }}
                                 data-testid={`button-progress-${val}`}
                               >
