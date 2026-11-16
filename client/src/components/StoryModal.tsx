@@ -602,13 +602,6 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     >
                       Overview
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="comments"
-                      className="bg-transparent p-0 pb-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none transition-all"
-                      data-testid="tab-comments"
-                    >
-                      Comments ({comments.length})
-                    </TabsTrigger>
                     {canEmail ? (
                       <>
                         <TabsTrigger
@@ -790,9 +783,9 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           </div>
                         </div>
                       </div>
-                    </TabsContent>
-
-                    <TabsContent value="comments" className="mt-0 space-y-6 outline-none">
+                      {/* Comments live in Overview (one place to read and reply, no tab switching) */}
+                      <div className="space-y-4 pt-2 border-t border-border/60" data-testid="overview-comments">
+                        <Label className="text-muted-foreground text-xs uppercase tracking-wider">Comments ({comments.length})</Label>
                       {isLoadingComments ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -918,7 +911,9 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           </div>
                         </div>
                       </div>
+                      </div>
                     </TabsContent>
+
 
                     <TabsContent value="email-soon" className="mt-0 outline-none">
                       <div className="flex flex-col items-center justify-center text-center gap-2 py-16 text-muted-foreground" data-testid="email-coming-soon">

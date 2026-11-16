@@ -12,6 +12,7 @@ import { useSearch } from "wouter";
 import { useIsFounder, useAuth } from "@/lib/auth";
 import { perms } from "@shared/roles";
 import { MultiPicker } from "@/components/MultiPicker";
+import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -121,6 +122,11 @@ export default function GlobalKanban() {
   // A team lead gets their team's stories from the server and may filter them by person
   const myTeam = perms.isTeamLead(me) ? ((me as any)?.team as string | null) || null : null;
   const canPickPeople = seesAllStories || !!myTeam;
+  // A team lead opens on her own stories and can switch to her whole team
+  const [leadScope, setLeadScope] = useState<'mine' | 'team'>('mine');
+  const showTeamWork = seesAllStories || (!!myTeam && leadScope === 'team');
+  // Team filter (founders / chief of staff): Sales, Marketing, ...
+  const [filterTeams, setFilterTeams] = useState<string[]>([]);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -178,9 +184,10 @@ export default function GlobalKanban() {
   const uniqueAssigneeNames = useMemo(() => {
     const names = users
       .filter((u: any) => seesAllStories || !myTeam || u.team === myTeam)
+      .filter((u: any) => filterTeams.length === 0 || filterTeams.includes(u.team))
       .map((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim()).filter(Boolean);
     return Array.from(new Set(names)) as string[];
-  }, [users, seesAllStories, myTeam]);
+  }, [users, seesAllStories, myTeam, filterTeams]);
 
   // Count stories per client
   const storiesCountPerClient = useMemo(() => {
@@ -223,6 +230,12 @@ export default function GlobalKanban() {
   // Filter stories based on selected filters
   const filteredStories = useMemo(() => {
     return stories.filter((story: Story) => {
+      // Team lead on "My stories": only what is assigned to her
+      if (myTeam && !seesAllStories && leadScope === 'mine' && me && !isAssignedTo(story, me as any)) return false;
+      if (filterTeams.length > 0) {
+        const owner = (users as any[]).find((u) => isAssignedTo(story, u));
+        if (!owner || !filterTeams.includes(owner.team)) return false;
+      }
       if (filterClientIds.length > 0 && !filterClientIds.includes(story.clientId)) return false;
       if (scope === 'done' && story.status !== 'Done') return false;
       if (scope === 'open' && story.status === 'Done') return false;
@@ -237,7 +250,7 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users, scope]);
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope, filterTeams, leadScope, myTeam, seesAllStories, me]);
 
   // When opened with a scope, jump to the first status column that actually has matching stories
   useEffect(() => {
@@ -257,8 +270,19 @@ export default function GlobalKanban() {
     .map((name) => ({ value: name, label: name, count: storiesCountPerAssignee[name] || 0 }))
     .sort((a, b) => a.label.localeCompare(b.label)), [uniqueAssigneeNames, storiesCountPerAssignee]);
 
+  // Teams that have people, with how many stories each has on this board
+  const teamOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of stories) {
+      const owner = (users as any[]).find((u) => isAssignedTo(s, u));
+      if (owner?.team) counts[owner.team] = (counts[owner.team] || 0) + 1;
+    }
+    const teams = Array.from(new Set((users as any[]).map((u) => u.team).filter(Boolean))) as string[];
+    return teams.map((t) => ({ value: t, label: t, count: counts[t] || 0 })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [stories, users]);
+
   // Count active filters
-  const activeFilterCount = filterClientIds.length + filterAssigneeNames.length;
+  const activeFilterCount = filterClientIds.length + filterAssigneeNames.length + filterTeams.length;
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
     updateStory({
@@ -291,6 +315,7 @@ export default function GlobalKanban() {
   const clearFilters = () => {
     setFilterClientIds([]);
     setFilterAssigneeNames([]);
+    setFilterTeams([]);
     setClientSearch("");
     setAssigneeSearch("");
   };
@@ -401,20 +426,46 @@ export default function GlobalKanban() {
           onChange={setFilterClientIds}
           testId="filter-clients"
         />
-        {canPickPeople ? (
+        {seesAllStories && (
           <MultiPicker
-            allLabel={seesAllStories ? "Everyone" : `Whole ${myTeam} team`}
+            allLabel="All teams"
+            noun="team"
+            options={teamOptions}
+            selected={filterTeams}
+            onChange={(t) => { setFilterTeams(t); setFilterAssigneeNames([]); }}
+            testId="filter-teams"
+          />
+        )}
+        {!seesAllStories && myTeam && (
+          <div className="inline-flex h-9 rounded-lg border border-border bg-muted/30 p-0.5" role="group" aria-label="Whose stories" data-testid="lead-scope">
+            {(['mine', 'team'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={leadScope === v}
+                onClick={() => { setLeadScope(v); setFilterAssigneeNames([]); }}
+                data-testid={`lead-scope-${v}`}
+                className={cn("px-3 rounded-md text-sm transition-colors", leadScope === v ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground")}
+              >
+                {v === 'mine' ? 'My stories' : `Whole ${myTeam} team`}
+              </button>
+            ))}
+          </div>
+        )}
+        {canPickPeople && showTeamWork ? (
+          <MultiPicker
+            allLabel={seesAllStories ? (filterTeams.length ? "Everyone in these teams" : "Everyone") : `Everyone in ${myTeam}`}
             noun="person"
             options={assigneeOptions}
             selected={filterAssigneeNames}
             onChange={setFilterAssigneeNames}
             testId="filter-assignees"
           />
-        ) : (
+        ) : !myTeam ? (
           <span className="inline-flex h-9 items-center rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground">
             My stories only
           </span>
-        )}
+        ) : null}
         {activeFilterCount > 0 && (
           <>
             <span className="text-xs text-muted-foreground">Showing {filteredStories.length} of {stories.length}</span>
