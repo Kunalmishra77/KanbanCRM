@@ -592,7 +592,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                 )}
               </div>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 min-w-0">
                 <div className="px-6 pt-4 border-b border-white/10 dark:border-white/10 bg-white/20 dark:bg-white/[0.05]">
                   <TabsList className="bg-transparent p-0 gap-4 sm:gap-6 h-auto w-full">
                     <TabsTrigger
@@ -632,7 +632,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                   </TabsList>
                 </div>
 
-                <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
+                <ScrollArea className="flex-1 min-w-0 [&>[data-radix-scroll-area-viewport]]:!overflow-x-hidden [&>[data-radix-scroll-area-viewport]>div]:!block">
                   <div className="p-4 sm:p-6">
                     <TabsContent value="details" className="mt-0 space-y-6 outline-none">
                       {isEditing ? (
@@ -729,7 +729,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                       ) : (
                         <div className="space-y-2">
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
-                          <div className="min-h-[150px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                          <div className="min-h-[64px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                             {story.description || 'No description provided.'}
                           </div>
                         </div>
@@ -740,13 +740,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">Progress</Label>
                           <span className="text-sm font-medium">{localProgress}%</span>
                         </div>
-                        <div className="relative h-4 w-full bg-secondary rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary transition-all duration-500"
-                            style={{ width: `${localProgress}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
                           <input
                             type="range"
                             min="0"
@@ -758,7 +752,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               setLocalProgress(newProgress); // the bar follows the finger; saved once it stops
                               saveProgress(newProgress, 600);
                             }}
-                            className="flex-1 h-2 accent-primary cursor-pointer"
+                            className="flex-1 min-w-[140px] h-2 accent-primary cursor-pointer"
                             data-testid="input-progress-slider"
                           />
                           <div className="flex gap-1">
@@ -784,7 +778,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         </div>
                       </div>
                       {/* Comments live in Overview (one place to read and reply, no tab switching) */}
-                      <div className="space-y-4 pt-2 border-t border-border/60" data-testid="overview-comments">
+                      <div className="space-y-4 pt-5 border-t border-border/60 min-w-0" data-testid="overview-comments">
                         <Label className="text-muted-foreground text-xs uppercase tracking-wider">Comments ({comments.length})</Label>
                       {isLoadingComments ? (
                         <div className="flex items-center justify-center py-8">
@@ -800,7 +794,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                 <Avatar className="h-8 w-8 mt-1">
                                   <AvatarFallback>{(comment.authorName || 'U').charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 space-y-1">
+                                <div className="flex-1 min-w-0 space-y-1">
                                   <div className="flex items-center justify-between">
                                     <p className="text-sm font-medium">{comment.authorName || 'Unknown'}</p>
                                     <p className="text-xs text-muted-foreground">
