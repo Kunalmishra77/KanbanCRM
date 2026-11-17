@@ -111,7 +111,7 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
           <CardHeader className="pb-2"><CardTitle className="text-sm">My open stories by client temperature</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-3 gap-2 p-3 pt-0 sm:p-6 sm:pt-0">
             {TEMPS.map(({ stage, icon: Icon, tone }) => (
-              <button key={stage} type="button" onClick={() => setLocation(`/clients?stage=${stage}`)} title={`Show ${stage} clients`} className={cn("rounded-xl border p-2 sm:p-3 text-center min-w-0 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", tone)} data-testid={`my-temp-${stage}`}>
+              <button key={stage} type="button" onClick={() => setLocation(mineBoard(`scope=open&stage=${stage}`))} title={`Show my open stories for ${stage} clients`} className={cn("rounded-xl border p-2 sm:p-3 text-center min-w-0 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", tone)} data-testid={`my-temp-${stage}`}>
                 <Icon className="h-4 w-4 mx-auto mb-1" />
                 <p className="text-2xl font-bold leading-none">{stats.byTemp[stage]}</p>
                 <p className="text-xs mt-1">{stage}</p>

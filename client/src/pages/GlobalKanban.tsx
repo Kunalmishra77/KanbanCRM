@@ -173,9 +173,12 @@ export default function GlobalKanban() {
   const [scope, setScope] = useState<Scope | null>(scopeParam);
   // ?mine=1 (from "My work"): only the signed-in person's stories; ?status=<column> opens that column
   const [onlyMine, setOnlyMine] = useState(false);
+  // ?stage=Hot|Warm|Cold (from "My open stories by client temperature"): stories of clients at that stage
+  const [clientStage, setClientStage] = useState<string | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(searchString);
     setOnlyMine(q.get('mine') === '1');
+    setClientStage(q.get('stage'));
     const st = q.get('status');
     if (st && (BOARD_COLUMNS as string[]).includes(st)) { pickedInitialTab.current = true; setActiveStatusTab(st as KanbanStatus); }
   }, [searchString]);
@@ -264,6 +267,7 @@ export default function GlobalKanban() {
       }
       // "My work" links: only the person's own stories, whatever their role
       if (onlyMine && me && !isAssignedTo(story, me as any)) return false;
+      if (clientStage && (clients as any[]).find((c) => c.id === story.clientId)?.stage !== clientStage) return false;
       if (scope === 'planned') {
         const due = story.dueDate ? new Date(story.dueDate).getTime() : NaN;
         if (!Number.isFinite(due) || (period.from !== null && due < period.from) || (period.to !== null && due >= period.to)) return false;
@@ -282,7 +286,7 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, leadScope, myTeam, seesAllStories, me, onlyMine]);
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, leadScope, myTeam, seesAllStories, me, onlyMine, clientStage, clients]);
 
   // When opened with a scope, jump to the first status column that actually has matching stories
   useEffect(() => {
@@ -523,7 +527,8 @@ export default function GlobalKanban() {
           <Badge variant="outline" className="gap-1.5 text-xs">
             Showing {({ overdue: 'overdue stories', open: 'open stories', done: 'finished stories', review: 'stories waiting for review', planned: 'stories due in the period', completed: 'stories finished in the period', due7: 'stories due in the next 7 days' } as Record<string, string>)[scope]} only
           </Badge>
-          <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => setScope(null)} data-testid="scope-clear">Show all</button>
+          {clientStage && <Badge variant="outline" className="text-xs">{clientStage} clients</Badge>}
+          <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => { setScope(null); setClientStage(null); }} data-testid="scope-clear">Show all</button>
         </div>
       )}
 
