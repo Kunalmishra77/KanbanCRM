@@ -152,8 +152,9 @@ export async function registerRoutes(
     }
 
     try {
+      // ?download=1 always saves the file (original name); otherwise images and PDFs open in the browser
       const inlineOk = /\.(pdf|png|jpe?g|gif|webp)$/i.test(originalNameOf(file));
-      const url = await createDownloadUrl(bucket, file, !inlineOk);
+      const url = await createDownloadUrl(bucket, file, req.query.download === '1' || !inlineOk);
       if (!url) {
         return res.status(404).json({ error: "File not found" });
       }

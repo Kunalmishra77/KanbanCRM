@@ -78,7 +78,7 @@ export function NotificationsDropdown() {
   };
   useEffect(() => {
     if (!mine || !Array.isArray(mine.items)) return;
-    const unread = mine.items.filter((n) => !n.isRead);
+    const unread = mine.items.filter((n) => !n.isRead && n.type !== "announcement"); // announcements: AnnouncementGate
     if (seen.current === null) {
       seen.current = new Set(mine.items.map((n) => n.id));
       if (unread.length === 1) popUp(unread[0]);

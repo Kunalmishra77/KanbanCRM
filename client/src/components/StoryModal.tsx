@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { canDeleteStory, perms } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { RepeatControls } from "@/components/RepeatControls";
+import { AttachmentStrip, FileActions, ImageViewer, isImage, type Attachment } from "@/components/Attachments";
 import { istDate } from "@shared/istDate";
 import { useToast } from "@/hooks/use-toast";
 
@@ -134,6 +135,14 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
+  // Every file posted in this story's comments, for the Attachments strip and the image viewer
+  const attachments: Attachment[] = (comments as any[])
+    .filter((c) => c.attachmentData && c.attachmentName)
+    .map((c) => ({ id: c.id, name: c.attachmentName, type: c.attachmentType, url: c.attachmentData, by: c.authorName }));
+  const storyImages = attachments.filter(isImage);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const openImage = (a: Attachment) => { const i = storyImages.findIndex((x) => x.id === a.id); if (i >= 0) setViewerIndex(i); };
+  useEffect(() => { setViewerIndex(null); }, [story?.id]);
   useEffect(() => {
     const el = commentsListRef.current;
     if (el && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
@@ -372,6 +381,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
   return (
     <>
+      <ImageViewer images={storyImages} index={viewerIndex} onIndex={setViewerIndex} onClose={() => setViewerIndex(null)} />
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl lg:max-w-6xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 dark:border-white/10 [&>button]:hidden">
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
@@ -793,6 +803,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           </div>
                         </div>
                       </div>
+                        <AttachmentStrip items={attachments} onOpenImage={openImage} />
                       </div>
                       {/* Comments live in Overview (one place to read and reply, no tab switching) */}
                       <div className="space-y-4 pt-5 border-t border-border/60 min-w-0 lg:pt-0 lg:border-t-0 lg:border-l lg:pl-8 lg:sticky lg:top-0 lg:flex lg:flex-col lg:max-h-[calc(85vh-13rem)]" data-testid="overview-comments">
@@ -822,30 +833,25 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                     <MentionText body={comment.body} />
                                     {comment.attachmentData && comment.attachmentName && (
                                       <div className="mt-2 pt-2 border-t border-white/20 dark:border-white/10">
-                                        {comment.attachmentType?.startsWith('image/') ? (
-                                          <div className="space-y-1">
-                                            <img
-                                              src={comment.attachmentData}
-                                              alt={comment.attachmentName}
-                                              className="max-w-full max-h-48 rounded-lg border border-white/20 dark:border-white/10"
-                                            />
-                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                              <Image className="h-3 w-3" />
-                                              {comment.attachmentName}
-                                            </p>
-                                          </div>
-                                        ) : (
-                                          <a
-                                            href={comment.attachmentData}
-                                            target={/^(https?:\/\/|\/api\/files\/)/.test(comment.attachmentData) ? '_blank' : undefined}
-                                            download={!/^(https?:\/\/|\/api\/files\/)/.test(comment.attachmentData) ? comment.attachmentName : undefined}
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary text-sm"
-                                          >
-                                            <FileText className="h-4 w-4" />
-                                            {comment.attachmentName}
-                                          </a>
-                                        )}
+                                        {(() => {
+                                          const a: Attachment = { id: comment.id, name: comment.attachmentName, type: comment.attachmentType, url: comment.attachmentData, by: comment.authorName };
+                                          return isImage(a) ? (
+                                            <div className="space-y-1.5">
+                                              <button type="button" onClick={() => openImage(a)} className="block" aria-label={`View ${a.name}`} data-testid="comment-image">
+                                                <img src={a.url} alt={a.name} className="max-w-full max-h-48 rounded-lg border border-white/20 dark:border-white/10 cursor-zoom-in hover:opacity-90" />
+                                              </button>
+                                              <div className="flex items-center justify-between gap-2 min-w-0">
+                                                <p className="text-xs text-muted-foreground flex items-center gap-1 min-w-0"><Image className="h-3 w-3 shrink-0" /><span className="truncate">{a.name}</span></p>
+                                                <FileActions a={a} onView={() => openImage(a)} />
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-primary/10 text-sm min-w-0" data-testid="comment-file">
+                                              <span className="flex items-center gap-2 min-w-0 text-primary"><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{a.name}</span></span>
+                                              <FileActions a={a} />
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     )}
                                   </div>

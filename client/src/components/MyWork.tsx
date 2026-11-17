@@ -59,11 +59,13 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "Client";
 
+  // Every number opens the stories behind it on the Global Board (mine=1: always the person's own)
+  const mineBoard = (q = "") => `/global-kanban?mine=1${q ? "&" + q : ""}`;
   const tiles = [
-    { label: "Assigned to me", value: stats.total, sub: `${stats.open} open`, icon: ListTodo, tone: "bg-primary/10 text-primary" },
-    { label: "Overdue", value: stats.overdue, sub: "need attention", icon: AlertTriangle, tone: "bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-300" },
-    { label: "Due in 7 days", value: stats.dueSoon, sub: "coming up", icon: CalendarClock, tone: "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300" },
-    { label: "Completed", value: stats.byStatus["Done"], sub: "done", icon: CheckCircle2, tone: "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-300" },
+    { key: "assigned", label: "Assigned to me", value: stats.total, sub: `${stats.open} open`, icon: ListTodo, tone: "bg-primary/10 text-primary", to: mineBoard() },
+    { key: "overdue", label: "Overdue", value: stats.overdue, sub: "need attention", icon: AlertTriangle, tone: "bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-300", to: mineBoard("scope=overdue") },
+    { key: "due7", label: "Due in 7 days", value: stats.dueSoon, sub: "coming up", icon: CalendarClock, tone: "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300", to: mineBoard("scope=due7") },
+    { key: "done", label: "Completed", value: stats.byStatus["Done"], sub: "done", icon: CheckCircle2, tone: "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-300", to: mineBoard("scope=done") },
   ];
 
   return (
@@ -86,7 +88,9 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 [&>*]:min-w-0">
         {tiles.map((t) => (
-          <Card key={t.label} className="macos-card border-none">
+          <button key={t.label} type="button" onClick={() => setLocation(t.to)} data-testid={`mywork-${t.key}`} title={`Show: ${t.label}`}
+            className="text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <Card className="macos-card border-none h-full transition-shadow hover:shadow-md cursor-pointer">
             <CardContent className="p-3 sm:p-4 flex items-center gap-3">
               <div className={cn("p-2.5 rounded-xl shrink-0", t.tone)}>
                 <t.icon className="h-5 w-5" />
@@ -98,6 +102,7 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
               </div>
             </CardContent>
           </Card>
+          </button>
         ))}
       </div>
 
@@ -106,12 +111,12 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
           <CardHeader className="pb-2"><CardTitle className="text-sm">My open stories by client temperature</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-3 gap-2 p-3 pt-0 sm:p-6 sm:pt-0">
             {TEMPS.map(({ stage, icon: Icon, tone }) => (
-              <div key={stage} className={cn("rounded-xl border p-2 sm:p-3 text-center min-w-0", tone)} data-testid={`my-temp-${stage}`}>
+              <button key={stage} type="button" onClick={() => setLocation(`/clients?stage=${stage}`)} title={`Show ${stage} clients`} className={cn("rounded-xl border p-2 sm:p-3 text-center min-w-0 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", tone)} data-testid={`my-temp-${stage}`}>
                 <Icon className="h-4 w-4 mx-auto mb-1" />
                 <p className="text-2xl font-bold leading-none">{stats.byTemp[stage]}</p>
                 <p className="text-xs mt-1">{stage}</p>
                 <p className="text-[10px] opacity-70 leading-tight">{stats.clientsByTemp[stage]} my client{stats.clientsByTemp[stage] === 1 ? "" : "s"}</p>
-              </div>
+              </button>
             ))}
           </CardContent>
         </Card>
@@ -120,9 +125,11 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
           <CardHeader className="pb-2"><CardTitle className="text-sm">By status</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {STATUSES.map((st) => (
-              <Badge key={st} variant="secondary" className="text-xs font-medium">
-                {st}: {stats.byStatus[st]}
-              </Badge>
+              <button key={st} type="button" onClick={() => setLocation(mineBoard(`status=${encodeURIComponent(st)}`))} data-testid={`mywork-status-${st}`} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <Badge variant="secondary" className="text-xs font-medium cursor-pointer hover:bg-primary/10">
+                  {st}: {stats.byStatus[st]}
+                </Badge>
+              </button>
             ))}
           </CardContent>
         </Card>

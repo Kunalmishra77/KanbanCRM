@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
+import { AnnouncementGate } from "@/components/AnnouncementGate";
 import agentixLogo from "@/assets/agentix-logo.png";
 import agentixLogoDark from "@/assets/agentix-logo-dark.png";
 
@@ -218,6 +219,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <InstallAppButton />
         <NotificationsDropdown />
+        <AnnouncementGate />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

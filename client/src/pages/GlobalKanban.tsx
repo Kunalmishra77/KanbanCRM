@@ -158,8 +158,8 @@ export default function GlobalKanban() {
   const [filterAssigneeNames, setFilterAssigneeNames] = useState<string[]>([]);
   // Quick scope from links such as the dashboard overview. done | open | overdue | review, and for a period
   // (from/to): planned = due in the period, completed = finished in the period. Same rules as the overview's numbers.
-  type Scope = 'done' | 'open' | 'overdue' | 'review' | 'planned' | 'completed';
-  const SCOPES: Scope[] = ['done', 'open', 'overdue', 'review', 'planned', 'completed'];
+  type Scope = 'done' | 'open' | 'overdue' | 'review' | 'planned' | 'completed' | 'due7';
+  const SCOPES: Scope[] = ['done', 'open', 'overdue', 'review', 'planned', 'completed', 'due7'];
   const scopeParam = useMemo(() => {
     const v = new URLSearchParams(searchString).get('scope') as Scope | null;
     return v && SCOPES.includes(v) ? v : null;
@@ -171,6 +171,14 @@ export default function GlobalKanban() {
     return { from: Number.isFinite(from) ? from : null, to: Number.isFinite(to) ? to : null };
   }, [searchString]);
   const [scope, setScope] = useState<Scope | null>(scopeParam);
+  // ?mine=1 (from "My work"): only the signed-in person's stories; ?status=<column> opens that column
+  const [onlyMine, setOnlyMine] = useState(false);
+  useEffect(() => {
+    const q = new URLSearchParams(searchString);
+    setOnlyMine(q.get('mine') === '1');
+    const st = q.get('status');
+    if (st && (BOARD_COLUMNS as string[]).includes(st)) { pickedInitialTab.current = true; setActiveStatusTab(st as KanbanStatus); }
+  }, [searchString]);
   useEffect(() => { setScope(scopeParam); }, [scopeParam]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -250,6 +258,12 @@ export default function GlobalKanban() {
       if (scope === 'open' && story.status === 'Done') return false;
       if (scope === 'overdue' && (story.status === 'Done' || !story.dueDate || new Date(story.dueDate).getTime() >= Date.now())) return false;
       if (scope === 'review' && story.status !== 'Review') return false;
+      if (scope === 'due7') {
+        const left = story.dueDate ? new Date(story.dueDate).getTime() - Date.now() : NaN;
+        if (story.status === 'Done' || !Number.isFinite(left) || left < 0 || left > 7 * 86400000) return false;
+      }
+      // "My work" links: only the person's own stories, whatever their role
+      if (onlyMine && me && !isAssignedTo(story, me as any)) return false;
       if (scope === 'planned') {
         const due = story.dueDate ? new Date(story.dueDate).getTime() : NaN;
         if (!Number.isFinite(due) || (period.from !== null && due < period.from) || (period.to !== null && due >= period.to)) return false;
@@ -268,7 +282,7 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, leadScope, myTeam, seesAllStories, me]);
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, leadScope, myTeam, seesAllStories, me, onlyMine]);
 
   // When opened with a scope, jump to the first status column that actually has matching stories
   useEffect(() => {
@@ -322,7 +336,7 @@ export default function GlobalKanban() {
       if (seesAllStories) { setFilterTeams([t]); setFilterAssigneeNames([]); }
       else if (myTeam) setLeadScope('team');
     }
-    if (myTeam && !seesAllStories && (q.get('assignee') || q.get('story') || q.get('scope'))) setLeadScope('team');
+    if (myTeam && !seesAllStories && q.get('mine') !== '1' && (q.get('assignee') || q.get('story') || q.get('scope'))) setLeadScope('team');
   }, [searchString, seesAllStories, myTeam]);
 
   // Deep link from the global search: /global-kanban?story=<id> opens that story
@@ -507,7 +521,7 @@ export default function GlobalKanban() {
       {scope && (
         <div className="flex items-center gap-2" data-testid="scope-chip">
           <Badge variant="outline" className="gap-1.5 text-xs">
-            Showing {({ overdue: 'overdue stories', open: 'open stories', done: 'finished stories', review: 'stories waiting for review', planned: 'stories due in the period', completed: 'stories finished in the period' } as Record<string, string>)[scope]} only
+            Showing {({ overdue: 'overdue stories', open: 'open stories', done: 'finished stories', review: 'stories waiting for review', planned: 'stories due in the period', completed: 'stories finished in the period', due7: 'stories due in the next 7 days' } as Record<string, string>)[scope]} only
           </Badge>
           <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => setScope(null)} data-testid="scope-clear">Show all</button>
         </div>

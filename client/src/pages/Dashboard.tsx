@@ -225,7 +225,7 @@ export default function Dashboard() {
           trendUp={false}
           color="text-orange-600 dark:text-orange-300"
           bgColor="bg-orange-100/50 dark:bg-orange-500/20"
-          onClick={() => setLocation('/global-kanban')}
+          onClick={() => setLocation('/global-kanban?scope=open')}
         />
         <StatCard 
           title="Completion Rate" 
