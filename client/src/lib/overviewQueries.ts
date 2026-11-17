@@ -18,7 +18,7 @@ export type Overview = {
   summary: { peopleWorking: number; peopleActive: number; planned: number; plannedDone: number; completed: number; overdue: number; waitingReview: number; comments: number; pendingRequests: number; otHours: number; awayToday: { leave: string[]; wfh: string[] } };
   teams: TeamRow[]; people: PersonRow[];
   review: { storyId: string; title: string; clientId: string; client: string; assignee: string; team: string; waitingDays: number }[];
-  recentComments: { id: string; author: string; body: string; storyTitle: string; clientId: string; client: string; at: string }[];
+  recentComments: { id: string; storyId?: string; author: string; body: string; storyTitle: string; clientId: string; client: string; at: string }[];
 };
 export type Mention = { id: string; storyId: string; storyTitle: string; clientId: string; authorName: string | null; body: string; createdAt: string };
 

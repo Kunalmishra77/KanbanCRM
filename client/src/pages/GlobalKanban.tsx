@@ -295,6 +295,18 @@ export default function GlobalKanban() {
     });
   };
 
+  // Links from the dashboard: ?team=<team> shows that team; ?assignee=<name> or ?story=<id> about a teammate
+  // switches a team lead to her whole team so the stories are not hidden by "My stories"
+  useEffect(() => {
+    const q = new URLSearchParams(searchString);
+    const t = q.get('team');
+    if (t) {
+      if (seesAllStories) { setFilterTeams([t]); setFilterAssigneeNames([]); }
+      else if (myTeam) setLeadScope('team');
+    }
+    if (myTeam && !seesAllStories && (q.get('assignee') || q.get('story') || q.get('scope'))) setLeadScope('team');
+  }, [searchString, seesAllStories, myTeam]);
+
   // Deep link from the global search: /global-kanban?story=<id> opens that story
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("story");

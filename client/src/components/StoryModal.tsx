@@ -86,6 +86,12 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const [timeLogNote, setTimeLogNote] = useState("");
   const [localProgress, setLocalProgress] = useState<number>(story?.progressPercent || 0);
   const [isEditing, setIsEditing] = useState(false);
+  // On wide screens the comments column opens at the newest comment, right above the comment box
+  const commentsListRef = useRef<HTMLDivElement>(null);
+  // Long descriptions fold to 6 lines so the comments start close to the top
+  const [descExpanded, setDescExpanded] = useState(false);
+  const longDescription = (story?.description || '').length > 320 || (story?.description || '').split('\n').length > 6;
+  useEffect(() => { setDescExpanded(false); }, [story?.id]);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editStatus, setEditStatus] = useState('');
@@ -128,6 +134,10 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: comments = [], isLoading: isLoadingComments } = useComments(story?.id || '');
+  useEffect(() => {
+    const el = commentsListRef.current;
+    if (el && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+  }, [story?.id, comments.length, open]);
   // Emailing clients is for founders only for now; everyone else sees "Coming soon"
   const canEmail = perms.isFounder(user);
   const { data: sentEmails = [], isLoading: isLoadingSentEmails, refetch: refetchEmails } = useSentEmails(canEmail ? story?.id || '' : '');
@@ -363,7 +373,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 dark:border-white/10 [&>button]:hidden">
+        <DialogContent className="max-w-4xl lg:max-w-6xl h-[calc(100vh-1rem)] sm:h-[85vh] p-0 gap-0 overflow-hidden glass-panel border-white/20 dark:border-white/10 [&>button]:hidden">
           <div className="flex flex-col md:flex-row h-full overflow-hidden">
             {/* Meta & Status: a collapsible strip on top for phones, a left sidebar from md up */}
             <div className="w-full md:w-72 shrink-0 bg-muted/30 border-b md:border-b-0 md:border-r border-white/10 dark:border-white/10">
@@ -634,7 +644,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
                 <ScrollArea className="flex-1 min-w-0 [&>[data-radix-scroll-area-viewport]]:!overflow-x-hidden [&>[data-radix-scroll-area-viewport]>div]:!block">
                   <div className="p-4 sm:p-6">
-                    <TabsContent value="details" className="mt-0 space-y-6 outline-none">
+                    <TabsContent value="details" className="mt-0 space-y-6 outline-none lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+                      <div className="space-y-6 min-w-0">
                       {isEditing ? (
                         <div className="space-y-4 p-4 rounded-xl border border-primary/20 bg-primary/5">
                           <p className="text-xs font-semibold text-primary uppercase tracking-wider">Editing Story</p>
@@ -729,9 +740,14 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                       ) : (
                         <div className="space-y-2">
                           <Label className="text-muted-foreground text-xs uppercase tracking-wider">Description</Label>
-                          <div className="min-h-[64px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                            {story.description || 'No description provided.'}
+                          <div className="min-h-[64px] p-4 rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/20 dark:border-white/10 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]" data-testid="story-description">
+                            <div className={cn(longDescription && !descExpanded && "line-clamp-6")}>{story.description || 'No description provided.'}</div>
                           </div>
+                          {longDescription && (
+                            <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setDescExpanded((v) => !v)} data-testid="description-toggle">
+                              {descExpanded ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -777,15 +793,16 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           </div>
                         </div>
                       </div>
+                      </div>
                       {/* Comments live in Overview (one place to read and reply, no tab switching) */}
-                      <div className="space-y-4 pt-5 border-t border-border/60 min-w-0" data-testid="overview-comments">
+                      <div className="space-y-4 pt-5 border-t border-border/60 min-w-0 lg:pt-0 lg:border-t-0 lg:border-l lg:pl-8 lg:sticky lg:top-0 lg:flex lg:flex-col lg:max-h-[calc(85vh-13rem)]" data-testid="overview-comments">
                         <Label className="text-muted-foreground text-xs uppercase tracking-wider">Comments ({comments.length})</Label>
                       {isLoadingComments ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                         </div>
                       ) : (
-                        <div className="space-y-6">
+                        <div ref={commentsListRef} className="space-y-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1" data-testid="comments-list">
                           {comments.length === 0 ? (
                             <p className="text-center text-muted-foreground py-8">No comments yet. Be the first to comment!</p>
                           ) : (
@@ -839,7 +856,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         </div>
                       )}
 
-                      <div className="flex gap-4 items-start mt-8 pt-6 border-t border-white/10 dark:border-white/10">
+                      <div className="flex gap-4 items-start mt-4 pt-4 border-t border-white/10 dark:border-white/10 sticky bottom-0 z-10 -mx-4 px-4 pb-3 bg-background/95 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:px-0 lg:pb-0 lg:bg-transparent lg:backdrop-blur-none" data-testid="comment-box">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback>{userName.charAt(0)}</AvatarFallback>
                         </Avatar>

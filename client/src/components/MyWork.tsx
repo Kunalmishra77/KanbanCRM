@@ -75,7 +75,7 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AtSign className="h-4 w-4 text-primary" /> Mentioned you ({mentions.length})</CardTitle></CardHeader>
           <CardContent className="space-y-1">
             {mentions.slice(0, 8).map((m) => (
-              <button key={m.id} type="button" onClick={() => setLocation(`/clients/${m.clientId}`)} className="w-full min-w-0 text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
+              <button key={m.id} type="button" onClick={() => setLocation(`/global-kanban?story=${m.storyId}`)} className="w-full min-w-0 text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
                 <span className="block text-sm break-words"><b>{m.authorName || "Someone"}</b>: <MentionText body={m.body} /></span>
                 <span className="block text-xs text-muted-foreground truncate">{m.storyTitle} · {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
               </button>
@@ -137,7 +137,7 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setLocation(`/clients/${s.clientId}`)}
+                  onClick={() => setLocation(`/global-kanban?story=${s.id}`)}
                   className="w-full min-w-0 flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]"
                 >
                   <span className="min-w-0 flex-1">

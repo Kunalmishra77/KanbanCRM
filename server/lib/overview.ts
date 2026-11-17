@@ -110,7 +110,7 @@ export function computeOverview(input: { users: U[]; stories: S[]; clients: C[];
     .slice(0, 25)
     .map((c) => {
       const s = storyById.get(c.storyId);
-      return { id: c.id, author: c.authorName || nameById.get(c.authorId)?.name || "Someone", body: c.body.length > 180 ? c.body.slice(0, 180) + "…" : c.body, storyTitle: s?.title || "Story", clientId: s?.clientId || "", client: s ? clientName.get(s.clientId) || "" : "", at: new Date(c.createdAt).toISOString() };
+      return { id: c.id, storyId: c.storyId, author: c.authorName || nameById.get(c.authorId)?.name || "Someone", body: c.body.length > 180 ? c.body.slice(0, 180) + "…" : c.body, storyTitle: s?.title || "Story", clientId: s?.clientId || "", client: s ? clientName.get(s.clientId) || "" : "", at: new Date(c.createdAt).toISOString() };
     });
 
   const working = rows.filter((r) => r.assigned > 0 && !(input.period === "today" && r.away === "leave"));

@@ -100,7 +100,7 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
               {data.teams.map((t) => {
                 const done = pct(t.plannedDone, t.planned);
                 return (
-                  <button key={t.team} onClick={() => setTeam(team === t.team ? null : t.team)} data-testid={`team-${t.team}`} className={cn("text-left rounded-2xl border bg-white/70 dark:bg-white/[0.08] p-4 transition-shadow hover:shadow-md min-h-[44px]", team === t.team && "ring-2 ring-primary")}>
+                  <button key={t.team} onClick={() => setLocation(`/global-kanban?team=${encodeURIComponent(t.team)}`)} title={`Open ${t.team}'s stories on the Global Board`} data-testid={`team-${t.team}`} className={cn("text-left rounded-2xl border bg-white/70 dark:bg-white/[0.08] p-4 transition-shadow hover:shadow-md min-h-[44px]", team === t.team && "ring-2 ring-primary")}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold truncate">{t.team}</span>
                       <span className={cn("inline-flex items-center gap-1.5 text-xs border rounded-full px-2 py-0.5 shrink-0", HEALTH[t.health].chip)}>
@@ -134,7 +134,7 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
               <CardContent className="space-y-1">
                 {data.review.length === 0 && <p className="text-sm text-muted-foreground">Nothing is waiting for review.</p>}
                 {data.review.slice(0, 10).map((r) => (
-                  <button key={r.storyId} onClick={() => setLocation(`/clients/${r.clientId}`)} className="w-full text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
+                  <button key={r.storyId} onClick={() => setLocation(`/global-kanban?story=${r.storyId}`)} className="w-full text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
                     <span className="block text-sm font-medium truncate">{r.title}</span>
                     <span className="block text-xs text-muted-foreground truncate">{r.assignee} · {r.client} · waiting {r.waitingDays === 0 ? "since today" : `${r.waitingDays} day${r.waitingDays === 1 ? "" : "s"}`}</span>
                   </button>
@@ -147,7 +147,7 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
               <CardContent className="space-y-1">
                 {data.recentComments.length === 0 && <p className="text-sm text-muted-foreground">No comments in this period.</p>}
                 {data.recentComments.slice(0, 10).map((c) => (
-                  <button key={c.id} onClick={() => setLocation(`/clients/${c.clientId}`)} className="w-full text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
+                  <button key={c.id} onClick={() => setLocation(c.storyId ? `/global-kanban?story=${c.storyId}` : `/clients/${c.clientId}`)} className="w-full text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
                     <span className="block text-sm break-words"><b>{c.author}</b>: {c.body}</span>
                     <span className="block text-xs text-muted-foreground truncate">{c.client} · {c.storyTitle} · {formatDistanceToNow(new Date(c.at), { addSuffix: true })}</span>
                   </button>
