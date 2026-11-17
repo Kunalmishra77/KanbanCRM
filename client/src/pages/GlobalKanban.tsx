@@ -156,12 +156,21 @@ export default function GlobalKanban() {
   // Filter state
   const [filterClientIds, setFilterClientIds] = useState<string[]>([]);
   const [filterAssigneeNames, setFilterAssigneeNames] = useState<string[]>([]);
-  // Quick scope from links such as the founder overview: done | open | overdue
+  // Quick scope from links such as the dashboard overview. done | open | overdue | review, and for a period
+  // (from/to): planned = due in the period, completed = finished in the period. Same rules as the overview's numbers.
+  type Scope = 'done' | 'open' | 'overdue' | 'review' | 'planned' | 'completed';
+  const SCOPES: Scope[] = ['done', 'open', 'overdue', 'review', 'planned', 'completed'];
   const scopeParam = useMemo(() => {
-    const v = new URLSearchParams(searchString).get('scope');
-    return v === 'done' || v === 'open' || v === 'overdue' ? v : null;
+    const v = new URLSearchParams(searchString).get('scope') as Scope | null;
+    return v && SCOPES.includes(v) ? v : null;
   }, [searchString]);
-  const [scope, setScope] = useState<'done' | 'open' | 'overdue' | null>(scopeParam);
+  const period = useMemo(() => {
+    const q = new URLSearchParams(searchString);
+    const from = q.get('from') ? new Date(q.get('from')!).getTime() : null;
+    const to = q.get('to') ? new Date(q.get('to')!).getTime() : null;
+    return { from: Number.isFinite(from) ? from : null, to: Number.isFinite(to) ? to : null };
+  }, [searchString]);
+  const [scope, setScope] = useState<Scope | null>(scopeParam);
   useEffect(() => { setScope(scopeParam); }, [scopeParam]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -240,6 +249,15 @@ export default function GlobalKanban() {
       if (scope === 'done' && story.status !== 'Done') return false;
       if (scope === 'open' && story.status === 'Done') return false;
       if (scope === 'overdue' && (story.status === 'Done' || !story.dueDate || new Date(story.dueDate).getTime() >= Date.now())) return false;
+      if (scope === 'review' && story.status !== 'Review') return false;
+      if (scope === 'planned') {
+        const due = story.dueDate ? new Date(story.dueDate).getTime() : NaN;
+        if (!Number.isFinite(due) || (period.from !== null && due < period.from) || (period.to !== null && due >= period.to)) return false;
+      }
+      if (scope === 'completed') {
+        const at = new Date(story.updatedAt as any).getTime();
+        if (story.status !== 'Done' || (period.from !== null && at < period.from) || at > Date.now() + 60_000) return false;
+      }
       if (filterAssigneeNames.length > 0) {
         const hasMatchingAssignee = filterAssigneeNames.some(name => {
           const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
@@ -250,7 +268,7 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users, scope, filterTeams, leadScope, myTeam, seesAllStories, me]);
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, leadScope, myTeam, seesAllStories, me]);
 
   // When opened with a scope, jump to the first status column that actually has matching stories
   useEffect(() => {
@@ -489,7 +507,7 @@ export default function GlobalKanban() {
       {scope && (
         <div className="flex items-center gap-2" data-testid="scope-chip">
           <Badge variant="outline" className="gap-1.5 text-xs">
-            Showing {scope === 'overdue' ? 'overdue' : scope === 'open' ? 'open' : 'finished'} stories only
+            Showing {({ overdue: 'overdue stories', open: 'open stories', done: 'finished stories', review: 'stories waiting for review', planned: 'stories due in the period', completed: 'stories finished in the period' } as Record<string, string>)[scope]} only
           </Badge>
           <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => setScope(null)} data-testid="scope-clear">Show all</button>
         </div>

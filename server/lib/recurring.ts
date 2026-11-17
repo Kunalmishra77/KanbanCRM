@@ -32,12 +32,8 @@ const storyRow = ({ rule, person, date: day, dueDate }: { rule: Rule; person: Pe
  * what already exists is skipped (and the database enforces one story per rule, person and day).
  */
 export async function generateRecurringStories(date: string = istDate()): Promise<number> {
-  // A new day: yesterday's (and older) copies still open move to Done before today's fresh ones come in
-  const closed = await storage.closePastRepeatingCopies(date);
-  if (closed > 0) {
-    console.log(`Scheduler: moved ${closed} past repeating copies to Done`);
-    broadcastChange();
-  }
+  // Earlier copies are never touched: one nobody finished stays where it is (To Do, In Progress, ...).
+  // Each day only adds that day's fresh copy. (User's rule, 17 Nov; replaces "move past copies to Done".)
   const [rules, users, requests, existing] = await Promise.all([
     storage.listRecurringTasks(),
     storage.getAllUsers(),
@@ -57,7 +53,6 @@ export async function generateRecurringStories(date: string = istDate()): Promis
  */
 export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const today = istDate();
-  await storage.closePastRepeatingCopies(today);
   const [rules, users, requests, copies] = await Promise.all([
     storage.listRecurringTasks(),
     storage.getAllUsers(),

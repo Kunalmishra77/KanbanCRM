@@ -117,18 +117,19 @@ ok(log.includes('Set up repeating task: Daily report') && log.includes('Paused r
 ok((await founder.req('DELETE', '/api/recurring-tasks/' + daily.id)).status === 204, 'a founder can delete it');
 ok(JSON.stringify((await founder.get('/api/activity?limit=100')).data).includes('Deleted repeating task: Daily report'), 'the delete is recorded too');
 
-// 10c. A new day: yesterday's copy still open moves to Done; today's fresh copy is the only To Do
+// 10c. A new day: yesterday's unfinished copy stays exactly where the person left it (17 Nov rule);
+// today's fresh copy is added next to it in To Do
 {
   const pg = (await import('postgres')).default(process.env.DATABASE_URL || 'postgres://postgres:pw@localhost:5433/crm', { max: 1 });
   const r = (await pooja.post('/api/recurring-tasks', { ...base, title: 'Calling report', repeat: 'daily', assigneeIds: [poojaId] })).data.task;
   await pg`insert into stories (client_id, title, description, assigned_to, priority, estimated_effort_hours, due_date, status, progress_percent, person, tags, recurring_task_id, occurrence_date)
-    values (${client.id}, 'Calling report', 'x', ${poojaId}, 'Medium', 0, now() - interval '1 day', 'To Do', 0, 'Pooja Singh', ${['recurring', 'daily']}, ${r.id}, ${ist(-1)})`;
+    values (${client.id}, 'Calling report', 'x', ${poojaId}, 'Medium', 0, now() - interval '1 day', 'In Progress', 40, 'Pooja Singh', ${['recurring', 'daily']}, ${r.id}, ${ist(-1)})`;
   await pooja.patch('/api/recurring-tasks/' + r.id, { active: false });
-  await pooja.patch('/api/recurring-tasks/' + r.id, { active: true }); // any create/resume (and the 12:00 AM run) tidies up
+  await pooja.patch('/api/recurring-tasks/' + r.id, { active: true });
   const copies = (await pooja.get('/api/stories')).data.filter((s) => s.title === 'Calling report');
   const y = copies.find((s) => s.occurrenceDate === ist(-1)), t = copies.find((s) => s.occurrenceDate === today);
-  ok(y?.status === 'Done', "yesterday's unfinished copy moved to Done", y?.status);
-  ok(t?.status === 'To Do' && copies.filter((s) => s.status !== 'Done').length === 1, "only today's copy is in To Do", JSON.stringify(copies.map((s) => s.occurrenceDate + ':' + s.status)));
+  ok(y?.status === 'In Progress' && y?.progressPercent === 40, "yesterday's unfinished copy stays where it was (In Progress, 40%)", `${y?.status} ${y?.progressPercent}`);
+  ok(t?.status === 'To Do', "today's fresh copy is added in To Do", JSON.stringify(copies.map((s) => s.occurrenceDate + ':' + s.status)));
   await pg.end();
 }
 

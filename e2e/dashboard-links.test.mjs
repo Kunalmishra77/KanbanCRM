@@ -27,10 +27,13 @@ const dev = u('d1u', 'Dee', 'Dev', 'employee', 'Development');
 const users = [founder, lead, sales, dev];
 const client = { id: 'c1', name: 'Sample Co', industry: 'IT', stage: 'Hot', averageProgress: '0', expectedRevenue: '0', revenueTotal: '0', createdAt: iso(-5), updatedAt: iso(-1) };
 const st = (id, title, who, status = 'To Do') => ({ id, clientId: 'c1', title, description: 'x', assignedTo: who.id, person: `${who.firstName} ${who.lastName}`, priority: 'Medium', estimatedEffortHours: 0, actualHoursSpent: '0', dueDate: iso(1), status, progressPercent: 0, tags: [], createdAt: iso(-1), updatedAt: iso(-1) });
-const stories = [st('st1', 'Sales call list', sales, 'Review'), st('st2', 'Fix login bug', dev), st('st3', 'Lead own task', lead)];
+const stories = [st('st1', 'Sales call list', sales, 'Review'), st('st2', 'Fix login bug', dev), st('st3', 'Lead own task', lead),
+  { ...st('st4', 'Finished report', dev, 'Done'), updatedAt: iso(0), dueDate: iso(0.2) },
+  { ...st('st5', 'Late invoice chase', sales), dueDate: iso(-2) },
+  { ...st('st6', 'Next month plan', sales), dueDate: iso(40) }];
 const person = (x) => ({ id: x.id, name: `${x.firstName} ${x.lastName}`, team: x.team || 'No team set', assigned: 1, open: 1, overdue: 0, review: 0, planned: 1, plannedDone: 0, completed: 0, comments: 0, actions: 1, lastActiveAt: iso(0), health: 'good', reason: 'On track' });
 const overview = {
-  period: 'today', from: iso(0), to: iso(1),
+  period: 'week', from: iso(-1), to: iso(5),
   summary: { peopleWorking: 3, peopleActive: 3, planned: 3, plannedDone: 0, completed: 0, overdue: 0, waitingReview: 1, comments: 1, pendingRequests: 0, otHours: 0, awayToday: { leave: [], wfh: [] } },
   teams: [{ team: 'Sales', people: 2, active: 2, planned: 2, plannedDone: 0, completed: 0, overdue: 0, review: 1, health: 'good', reason: 'On track' }, { team: 'Development', people: 1, active: 1, planned: 1, plannedDone: 0, completed: 0, overdue: 0, review: 0, health: 'good', reason: 'On track' }],
   people: [person(lead), person(sales), person(dev)],
@@ -51,15 +54,15 @@ async function as(me, visible) {
   });
   return ctx.newPage();
 }
-const titles = async (p) => (await p.locator('h3').allInnerTexts()).filter((t) => /Sales call|login bug|own task/.test(t)).sort();
-const allBoard = async (p) => { const out = []; for (const tab of ['To Do', 'Review']) { await p.getByRole('tab', { name: new RegExp('^' + tab) }).click(); await p.waitForTimeout(300); out.push(...await titles(p)); } return out.sort(); };
+const titles = async (p) => (await p.locator('h3').allInnerTexts()).filter((t) => /Sales call|login bug|own task|Finished report|Late invoice|Next month/.test(t)).sort();
+const allBoard = async (p) => { const out = []; for (const tab of ['To Do', 'In Progress', 'Review', 'Done']) { await p.getByRole('tab', { name: new RegExp('^' + tab) }).click(); await p.waitForTimeout(300); out.push(...await titles(p)); } return out.sort(); };
 
 // Founder
 let p = await as(founder, stories);
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('team-Sales').click(); await p.waitForTimeout(1500);
 ok(p.url().includes('/global-kanban') && p.url().includes('team=Sales'), 'team card opens the Global Board for that team', p.url());
-ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Lead own task', 'Sales call list']), 'board shows only Sales stories', JSON.stringify(await allBoard(p)));
+ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Late invoice chase', 'Lead own task', 'Next month plan', 'Sales call list']), 'board shows only Sales stories', JSON.stringify(await allBoard(p)));
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('overview-review').getByText('Sales call list').click(); await p.waitForTimeout(1800);
 ok(await p.getByRole('dialog').getByText('Sales call list').first().isVisible(), '"Waiting for review" opens that story', p.url());
@@ -70,13 +73,23 @@ await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('stat-open-Dee Dev').click(); await p.waitForTimeout(1500);
 ok(JSON.stringify(await titles(p)) === JSON.stringify(['Fix login bug']), "a person's numbers open their stories", JSON.stringify(await titles(p)));
 
+// Summary cards open exactly what they count
+const card = async (key) => { await p.goto(BASE + '/'); await p.waitForTimeout(2000); await p.getByTestId('summary-' + key).click(); await p.waitForTimeout(1500); return allBoard(p); };
+ok(JSON.stringify(await card('planned')) === JSON.stringify(['Finished report', 'Fix login bug', 'Lead own task', 'Sales call list']), 'Planned card: stories due in the period (not overdue, not next month)', JSON.stringify(await allBoard(p)));
+ok(JSON.stringify(await card('completed')) === JSON.stringify(['Finished report']), 'Completed card: finished in the period', JSON.stringify(await allBoard(p)));
+ok(JSON.stringify(await card('overdue')) === JSON.stringify(['Late invoice chase']), 'Overdue card: overdue stories', JSON.stringify(await allBoard(p)));
+ok(JSON.stringify(await card('review')) === JSON.stringify(['Sales call list']), 'Review card: waiting for review', JSON.stringify(await allBoard(p)));
+await p.goto(BASE + '/'); await p.waitForTimeout(2000);
+await p.getByTestId('summary-active').click(); await p.waitForTimeout(800);
+ok(await p.getByTestId('people-show-all').isVisible(), 'People active card: shows only active people, with "show all"');
+
 // Team lead: links about a teammate must not be hidden by "My stories"
 const salesStories = stories.filter((s) => s.id !== 'st2');
 p = await as(lead, salesStories);
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('stat-open-Sam Seller').click(); await p.waitForTimeout(1500);
 ok((await p.getByTestId('lead-scope-team').getAttribute('aria-pressed')) === 'true', "lead: a teammate's link switches to the whole team");
-ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Sales call list']), "lead: shows the teammate's stories", JSON.stringify(await allBoard(p)));
+ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Late invoice chase', 'Next month plan', 'Sales call list']), "lead: shows the teammate's stories", JSON.stringify(await allBoard(p)));
 await p.goto(BASE + '/global-kanban'); await p.waitForTimeout(2000);
 ok((await p.getByTestId('lead-scope-mine').getAttribute('aria-pressed')) === 'true', 'lead: opening the board directly still starts on My stories');
 

@@ -34,7 +34,9 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
   const valid = !!data && Array.isArray(data.people) && Array.isArray(data.teams);
   const summary = { pendingRequests: 0, otHours: 0, ...(data?.summary ?? {}) } as NonNullable<typeof data>["summary"];
   const away = summary.awayToday ?? { leave: [], wfh: [] };
-  const people = useMemo(() => (valid && data ? data.people.filter((p) => !team || p.team === team) : []), [data, team]);
+  // "People active" card: show only people active in the period (with a way back to everyone)
+  const [activeOnly, setActiveOnly] = useState(false);
+  const people = useMemo(() => (valid && data ? data.people.filter((p) => (!team || p.team === team) && (!activeOnly || p.comments + p.actions > 0)) : []), [data, team, activeOnly]);
 
   return (
     <section className="space-y-4" data-testid="founder-overview">
@@ -65,20 +67,32 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
       {data && valid && (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 [&>*]:min-w-0" data-testid="overview-summary">
-            {[
-              { label: "People active", value: `${data.summary.peopleActive}/${data.summary.peopleWorking}`, tone: data.summary.peopleActive < data.summary.peopleWorking ? "text-amber-600 dark:text-amber-300" : "text-green-600 dark:text-green-300" },
-              { label: "Planned stories done", value: `${data.summary.plannedDone}/${data.summary.planned}`, tone: "" },
-              { label: "Completed", value: String(data.summary.completed), tone: "" },
-              { label: "Overdue", value: String(data.summary.overdue), tone: data.summary.overdue ? "text-red-600 dark:text-red-300" : "" },
-              { label: "Waiting for review", value: String(data.summary.waitingReview), tone: "" },
-            ].map((t) => (
-              <Card key={t.label} className="macos-card border-none">
-                <CardContent className="p-3 sm:p-4">
-                  <p className={cn("text-2xl font-bold leading-none", t.tone)}>{t.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{t.label}</p>
-                </CardContent>
-              </Card>
-            ))}
+            {(() => {
+              // Each card opens exactly what it counts, for the selected period
+              const range = `from=${encodeURIComponent(data.from)}&to=${encodeURIComponent(data.to)}`;
+              const board = (q: string) => () => setLocation(`/global-kanban?${q}`);
+              const showActive = () => {
+                setActiveOnly(true);
+                document.querySelector('[data-testid="overview-people"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+              };
+              return [
+                { key: "active", label: "People active", value: `${data.summary.peopleActive}/${data.summary.peopleWorking}`, tone: data.summary.peopleActive < data.summary.peopleWorking ? "text-amber-600 dark:text-amber-300" : "text-green-600 dark:text-green-300", go: showActive, hint: "Show who was active" },
+                { key: "planned", label: "Planned stories done", value: `${data.summary.plannedDone}/${data.summary.planned}`, tone: "", go: board(`scope=planned&${range}`), hint: "Show the stories due in this period" },
+                { key: "completed", label: "Completed", value: String(data.summary.completed), tone: "", go: board(`scope=completed&${range}`), hint: "Show the stories finished in this period" },
+                { key: "overdue", label: "Overdue", value: String(data.summary.overdue), tone: data.summary.overdue ? "text-red-600 dark:text-red-300" : "", go: board("scope=overdue"), hint: "Show overdue stories" },
+                { key: "review", label: "Waiting for review", value: String(data.summary.waitingReview), tone: "", go: board("scope=review"), hint: "Show stories waiting for review" },
+              ].map((t) => (
+                <button key={t.key} type="button" onClick={t.go} title={t.hint} aria-label={`${t.value} ${t.label}. ${t.hint}`} data-testid={`summary-${t.key}`}
+                  className="text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <Card className="macos-card border-none h-full transition-shadow hover:shadow-md cursor-pointer">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className={cn("text-2xl font-bold leading-none", t.tone)}>{t.value}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t.label}</p>
+                    </CardContent>
+                  </Card>
+                </button>
+              ));
+            })()}
           </div>
 
           {(summary.pendingRequests > 0 || away.leave.length > 0 || away.wfh.length > 0 || summary.otHours > 0) && (
@@ -122,7 +136,7 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
           </div>
 
           <Card className="macos-card border-none">
-            <CardHeader className="pb-2"><CardTitle className="text-sm">People {team ? `· ${team}` : ""} ({people.length})</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">{activeOnly ? "Active people" : "People"} {team ? `· ${team}` : ""} ({people.length}){activeOnly && <button type="button" className="ml-2 text-xs font-normal text-primary underline" onClick={() => setActiveOnly(false)} data-testid="people-show-all">show all</button>}</CardTitle></CardHeader>
             <CardContent className="space-y-2" data-testid="overview-people">
               {people.map((p) => <PersonCard key={p.id} p={p} period={period} />)}
             </CardContent>
