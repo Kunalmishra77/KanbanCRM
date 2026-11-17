@@ -37,7 +37,7 @@ await ctx.route('**/api/**', (route) => {
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 });
 const pg = await ctx.newPage();
-await pg.goto(BASE + '/global-kanban'); await pg.waitForTimeout(2500);
+await pg.goto(BASE + '/global-kanban?mine=1'); await pg.waitForTimeout(2500);
 const labelFor = async (title) => pg.locator('div.group, div').filter({ has: pg.getByText(title, { exact: true }) }).last().getByTestId('assigned-by').innerText().catch(() => '?');
 const cardText = async (title) => (await pg.locator('h3', { hasText: title }).locator('xpath=ancestor::*[.//*[@data-testid="assigned-by"]][1]').getByTestId('assigned-by').innerText().catch(() => '?')).trim();
 ok(await cardText('Blog post from Dev') === 'by Dev', 'card: assigned by a colleague shows "by Dev"', await cardText('Blog post from Dev'));

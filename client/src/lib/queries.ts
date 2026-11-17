@@ -149,6 +149,30 @@ export function useUpdateStory() {
   });
 }
 
+/** "Assigned to me": take on a story somebody gave you. */
+export function useAcceptStory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => storiesAPI.accept(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+/** "Assigned to me": a note back to whoever assigned the story (saved as a comment). */
+export function useStoryFeedback() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) => storiesAPI.feedback(id, message),
+    onSuccess: (_d, v) => {
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'comments' });
+      queryClient.invalidateQueries({ queryKey: ['stories', v.id] });
+    },
+  });
+}
+
 export function useDeleteStory() {
   const queryClient = useQueryClient();
   const { toast } = useToast();

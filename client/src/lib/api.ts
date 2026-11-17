@@ -73,6 +73,11 @@ export const storiesAPI = {
   delete: (id: string) => fetchAPI(`/stories/${id}`, {
     method: 'DELETE',
   }),
+  accept: (id: string) => fetchAPI(`/stories/${id}/accept`, { method: 'POST' }),
+  feedback: (id: string, message: string) => fetchAPI(`/stories/${id}/feedback`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  }),
 };
 
 // Comments API

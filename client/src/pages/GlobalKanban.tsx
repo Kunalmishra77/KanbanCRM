@@ -8,7 +8,10 @@ import { StoryModal } from "@/components/StoryModal";
 import { RepeatingTaskList } from "@/pages/RecurringTasks";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
-import { useSearch } from "wouter";
+import { useSearch, useLocation } from "wouter";
+import { inBoard, isWaiting, boardOf, BOARDS, type Board } from "@/lib/boards";
+import { isAssignedByOther } from "@shared/roles";
+import { WaitingForYou } from "@/components/WaitingForYou";
 import { useIsFounder, useAuth } from "@/lib/auth";
 import { perms } from "@shared/roles";
 import { MultiPicker } from "@/components/MultiPicker";
@@ -21,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, differenceInHours } from "date-fns";
+import { format, differenceInHours, startOfDay, addDays, endOfWeek } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
 import type { Client, Story } from "@shared/schema";
 
@@ -109,6 +112,17 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
 
 const BOARD_COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Review', 'Done'];
 
+const BOARD_TITLES: Record<string, string> = {
+  mine: 'My Work', assigned: 'Assigned to me', given: 'Assigned by me', all: "Everyone's work", me: 'All my stories',
+};
+const BOARD_HINTS: Record<string, string> = {
+  mine: 'Stories you made for yourself.',
+  assigned: 'Work others gave you. Accept new ones when you have room for them.',
+  given: 'Stories you gave to others, and how far they are.',
+  all: "Everyone's stories.",
+  me: 'Everything assigned to you.',
+};
+
 export default function GlobalKanban() {
   const { data: stories = [], isLoading } = useStories() as { data: Story[]; isLoading: boolean };
   const { data: clients = [] } = useClients() as { data: Client[] };
@@ -122,9 +136,21 @@ export default function GlobalKanban() {
   // A team lead gets their team's stories from the server and may filter them by person
   const myTeam = perms.isTeamLead(me) ? ((me as any)?.team as string | null) || null : null;
   const canPickPeople = seesAllStories || !!myTeam;
-  // A team lead opens on her own stories and can switch to her whole team
-  const [leadScope, setLeadScope] = useState<'mine' | 'team'>('mine');
-  const showTeamWork = seesAllStories || (!!myTeam && leadScope === 'team');
+  // Which board: My Work (made for myself) | Assigned to me | Assigned by me | Everyone (managers).
+  // "me" = everything assigned to me (links from the dashboard's "My work" numbers).
+  type BoardView = Board | 'me';
+  const [, setLocation] = useLocation();
+  const boardFromUrl = (q: URLSearchParams): BoardView => {
+    const b = q.get('board') as Board | null;
+    if (b && BOARDS.includes(b) && (b !== 'all' || canPickPeople)) return b;
+    if (q.get('mine') === '1') return 'me';
+    if (q.get('team') || q.get('assignee') || q.get('scope') || q.get('stage')) return canPickPeople ? 'all' : 'me';
+    return 'mine';
+  };
+  const [board, setBoard] = useState<BoardView>(() => boardFromUrl(new URLSearchParams(window.location.search)));
+  // Switching boards starts with clean person filters (they differ per board)
+  const openBoard = (b: Board) => { setFilterAssignedBy([]); setFilterAssigneeNames([]); setLocation(`/global-kanban?board=${b}`); };
+  const showTeamWork = board === 'all' && canPickPeople;
   // Team filter (founders / chief of staff): Sales, Marketing, ...
   const [filterTeams, setFilterTeams] = useState<string[]>([]);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -135,13 +161,7 @@ export default function GlobalKanban() {
     new URLSearchParams(window.location.search).get('view') === 'repeating' ? 'repeating' : 'list');
   const [activeStatusTab, setActiveStatusTab] = useState<KanbanStatus>('In Progress');
   const pickedInitialTab = useRef(false);
-  useEffect(() => {
-    if (pickedInitialTab.current || stories.length === 0) return;
-    pickedInitialTab.current = true;
-    const order: KanbanStatus[] = ['In Progress', 'To Do', 'Blocked', 'Review', 'Done'];
-    const first = order.find((status) => stories.some((s) => s.status === status));
-    if (first) setActiveStatusTab(first);
-  }, [stories]);
+  const statusFromUrl = useRef(false);
 
   const clientMap = useMemo(() => {
     return new Map(clients.map((c: any) => [c.id, c.name]));
@@ -171,17 +191,34 @@ export default function GlobalKanban() {
     return { from: Number.isFinite(from) ? from : null, to: Number.isFinite(to) ? to : null };
   }, [searchString]);
   const [scope, setScope] = useState<Scope | null>(scopeParam);
-  // ?mine=1 (from "My work"): only the signed-in person's stories; ?status=<column> opens that column
-  const [onlyMine, setOnlyMine] = useState(false);
   // ?stage=Hot|Warm|Cold (from "My open stories by client temperature"): stories of clients at that stage
   const [clientStage, setClientStage] = useState<string | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(searchString);
-    setOnlyMine(q.get('mine') === '1');
+    setBoard(boardFromUrl(q));
     setClientStage(q.get('stage'));
     const st = q.get('status');
-    if (st && (BOARD_COLUMNS as string[]).includes(st)) { pickedInitialTab.current = true; setActiveStatusTab(st as KanbanStatus); }
-  }, [searchString]);
+    if (st && (BOARD_COLUMNS as string[]).includes(st)) { pickedInitialTab.current = true; statusFromUrl.current = true; setActiveStatusTab(st as KanbanStatus); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchString, canPickPeople]);
+  // New filters: who assigned it, and when it is due
+  const [filterAssignedBy, setFilterAssignedBy] = useState<string[]>([]);
+  type DueFilter = 'any' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'custom';
+  const [dueFilter, setDueFilter] = useState<DueFilter>('any');
+  const [dueFrom, setDueFrom] = useState('');
+  const [dueTo, setDueTo] = useState('');
+  const dueRange = useMemo((): [number, number] | null => {
+    const today = startOfDay(new Date());
+    if (dueFilter === 'today') return [today.getTime(), addDays(today, 1).getTime()];
+    if (dueFilter === 'tomorrow') return [addDays(today, 1).getTime(), addDays(today, 2).getTime()];
+    if (dueFilter === 'week') return [today.getTime(), addDays(startOfDay(endOfWeek(today, { weekStartsOn: 1 })), 1).getTime()];
+    if (dueFilter === 'custom') {
+      const from = dueFrom ? new Date(`${dueFrom}T00:00:00`).getTime() : -Infinity;
+      const to = dueTo ? addDays(new Date(`${dueTo}T00:00:00`), 1).getTime() : Infinity;
+      return [from, to];
+    }
+    return null;
+  }, [dueFilter, dueFrom, dueTo]);
   useEffect(() => { setScope(scopeParam); }, [scopeParam]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -250,8 +287,18 @@ export default function GlobalKanban() {
   // Filter stories based on selected filters
   const filteredStories = useMemo(() => {
     return stories.filter((story: Story) => {
-      // Team lead on "My stories": only what is assigned to her
-      if (myTeam && !seesAllStories && leadScope === 'mine' && me && !isAssignedTo(story, me as any)) return false;
+      if (board === 'me' ? !(me && isAssignedTo(story, me as any)) : !inBoard(story, board, me as any)) return false;
+      // Not accepted yet: shown in "Waiting for you" above the columns, not in them
+      if (board === 'assigned' && isWaiting(story, me as any)) return false;
+      if (filterAssignedBy.length > 0) {
+        const self = !story.assignedBy || story.assignedBy === story.assignedTo;
+        if (!filterAssignedBy.some((v) => (v === '__self' ? self : !self && story.assignedBy === v))) return false;
+      }
+      if (dueFilter === 'overdue' && (story.status === 'Done' || !story.dueDate || new Date(story.dueDate).getTime() >= Date.now())) return false;
+      if (dueRange) {
+        const due = story.dueDate ? new Date(story.dueDate).getTime() : NaN;
+        if (!Number.isFinite(due) || due < dueRange[0] || due >= dueRange[1]) return false;
+      }
       if (filterTeams.length > 0) {
         const owner = (users as any[]).find((u) => isAssignedTo(story, u));
         if (!owner || !filterTeams.includes(owner.team)) return false;
@@ -265,8 +312,6 @@ export default function GlobalKanban() {
         const left = story.dueDate ? new Date(story.dueDate).getTime() - Date.now() : NaN;
         if (story.status === 'Done' || !Number.isFinite(left) || left < 0 || left > 7 * 86400000) return false;
       }
-      // "My work" links: only the person's own stories, whatever their role
-      if (onlyMine && me && !isAssignedTo(story, me as any)) return false;
       if (clientStage && (clients as any[]).find((c) => c.id === story.clientId)?.stage !== clientStage) return false;
       if (scope === 'planned') {
         const due = story.dueDate ? new Date(story.dueDate).getTime() : NaN;
@@ -286,7 +331,43 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, leadScope, myTeam, seesAllStories, me, onlyMine, clientStage, clients]);
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, board, me, clientStage, clients, filterAssignedBy, dueFilter, dueRange]);
+
+  // Open the first column that has stories (again whenever the board changes), unless a link picked one
+  const lastBoard = useRef<string>('');
+  useEffect(() => {
+    if (lastBoard.current !== board) {
+      lastBoard.current = board;
+      if (statusFromUrl.current) statusFromUrl.current = false; else pickedInitialTab.current = false;
+    }
+    if (pickedInitialTab.current || filteredStories.length === 0) return;
+    pickedInitialTab.current = true;
+    const order: KanbanStatus[] = ['In Progress', 'To Do', 'Blocked', 'Review', 'Done'];
+    const first = order.find((status) => filteredStories.some((s) => s.status === status));
+    if (first) setActiveStatusTab(first);
+  }, [filteredStories, board]);
+
+  // Per-board numbers for the tabs, and the stories waiting to be accepted
+  const boardCounts = useMemo(() => {
+    const c: Record<Board, number> = { mine: 0, assigned: 0, given: 0, all: stories.length };
+    for (const s of stories) for (const b of ['mine', 'assigned', 'given'] as Board[]) if (inBoard(s, b, me as any)) c[b]++;
+    return c;
+  }, [stories, me]);
+  const waiting = useMemo(() => stories.filter((s) => isWaiting(s, me as any))
+    .sort((a, b) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime()), [stories, me]);
+  // "Assigned by" options: the people who gave the stories on this board, plus "Self"
+  const assignedByOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of stories) {
+      if (board === 'me' ? !(me && isAssignedTo(s, me as any)) : !inBoard(s, board, me as any)) continue;
+      const k = !s.assignedBy || s.assignedBy === s.assignedTo ? '__self' : s.assignedBy;
+      counts[k] = (counts[k] || 0) + 1;
+    }
+    return Object.entries(counts).map(([value, count]) => {
+      const u = (users as any[]).find((x) => x.id === value);
+      return { value, count, label: value === '__self' ? 'Self (made for themselves)' : u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'Someone else' };
+    }).sort((a, b) => (a.value === '__self' ? -1 : b.value === '__self' ? 1 : a.label.localeCompare(b.label)));
+  }, [stories, board, me, users]);
 
   // When opened with a scope, jump to the first status column that actually has matching stories
   useEffect(() => {
@@ -306,6 +387,18 @@ export default function GlobalKanban() {
     .map((name) => ({ value: name, label: name, count: storiesCountPerAssignee[name] || 0 }))
     .sort((a, b) => a.label.localeCompare(b.label)), [uniqueAssigneeNames, storiesCountPerAssignee]);
 
+  // "Assigned by me": the people I gave stories to
+  const givenPeopleOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of stories) {
+      if (!inBoard(s, 'given', me as any)) continue;
+      const u = (users as any[]).find((x) => isAssignedTo(s, x));
+      const name = u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '';
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    }
+    return Object.entries(counts).map(([name, count]) => ({ value: name, label: name, count })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [stories, users, me]);
+
   // Teams that have people, with how many stories each has on this board
   const teamOptions = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -318,7 +411,7 @@ export default function GlobalKanban() {
   }, [stories, users]);
 
   // Count active filters
-  const activeFilterCount = filterClientIds.length + filterAssigneeNames.length + filterTeams.length;
+  const activeFilterCount = filterClientIds.length + filterAssigneeNames.length + filterTeams.length + filterAssignedBy.length + (dueFilter !== 'any' ? 1 : 0);
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
     updateStory({
@@ -338,22 +431,24 @@ export default function GlobalKanban() {
     const t = q.get('team');
     if (t) {
       if (seesAllStories) { setFilterTeams([t]); setFilterAssigneeNames([]); }
-      else if (myTeam) setLeadScope('team');
     }
-    if (myTeam && !seesAllStories && q.get('mine') !== '1' && (q.get('assignee') || q.get('story') || q.get('scope'))) setLeadScope('team');
   }, [searchString, seesAllStories, myTeam]);
 
   // Deep link from the global search: /global-kanban?story=<id> opens that story
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("story");
-    if (!id || stories.length === 0) return;
+    if (!id || stories.length === 0 || !me) return;
     const match = stories.find((s) => s.id === id);
     if (match) {
+      // Show the board the story lives on (Assigned to me, My Work, ...)
+      const b = boardOf(match, me as any);
       setSelectedStory(match);
       setIsDetailsOpen(true);
-      window.history.replaceState(null, "", window.location.pathname);
+      // Keep the board in the address (it is read from there) and drop ?story so a reload doesn't reopen it
+      window.history.replaceState(null, "", `${window.location.pathname}?${b === 'all' && !canPickPeople ? 'mine=1' : `board=${b}`}`);
     }
-  }, [stories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stories, me]);
 
   const handleStoryClick = (story: Story) => {
     setSelectedStory(story);
@@ -364,6 +459,8 @@ export default function GlobalKanban() {
     setFilterClientIds([]);
     setFilterAssigneeNames([]);
     setFilterTeams([]);
+    setFilterAssignedBy([]);
+    setDueFilter('any'); setDueFrom(''); setDueTo('');
     setClientSearch("");
     setAssigneeSearch("");
   };
@@ -417,8 +514,8 @@ export default function GlobalKanban() {
     <div className="flex flex-col space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Global Board</h1>
-          <p className="text-muted-foreground">Manage tasks across all active client accounts.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground" data-testid="board-title">{BOARD_TITLES[board]}</h1>
+          <p className="text-muted-foreground">{board === 'all' && myTeam && !seesAllStories ? `Everyone in the ${myTeam} team.` : BOARD_HINTS[board]}</p>
         </div>
         <div className="flex w-full sm:w-auto items-center gap-3">
 
@@ -464,7 +561,43 @@ export default function GlobalKanban() {
         </div>
       </div>
 
-      {/* Simple filters: pick clients and (for founders / chief of staff) people */}
+      {/* The boards */}
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-muted/30 p-1 w-full sm:w-fit" role="tablist" aria-label="Boards" data-testid="board-tabs">
+        {(['mine', 'assigned', 'given', ...(canPickPeople ? ['all'] : [])] as Board[]).map((b) => (
+          <button
+            key={b}
+            type="button"
+            role="tab"
+            aria-selected={board === b}
+            onClick={() => openBoard(b)}
+            data-testid={`board-${b}`}
+            className={cn("shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 h-9 text-sm transition-colors",
+              board === b ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
+          >
+            {b === 'all' ? (seesAllStories ? 'Everyone' : `Whole ${myTeam} team`) : BOARD_TITLES[b]}
+            <span className="text-xs text-muted-foreground">{boardCounts[b]}</span>
+            {b === 'assigned' && waiting.length > 0 && (
+              <span className="rounded-full bg-primary text-white text-[10px] font-semibold h-[18px] px-1.5 inline-flex items-center justify-center" title={`${waiting.length} waiting for you to accept`}>{waiting.length} new</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {board === 'me' && (
+        <div className="flex items-center gap-2 -mt-3">
+          <Badge variant="outline" className="text-xs">All stories assigned to you (My Work + Assigned to me)</Badge>
+        </div>
+      )}
+
+      {board === 'assigned' && (
+        <WaitingForYou
+          stories={waiting}
+          users={users as any[]}
+          clientName={(id) => (clientMap.get(id) as string) || 'Unknown Client'}
+          onOpen={handleStoryClick}
+        />
+      )}
+
+      {/* Simple filters: clients, who assigned it, due date, and (for managers) teams and people */}
       <div className="flex flex-wrap items-center gap-2" data-testid="board-filters">
         <MultiPicker
           allLabel="All clients"
@@ -474,7 +607,38 @@ export default function GlobalKanban() {
           onChange={setFilterClientIds}
           testId="filter-clients"
         />
-        {seesAllStories && (
+        {board !== 'mine' && board !== 'given' && assignedByOptions.length > 1 && (
+          <MultiPicker
+            allLabel="Assigned by anyone"
+            noun="assigner"
+            options={assignedByOptions}
+            selected={filterAssignedBy}
+            onChange={setFilterAssignedBy}
+            testId="filter-assigned-by"
+          />
+        )}
+        <select
+          value={dueFilter}
+          onChange={(e) => setDueFilter(e.target.value as DueFilter)}
+          aria-label="Due date"
+          data-testid="filter-due"
+          className={cn("h-9 rounded-lg border border-border bg-background px-2 text-sm cursor-pointer", dueFilter !== 'any' && "border-primary text-primary font-medium")}
+        >
+          <option value="any">Any due date</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due today</option>
+          <option value="tomorrow">Due tomorrow</option>
+          <option value="week">Due this week</option>
+          <option value="custom">Pick dates…</option>
+        </select>
+        {dueFilter === 'custom' && (
+          <span className="inline-flex items-center gap-1 text-sm" data-testid="filter-due-range">
+            <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} className="h-9 w-[150px]" aria-label="Due from" data-testid="filter-due-from" />
+            <span className="text-muted-foreground">to</span>
+            <Input type="date" value={dueTo} min={dueFrom || undefined} onChange={(e) => setDueTo(e.target.value)} className="h-9 w-[150px]" aria-label="Due to" data-testid="filter-due-to" />
+          </span>
+        )}
+        {seesAllStories && board === 'all' && (
           <MultiPicker
             allLabel="All teams"
             noun="team"
@@ -484,36 +648,16 @@ export default function GlobalKanban() {
             testId="filter-teams"
           />
         )}
-        {!seesAllStories && myTeam && (
-          <div className="inline-flex h-9 rounded-lg border border-border bg-muted/30 p-0.5" role="group" aria-label="Whose stories" data-testid="lead-scope">
-            {(['mine', 'team'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={leadScope === v}
-                onClick={() => { setLeadScope(v); setFilterAssigneeNames([]); }}
-                data-testid={`lead-scope-${v}`}
-                className={cn("px-3 rounded-md text-sm transition-colors", leadScope === v ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground")}
-              >
-                {v === 'mine' ? 'My stories' : `Whole ${myTeam} team`}
-              </button>
-            ))}
-          </div>
-        )}
-        {canPickPeople && showTeamWork ? (
+        {(showTeamWork || board === 'given') && (
           <MultiPicker
-            allLabel={seesAllStories ? (filterTeams.length ? "Everyone in these teams" : "Everyone") : `Everyone in ${myTeam}`}
+            allLabel={board === 'given' ? "Everyone I assigned" : seesAllStories ? (filterTeams.length ? "Everyone in these teams" : "Everyone") : `Everyone in ${myTeam}`}
             noun="person"
-            options={assigneeOptions}
+            options={board === 'given' ? givenPeopleOptions : assigneeOptions}
             selected={filterAssigneeNames}
             onChange={setFilterAssigneeNames}
             testId="filter-assignees"
           />
-        ) : !myTeam ? (
-          <span className="inline-flex h-9 items-center rounded-lg border border-border bg-muted/40 px-3 text-sm text-muted-foreground">
-            My stories only
-          </span>
-        ) : null}
+        )}
         {activeFilterCount > 0 && (
           <>
             <span className="text-xs text-muted-foreground">Showing {filteredStories.length} of {stories.length}</span>
@@ -596,6 +740,11 @@ export default function GlobalKanban() {
                               }`}>
                                 {story.priority}
                               </Badge>
+                              {isAssignedByOther(story) && !(story as any).acceptedAt && (
+                                <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 border-amber-300 text-amber-700 dark:text-amber-300" data-testid="not-accepted">
+                                  Not accepted yet
+                                </Badge>
+                              )}
                               {story.tags && story.tags.map(tag => (
                                 <Badge key={tag} variant="secondary" className="text-[10px] px-2 py-0.5 bg-muted text-muted-foreground font-normal">
                                   {tag}

@@ -1,8 +1,11 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { InstallAppButton } from "@/components/InstallAppButton";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp, CalendarClock, Repeat } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp, CalendarClock, Repeat, Inbox } from "lucide-react";
 import { useIsFounder, useCanManageTeam, useCanViewPayroll, useCanViewTeamStats, usePerm } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { useStories } from "@/lib/queries";
+import { isWaiting } from "@/lib/boards";
+import { useAuth as useAuthUser } from "@/lib/auth";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -27,7 +30,13 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [location] = useLocation();
+  const search = useSearch();
   const [collapsed, setCollapsed] = useState(false);
+  const { user: me } = useAuthUser();
+  const { data: allStories = [] } = useStories() as { data: any[] };
+  // Stories somebody gave this person that they have not accepted yet
+  const waitingCount = allStories.filter((s) => isWaiting(s, me as any)).length;
+  const boardParam = new URLSearchParams(search).get("board");
   const isFounder = useIsFounder();
   const canManageInternal = usePerm("manageInternal");
   const canManageTeam = useCanManageTeam();
@@ -37,7 +46,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const allNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/", access: "all" },
     { icon: Users, label: "Clients", href: "/clients", access: "all" },
-    { icon: KanbanSquare, label: "Global Board", href: "/global-kanban", access: "all" },
+    { icon: KanbanSquare, label: "My Work", href: "/global-kanban?board=mine", access: "all" },
+    { icon: Inbox, label: "Assigned to me", href: "/global-kanban?board=assigned", access: "all", badge: waitingCount },
     { icon: Target, label: "Leads", href: "/leads", access: "all" },
     { icon: CalendarClock, label: "Employee Services", href: "/services", access: "all" },
     { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },
@@ -116,7 +126,13 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Navigation */}
       <div className="flex-1 px-3 space-y-1">
         {navItems.map((item) => {
-          const isActive = location === item.href || (item.href !== '/' && location.startsWith(item.href));
+          const [path, query] = item.href.split("?");
+          const itemBoard = query ? new URLSearchParams(query).get("board") : null;
+          // Both boards share one page: "Assigned to me" is active on its board, "My Work" on every other one
+          const isActive = itemBoard
+            ? location.startsWith(path) && (itemBoard === "assigned" ? boardParam === "assigned" : boardParam !== "assigned")
+            : location === item.href || (item.href !== '/' && location.startsWith(item.href));
+          const badge = (item as any).badge as number | undefined;
           return (
             <Link key={item.href} href={item.href} onClick={onMobileClose}>
               <div
@@ -136,6 +152,14 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   collapsed ? "mx-auto" : "mr-3"
                 )} />
                 {!collapsed && <span>{item.label}</span>}
+                {!!badge && (
+                  <span
+                    className={cn("rounded-full bg-primary text-white text-[10px] font-semibold leading-none min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center",
+                      collapsed ? "absolute top-1 right-1" : "ml-auto")}
+                    data-testid="nav-waiting-count"
+                    aria-label={`${badge} waiting for you to accept`}
+                  >{badge}</span>
+                )}
               </div>
             </Link>
           );

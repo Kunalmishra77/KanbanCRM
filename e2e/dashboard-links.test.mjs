@@ -112,10 +112,10 @@ const salesStories = stories.filter((s) => s.id !== 'st2' && s.id !== 'st9');
 p = await as(lead, salesStories);
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('stat-open-Sam Seller').click(); await p.waitForTimeout(1500);
-ok((await p.getByTestId('lead-scope-team').getAttribute('aria-pressed')) === 'true', "lead: a teammate's link switches to the whole team");
+ok((await p.getByTestId('board-all').getAttribute('aria-selected')) === 'true', "lead: a teammate's link switches to the whole team");
 ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Cold client follow-up', 'Late invoice chase', 'Next month plan', 'Sales call list', 'Soon task']), "lead: shows the teammate's open stories", JSON.stringify(await allBoard(p)));
 await p.goto(BASE + '/global-kanban'); await p.waitForTimeout(2000);
-ok((await p.getByTestId('lead-scope-mine').getAttribute('aria-pressed')) === 'true', 'lead: opening the board directly still starts on My stories');
+ok((await p.getByTestId('board-mine').getAttribute('aria-selected')) === 'true', 'lead: opening the board directly starts on My Work');
 
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 await b.close(); server.close();

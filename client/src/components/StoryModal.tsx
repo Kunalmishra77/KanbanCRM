@@ -13,7 +13,8 @@ import { Clock, Paperclip, Send, Wand2, Mail, X, Loader2, Image, FileText, Trash
 import { format } from "date-fns";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers, useStory } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers, useStory, useAcceptStory } from "@/lib/queries";
+import { isWaiting } from "@/lib/boards";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -155,6 +156,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: deleteStory } = useDeleteStory();
+  const acceptStory = useAcceptStory();
   const { mutate: createSentEmail, isPending: isSendingEmail } = useCreateSentEmail();
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
@@ -455,6 +457,17 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                     </div>
                   </div>
                 </div>
+
+                {isWaiting(story as any, user as any) && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-3 space-y-2" data-testid="modal-accept">
+                    <p className="text-sm">Somebody else gave you this story. Accept it when you have room for it, or write them a comment.</p>
+                    <Button size="sm" className="w-full h-9 text-white" disabled={acceptStory.isPending}
+                      onClick={() => acceptStory.mutate(story.id, { onSuccess: () => toast({ title: "Accepted", description: "It is now in your To Do." }) })}
+                      data-testid="modal-accept-btn">
+                      {acceptStory.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}Accept
+                    </Button>
+                  </div>
+                )}
 
                 {story.recurringTaskId && <RepeatControls ruleId={story.recurringTaskId} />}
 

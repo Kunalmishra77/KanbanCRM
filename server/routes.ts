@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
 import { setupGoogleAuth, isAuthenticated, requireRole } from "./googleAuth.js";
-import { perms, isRole, ROLES, canDecideRequest, canSeeStory, canDeleteStory, teamMatesOf } from "../shared/roles.js";
+import { perms, isRole, ROLES, canDecideRequest, canSeeStory, canDeleteStory, teamMatesOf, isAssignedByOther } from "../shared/roles.js";
 import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySchema, updateStorySchema, insertCommentSchema, insertActivityLogSchema, insertInvoiceSchema, updateInvoiceSchema, insertFounderInvestmentSchema, updateFounderInvestmentSchema, updateUserProfileSchema, insertSentEmailSchema, insertInternalDocumentSchema, updateInternalDocumentSchema, insertLeadSchema, updateLeadSchema, insertRevenueTargetSchema, updateRevenueTargetSchema, insertClientCommunicationSchema, insertAnnouncementSchema, updateAnnouncementSchema, insertSalaryRecordSchema, updateSalaryRecordSchema, insertIncentiveSchema, updateIncentiveSchema, insertLeadCommentSchema } from "../shared/schema.js";
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
@@ -396,6 +396,17 @@ export async function registerRoutes(
   const foundersOnlyEmail = (req: any, res: any, next: any) =>
     perms.isFounder(req.user) ? next() : res.status(403).json({ error: "Emailing is coming soon." });
 
+  // Somebody gave a person a story: it waits for them under "Assigned to me" until they accept it
+  const notifyAssigned = async (story: { id: string; title: string; assignedTo?: string | null; acceptedAt?: Date | null }, by: any) => {
+    if (!story.assignedTo || story.assignedTo === by?.id || story.acceptedAt) return;
+    try {
+      await storage.createNotifications([{
+        userId: story.assignedTo, type: "story_assigned", entityId: story.id, entityType: "story", link: "/global-kanban?board=assigned",
+        title: `${fullNameOf(by)} assigned you a story`, message: `${story.title.slice(0, 160)} · accept it when you are ready`,
+      }]);
+    } catch (e: any) { console.warn('notifyAssigned failed:', e?.message || e); }
+  };
+
   const storyAccess = async (req: any, res: any, next: any) => {
     try {
       const story = await storage.getStory(req.params.id || req.params.storyId);
@@ -449,10 +460,13 @@ export async function registerRoutes(
         recurringTaskId: undefined, // only the repeating-task generator may link a story to a rule
         occurrenceDate: undefined,
         assignedBy: req.user?.id ?? null, // who gave it to the assignee (never taken from the browser)
+        // Made for yourself = in My Work straight away; given to someone else = waits for them to accept
+        acceptedAt: !req.body.assignedTo || req.body.assignedTo === req.user?.id ? new Date() : null,
         dueDate: req.body.dueDate ? endOfDayIfDateOnly(new Date(req.body.dueDate)) : new Date(),
       };
       const data = insertStorySchema.parse(body);
       const story = await storage.createStory(data);
+      await notifyAssigned(story, req.user);
 
       if (req.user?.id) {
         await storage.createActivityLog({
@@ -480,11 +494,17 @@ export async function registerRoutes(
       delete body.recurringTaskId;
       delete body.occurrenceDate;
       delete body.assignedBy;
-      // Giving the story to someone else records who did it
-      if (body.assignedTo !== undefined) {
-        const before = await storage.getStory(req.params.id);
-        if (before && (before.assignedTo ?? null) !== (body.assignedTo ?? null)) body.assignedBy = req.user.id;
+      delete body.acceptedAt;
+      const before = await storage.getStory(req.params.id);
+      // Giving the story to someone else records who did it; the new person has to accept it
+      let reassigned = false;
+      if (body.assignedTo !== undefined && before && (before.assignedTo ?? null) !== (body.assignedTo ?? null)) {
+        reassigned = true;
+        body.assignedBy = req.user.id;
+        body.acceptedAt = !body.assignedTo || body.assignedTo === req.user.id ? new Date() : null;
       }
+      // The assignee starting work on a waiting story accepts it
+      if (!reassigned && before && !before.acceptedAt && before.assignedTo === req.user.id) body.acceptedAt = new Date();
       if (body.dueDate) {
         body.dueDate = endOfDayIfDateOnly(new Date(body.dueDate));
       }
@@ -507,6 +527,7 @@ export async function registerRoutes(
       if (!story) {
         return res.status(404).json({ error: "Story not found" });
       }
+      if (reassigned) await notifyAssigned(story, req.user);
 
 
       if (req.user?.id) {
@@ -529,11 +550,62 @@ export async function registerRoutes(
     }
   });
 
+  // "Assigned to me": the assignee takes the work on when they are ready
+  app.post("/api/stories/:id/accept", isAuthenticated, storyAccess, async (req: any, res) => {
+    try {
+      const existing = await storage.getStory(req.params.id);
+      if (!existing || existing.assignedTo !== req.user.id) return res.status(403).json({ error: "Only the person this story is assigned to can accept it." });
+      const story = existing.acceptedAt ? existing : await storage.updateStory(req.params.id, { acceptedAt: new Date() } as any);
+      if (!existing.acceptedAt) {
+        await storage.createActivityLog({ entityType: 'story', entityId: existing.id, action: 'accepted', userId: req.user.id, details: `Accepted story: ${existing.title}` });
+        if (existing.assignedBy && existing.assignedBy !== req.user.id) {
+          await storage.createNotifications([{
+            userId: existing.assignedBy, type: "story_accepted", entityId: existing.id, entityType: "story", link: `/global-kanban?story=${existing.id}`,
+            title: `${fullNameOf(req.user)} accepted a story`, message: existing.title.slice(0, 160),
+          }]);
+        }
+      }
+      res.json(story);
+    } catch (error) {
+      console.error('Accept story error:', error);
+      res.status(500).json({ error: "Failed to accept story" });
+    }
+  });
+
+  // "Assigned to me": a note back to whoever assigned it (e.g. "full this week, can start Monday").
+  // Saved as a comment on the story; the story keeps waiting until the assignee accepts it.
+  app.post("/api/stories/:id/feedback", isAuthenticated, storyAccess, async (req: any, res) => {
+    try {
+      const message = String(req.body?.message ?? '').trim().slice(0, 2000);
+      if (!message) return res.status(400).json({ error: "Please write your feedback." });
+      const existing = await storage.getStory(req.params.id);
+      if (!existing || existing.assignedTo !== req.user.id) return res.status(403).json({ error: "Only the person this story is assigned to can send feedback." });
+      const comment = await storage.createComment(insertCommentSchema.parse({
+        storyId: existing.id,
+        authorId: req.user.id,
+        authorName: fullNameOf(req.user),
+        body: `Feedback: ${message}`,
+      }));
+      await storage.createActivityLog({ entityType: 'comment', entityId: comment.id, action: 'created', userId: req.user.id, details: `Sent feedback on story` });
+      if (existing.assignedBy && existing.assignedBy !== req.user.id) {
+        await storage.createNotifications([{
+          userId: existing.assignedBy, type: "story_feedback", entityId: existing.id, entityType: "story", link: `/global-kanban?story=${existing.id}`,
+          title: `Feedback from ${fullNameOf(req.user)}`, message: `${existing.title.slice(0, 80)}: ${message.slice(0, 160)}`,
+        }]);
+      }
+      res.status(201).json(comment);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors });
+      console.error('Story feedback error:', error);
+      res.status(500).json({ error: "Failed to send feedback" });
+    }
+  });
+
   app.delete("/api/stories/:id", isAuthenticated, storyAccess, async (req: any, res) => {
     try {
       const existing = await storage.getStory(req.params.id);
       if (!existing || !canDeleteStory(req.user, existing)) {
-        return res.status(403).json({ error: "You can only delete stories assigned to you." });
+        return res.status(403).json({ error: isAssignedByOther(existing ?? {}) ? "Only the person who assigned this story (or a founder) can delete it." : "You can only delete your own stories." });
       }
       const storyComments = await storage.getCommentsByStory(req.params.id);
       const success = await storage.deleteStory(req.params.id);

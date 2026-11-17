@@ -74,6 +74,9 @@ export const stories = pgTable("stories", {
   priority: text("priority").notNull().default('Medium'),
   // Who gave it to the assignee: whoever created it or last changed the assignee (repeating copies: the task's creator)
   assignedBy: varchar("assigned_by", { length: 255 }),
+  // When the assignee accepted work that somebody else gave them (null = waiting in "Assigned to me").
+  // Self-made stories and repeating copies are accepted straight away.
+  acceptedAt: timestamp("accepted_at"),
   estimatedEffortHours: integer("estimated_effort_hours").default(0).notNull(),
   actualHoursSpent: numeric("actual_hours_spent").default('0'),
   dueDate: timestamp("due_date").notNull(),

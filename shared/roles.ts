@@ -77,7 +77,7 @@ export function canDecideRequest(approver: P, requester: P): boolean {
 }
 
 type StoryOwner = { id?: string | null; firstName?: string | null; lastName?: string | null };
-type OwnedStory = { assignedTo?: string | null; person?: string | null };
+type OwnedStory = { assignedTo?: string | null; person?: string | null; assignedBy?: string | null };
 const normName = (s: string | null | undefined) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
 /** Is this story assigned to this person? `assignedTo` wins; the legacy `person` text only counts when it is empty. */
 export function ownsStory(story: OwnedStory, user: StoryOwner | null | undefined): boolean {
@@ -97,9 +97,22 @@ export function teamMatesOf<T extends StoryOwner & { team?: string | null }>(use
  * a team lead also sees the stories of the people in `teamMates` (from teamMatesOf), everyone else only their own.
  */
 export function canSeeStory(user: Viewer, story: OwnedStory, teamMates: StoryOwner[] = []): boolean {
-  return perms.viewAllStories(user) || ownsStory(story, user) || teamMates.some((m) => ownsStory(story, m));
+  return perms.viewAllStories(user) || ownsStory(story, user) || givenBy(story, user) || teamMates.some((m) => ownsStory(story, m));
 }
-/** Delete a story: founders any story, everyone else only stories assigned to them. */
+/** Did this person give the story to someone else? (They keep seeing it under "Assigned by me".) */
+export function givenBy(story: OwnedStory, user: StoryOwner | null | undefined): boolean {
+  return !!user?.id && !!story.assignedBy && story.assignedBy === user.id && story.assignedTo !== user.id;
+}
+/** Was the story given to its assignee by somebody else? (Self-made and old unrecorded stories are not.) */
+export function isAssignedByOther(story: OwnedStory): boolean {
+  return !!story.assignedBy && !!story.assignedTo && story.assignedBy !== story.assignedTo;
+}
+/**
+ * Delete a story: founders any story; whoever assigned it; the assignee only their own stories
+ * (work somebody else gave them can only be removed by that person or a founder).
+ */
 export function canDeleteStory(user: (StoryOwner & { userType?: string | null }) | null | undefined, story: OwnedStory): boolean {
-  return perms.isFounder(user) || ownsStory(story, user);
+  if (perms.isFounder(user)) return true;
+  if (givenBy(story, user)) return true;
+  return ownsStory(story, user) && !isAssignedByOther(story);
 }
