@@ -64,19 +64,18 @@ const allTabsText = async () => { // every status tab's titles (list view shows 
 };
 
 await pg.goto(BASE + '/global-kanban'); await pg.waitForTimeout(2500);
-ok((await pg.getByTestId('board-title').innerText()) === 'My Work', 'opens on "My Work"');
+ok((await pg.getByTestId('board-mine').getAttribute('aria-selected')) === 'true', 'opens on "Mine" inside My Work');
 let titles = await allTabsText();
 ok(titles.includes('My own plan') && titles.includes('Old story without record'), 'My Work: own + unrecorded stories', JSON.stringify(titles));
 ok(!titles.some((t) => /Sam|Founder|Olu/.test(t)), 'My Work: nothing assigned by others / to others', JSON.stringify(titles));
-ok(await visible('Assigned to me'), 'menu has "Assigned to me"');
 ok((await pg.getByTestId('nav-waiting-count').first().innerText()) === '1', 'menu shows 1 waiting');
-ok(!(await pg.getByTestId('board-tabs').isVisible().catch(() => false)), 'no duplicate tab bar inside the page (the menu switches boards)');
-ok(await visible('Assigned by me'), 'menu has "Assigned by me"');
-ok(!(await visible('Team Board')), 'employees have no Team Board');
+ok(await pg.getByTestId('board-tabs').isVisible(), 'one switch inside My Work');
+ok(!(await pg.locator('aside').getByText('Assigned by me', { exact: true }).isVisible().catch(() => false)), 'menu has a single My Work item (no extra board items)');
+ok(!(await pg.getByTestId('board-all').isVisible().catch(() => false)), 'employees have no Team switch');
 await pg.screenshot({ path: `${out}/boards-mywork.png` });
 
-await pg.locator('aside').getByText('Assigned to me', { exact: true }).first().click(); await pg.waitForTimeout(800);
-ok((await pg.getByTestId('board-title').innerText()) === 'Assigned to me', 'switches to "Assigned to me"');
+await pg.getByTestId('board-assigned').click(); await pg.waitForTimeout(800);
+ok((await pg.getByTestId('board-assigned').getAttribute('aria-selected')) === 'true', 'switches to "Assigned to me"');
 ok(new URL(pg.url()).search === '?board=assigned', 'URL follows the board', pg.url());
 const waitingBox = pg.getByTestId('waiting-for-you');
 ok(await waitingBox.isVisible() && /New work from Sam/.test(await waitingBox.innerText()) && /From Sam Boss/.test(await waitingBox.innerText()), 'waiting box lists the new story and who gave it');
@@ -116,7 +115,7 @@ titles = await allTabsText();
 ok(titles.length === 1 && titles[0] === 'Founder task due tomorrow', 'Assigned by Vik filter', JSON.stringify(titles));
 
 // assigned by me
-await pg.locator('aside').getByText('Assigned by me', { exact: true }).first().click(); await pg.waitForTimeout(800);
+await pg.getByTestId('board-given').click(); await pg.waitForTimeout(800);
 titles = await allTabsText();
 ok(titles.length === 1 && titles[0] === 'Work I gave Olu', 'Assigned by me lists what I gave', JSON.stringify(titles));
 await pg.getByRole('tab', { name: /^To Do/ }).click(); await pg.waitForTimeout(200);
@@ -125,7 +124,7 @@ await pg.screenshot({ path: `${out}/boards-given.png` });
 
 // delete rule in the story window
 await pg.goto(BASE + '/global-kanban?story=s3'); await pg.waitForTimeout(2200);
-ok((await pg.getByTestId('board-title').innerText()) === 'Assigned to me', 'story link opens on its board');
+ok((await pg.getByTestId('board-assigned').getAttribute('aria-selected')) === 'true', 'story link opens on its board');
 ok(!(await pg.getByTestId('button-delete-story').isVisible().catch(() => false)), 'cannot delete work somebody else gave you');
 await pg.keyboard.press('Escape'); await pg.waitForTimeout(400);
 await pg.goto(BASE + '/global-kanban?story=s1'); await pg.waitForTimeout(2200);
@@ -134,7 +133,7 @@ await pg.keyboard.press('Escape');
 
 // dashboard "My work" links still show everything assigned to me
 await pg.goto(BASE + '/global-kanban?mine=1&scope=open'); await pg.waitForTimeout(2200);
-ok((await pg.getByTestId('board-title').innerText()) === 'All my stories', 'mine=1 links: all my stories');
+ok(await pg.getByText('All stories assigned to you', { exact: false }).first().isVisible(), 'mine=1 links: all my stories');
 
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 await b.close(); server.close();

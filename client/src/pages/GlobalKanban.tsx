@@ -116,6 +116,7 @@ const BOARD_COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Revie
 const BOARD_TITLES: Record<string, string> = {
   mine: 'My Work', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team Board', me: 'All my stories',
 };
+const SWITCH_LABELS: Record<string, string> = { mine: 'Mine', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team' };
 const BOARD_HINTS: Record<string, string> = {
   mine: 'Stories you made for yourself.',
   assigned: 'Work others gave you. Accept new ones when you have room for them.',
@@ -152,6 +153,10 @@ export default function GlobalKanban() {
   // Switching boards starts with clean person filters (they differ per board)
   const openBoard = (b: Board) => { setFilterAssignedBy([]); setFilterAssigneeNames([]); setLocation(`/global-kanban?board=${b}`); };
   const showTeamWork = board === 'all' && canPickPeople;
+  // Which filters apply on this board (the same rule decides whether their picker is shown)
+  const usesTeams = board === 'all' && seesAllStories;
+  const usesPeople = showTeamWork || board === 'given';
+  const usesAssignedBy = board !== 'mine' && board !== 'given';
   // Team filter (founders / chief of staff): Sales, Marketing, ...
   const [filterTeams, setFilterTeams] = useState<string[]>([]);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -293,7 +298,7 @@ export default function GlobalKanban() {
       if (board === 'me' ? !(me && isAssignedTo(story, me as any)) : !inBoard(story, board, me as any)) return false;
       // Not accepted yet: shown in "Waiting for you" above the columns, not in them
       if (board === 'assigned' && isWaiting(story, me as any)) return false;
-      if (filterAssignedBy.length > 0) {
+      if (usesAssignedBy && filterAssignedBy.length > 0) {
         const self = !story.assignedBy || story.assignedBy === story.assignedTo;
         if (!filterAssignedBy.some((v) => (v === '__self' ? self : !self && story.assignedBy === v))) return false;
       }
@@ -302,7 +307,7 @@ export default function GlobalKanban() {
         const due = story.dueDate ? new Date(story.dueDate).getTime() : NaN;
         if (!Number.isFinite(due) || due < dueRange[0] || due >= dueRange[1]) return false;
       }
-      if (filterTeams.length > 0) {
+      if (usesTeams && filterTeams.length > 0) {
         const owner = (users as any[]).find((u) => isAssignedTo(story, u));
         if (!owner || !filterTeams.includes(owner.team)) return false;
       }
@@ -324,7 +329,7 @@ export default function GlobalKanban() {
         const at = new Date(story.updatedAt as any).getTime();
         if (story.status !== 'Done' || (period.from !== null && at < period.from) || at > Date.now() + 60_000) return false;
       }
-      if (filterAssigneeNames.length > 0) {
+      if (usesPeople && filterAssigneeNames.length > 0) {
         const hasMatchingAssignee = filterAssigneeNames.some(name => {
           const user = users.find((u: any) => `${u.firstName || ''} ${u.lastName || ''}`.trim() === name);
           if (!user) return false;
@@ -419,7 +424,7 @@ export default function GlobalKanban() {
   }, [stories, users]);
 
   // Count active filters
-  const activeFilterCount = filterClientIds.length + filterAssigneeNames.length + filterTeams.length + filterAssignedBy.length + (dueFilter !== 'any' ? 1 : 0);
+  const activeFilterCount = filterClientIds.length + (usesPeople ? filterAssigneeNames.length : 0) + (usesTeams ? filterTeams.length : 0) + (usesAssignedBy ? filterAssignedBy.length : 0) + (dueFilter !== 'any' ? 1 : 0);
 
   const handleStoryMove = (storyId: string, newStatus: KanbanStatus) => {
     updateStory({
@@ -529,7 +534,7 @@ export default function GlobalKanban() {
     <div className="flex flex-col space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground" data-testid="board-title">{BOARD_TITLES[board]}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground" data-testid="board-title">My Work</h1>
           <p className="text-muted-foreground">{board === 'all' && myTeam && !seesAllStories ? `Everyone in the ${myTeam} team.` : BOARD_HINTS[board]}</p>
         </div>
         <div className="flex w-full sm:w-auto items-center gap-3">
@@ -576,6 +581,27 @@ export default function GlobalKanban() {
         </div>
       </div>
 
+      {/* One page, one menu item: the switch picks whose stories */}
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-muted/30 p-1 w-full sm:w-fit" role="tablist" aria-label="Whose stories" data-testid="board-tabs">
+        {(['mine', 'assigned', 'given', ...(canPickPeople ? ['all'] : [])] as Board[]).map((b) => (
+          <button
+            key={b}
+            type="button"
+            role="tab"
+            aria-selected={board === b}
+            onClick={() => openBoard(b)}
+            data-testid={`board-${b}`}
+            className={cn("shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 h-9 text-sm transition-colors",
+              board === b ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
+          >
+            {SWITCH_LABELS[b]}
+            <span className="text-xs text-muted-foreground">{boardCounts[b]}</span>
+            {b === 'assigned' && waiting.length > 0 && (
+              <span className="rounded-full bg-primary text-white text-[10px] font-semibold h-[18px] px-1.5 inline-flex items-center justify-center" title={`${waiting.length} waiting for you to accept`}>{waiting.length} new</span>
+            )}
+          </button>
+        ))}
+      </div>
       {board === 'me' && (
         <div className="flex items-center gap-2 -mt-3">
           <Badge variant="outline" className="text-xs">All stories assigned to you (My Work + Assigned to me)</Badge>
@@ -655,7 +681,7 @@ export default function GlobalKanban() {
         )}
         {activeFilterCount > 0 && (
           <>
-            <span className="text-xs text-muted-foreground">Showing {filteredStories.length} of {stories.length}</span>
+            <span className="text-xs text-muted-foreground">Showing {filteredStories.length} of {board === 'me' ? stories.filter((s) => me && isAssignedTo(s, me as any)).length : boardCounts[board as Board]}</span>
             <button type="button" onClick={clearFilters} className="text-xs text-primary hover:underline">Clear</button>
           </>
         )}
@@ -698,6 +724,14 @@ export default function GlobalKanban() {
                   <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-xl bg-muted/5">
                     <CheckCircle2 className="h-8 w-8 text-muted-foreground/60 mb-2" />
                     <p className="text-sm font-medium text-muted-foreground">No tasks in this status</p>
+                    {board === 'mine' && boardCounts.mine === 0 && (boardCounts.assigned > 0 || (canPickPeople && boardCounts.all > 0)) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Nothing you made for yourself yet.{' '}
+                        {boardCounts.assigned > 0 && <button type="button" className="text-primary underline" onClick={() => openBoard('assigned')}>See Assigned to me ({boardCounts.assigned})</button>}
+                        {boardCounts.assigned > 0 && canPickPeople && ' · '}
+                        {canPickPeople && <button type="button" className="text-primary underline" onClick={() => openBoard('all')}>See the Team ({boardCounts.all})</button>}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   statusStories.map(story => {

@@ -1,11 +1,10 @@
 import { Link, useLocation, useSearch } from "wouter";
 import { InstallAppButton } from "@/components/InstallAppButton";
-import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp, CalendarClock, Repeat, Inbox, Send, LayoutList } from "lucide-react";
+import { LayoutDashboard, Users, KanbanSquare, Settings, LogOut, ChevronLeft, ChevronRight, Search, Building2, Target, Megaphone, Menu, X, Wallet, Activity, TrendingUp, CalendarClock, Repeat } from "lucide-react";
 import { useIsFounder, useCanManageTeam, useCanViewPayroll, useCanViewTeamStats, usePerm } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { useStories } from "@/lib/queries";
 import { isWaiting } from "@/lib/boards";
-import { perms } from "@shared/roles";
 import { useAuth as useAuthUser } from "@/lib/auth";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -47,13 +46,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const allNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/", access: "all" },
     { icon: Users, label: "Clients", href: "/clients", access: "all" },
-    { icon: KanbanSquare, label: "My Work", href: "/global-kanban?board=mine", access: "all" },
-    { icon: Inbox, label: "Assigned to me", href: "/global-kanban?board=assigned", access: "all", badge: waitingCount },
-    { icon: Send, label: "Assigned by me", href: "/global-kanban?board=given", access: "all" },
-    // Founders and the chief of staff: everyone's work; a team lead: her team's
-    ...(perms.viewAllStories(me as any) || perms.isTeamLead(me as any)
-      ? [{ icon: LayoutList, label: "Team Board", href: "/global-kanban?board=all", access: "all" }]
-      : []),
+    // One menu item: inside, a switch picks Mine / Assigned to me / Assigned by me / Team. The red count = new work to accept.
+    { icon: KanbanSquare, label: "My Work", href: "/global-kanban?board=mine", access: "all", badge: waitingCount },
     { icon: Target, label: "Leads", href: "/leads", access: "all" },
     { icon: CalendarClock, label: "Employee Services", href: "/services", access: "all" },
     { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },
@@ -134,10 +128,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         {navItems.map((item) => {
           const [path, query] = item.href.split("?");
           const itemBoard = query ? new URLSearchParams(query).get("board") : null;
-          // The boards share one page: each menu item is active on its own board ("My Work" also for links without one)
-          const current = boardParam && ["assigned", "given", "all"].includes(boardParam) ? boardParam : "mine";
           const isActive = itemBoard
-            ? location.startsWith(path) && itemBoard === current
+            ? location.startsWith(path)
             : location === item.href || (item.href !== '/' && location.startsWith(item.href));
           const badge = (item as any).badge as number | undefined;
           return (
