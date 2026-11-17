@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useClients, useStories, useActivityLog, useUsers, useRevenueTargets, useUpsertRevenueTarget, useLeads } from "@/lib/queries";
+import { useClients, useStories, useUsers, useRevenueTargets, useUpsertRevenueTarget, useLeads } from "@/lib/queries";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, Legend } from "recharts";
 import { ArrowUpRight, Clock, TrendingUp, Users, Briefcase, CheckCircle2, AlertCircle, Loader2, ExternalLink, IndianRupee, Receipt, UserMinus, AlertTriangle, Target, Pencil, Gift, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,15 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { data: clients = [], isLoading: isLoadingClients } = useClients() as { data: Client[], isLoading: boolean };
   const { data: stories = [], isLoading: isLoadingStories } = useStories() as { data: Story[], isLoading: boolean };
-  const { data: activityLog = [], isLoading: isLoadingActivity } = useActivityLog() as { data: ActivityLog[], isLoading: boolean };
-  const { data: leads = [], isLoading: isLoadingLeads } = useLeads() as { data: any[], isLoading: boolean };
+  const { data: leads = [] } = useLeads() as { data: any[] };
   const { data: users = [] } = useUsers();
   const { data: revenueTargets = [] } = useRevenueTargets({ enabled: canViewFinance });
   const { mutate: upsertTarget } = useUpsertRevenueTarget();
+  type DashTab = 'team' | 'me' | 'business';
+  const [tab, setTab] = useState<DashTab>(() => {
+    try { const v = localStorage.getItem('dashboard-tab'); if (v === 'team' || v === 'me' || v === 'business') return v; } catch { /* private mode */ }
+    return 'team';
+  });
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const currentPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -67,7 +71,7 @@ export default function Dashboard() {
     .filter((r: any) => r.period === currentPeriod)
     .reduce((s: number, r: any) => s + parseFloat(r.amount || 0), 0);
 
-  if (isLoadingClients || isLoadingStories || isLoadingActivity || isLoadingLeads) {
+  if (isLoadingClients || isLoadingStories) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -116,19 +120,47 @@ export default function Dashboard() {
     { name: 'Dropped', value: droppedClients, color: '#6b7280' },
   ];
 
+  // Tabs: Team (founders, chief of staff, team leads) · My day (everyone) · Business (money and pipeline roles)
+  const showTeam = canViewOverview || (perms.isTeamLead(user) && !!(user as any)?.team);
+  const showBusiness = canViewFinance || canViewPayroll || canManageTeam;
+  const tabs = [
+    ...(showTeam ? [{ id: 'team' as const, label: canViewOverview ? 'Team' : `My team · ${(user as any)?.team}` }] : []),
+    { id: 'me' as const, label: 'My day' },
+    ...(showBusiness ? [{ id: 'business' as const, label: 'Business' }] : []),
+  ];
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
+  const pickTab = (t: DashTab) => { setTab(t); try { localStorage.setItem('dashboard-tab', t); } catch { /* private mode */ } };
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-5">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Overview</h1>
-        <p className="text-muted-foreground">Welcome back, {user?.firstName || 'there'}. Here's what's happening today.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{greeting}, {user?.firstName || 'there'}</h1>
+        <p className="text-muted-foreground">{format(new Date(), 'EEEE, d MMMM')}</p>
       </div>
 
       <AnnouncementTicker />
 
-      {canViewOverview && <FounderOverview />}
-      {!canViewOverview && perms.isTeamLead(user) && (user as any)?.team && <FounderOverview title={`Team overview · ${(user as any).team}`} />}
-      <MyWork stories={stories} clients={clients} />
+      {tabs.length > 1 && (
+        <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-muted/30 p-1 w-full sm:w-fit" role="tablist" aria-label="Dashboard" data-testid="dashboard-tabs">
+          {tabs.map((t) => (
+            <button key={t.id} type="button" role="tab" aria-selected={activeTab === t.id} onClick={() => pickTab(t.id)} data-testid={`dash-tab-${t.id}`}
+              className={cn("shrink-0 rounded-lg px-4 h-9 text-sm transition-colors", activeTab === t.id ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
+      {activeTab === 'team' && (
+        <FounderOverview title={canViewOverview ? 'Company today' : `Team · ${(user as any)?.team}`} stories={stories} clients={clients} />
+      )}
+
+      {activeTab === 'me' && <MyWork stories={stories} clients={clients} />}
+
+      {activeTab === 'business' && (
+        <div className="space-y-6">
       {/* Hero Stats Grid */}
       <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 2xl:grid-cols-6">
         {canViewFinance && (
@@ -412,85 +444,6 @@ export default function Dashboard() {
         );
       })()}
 
-      {/* HR/Owner: Overdue Tasks + Employee Workload */}
-      {canManageTeam && (() => {
-        const overdueTasks = stories.filter((s: Story) => s.dueDate && s.status !== 'Done' && new Date(s.dueDate as any as string) < new Date());
-        const workload = users.map((u: any) => ({
-          name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
-          active: stories.filter((s: Story) => s.assignedTo === u.id && s.status !== 'Done').length,
-          done: stories.filter((s: Story) => s.assignedTo === u.id && s.status === 'Done').length,
-        })).filter((u: any) => u.active + u.done > 0);
-
-        return (
-          <div className="grid grid-cols-1 [&>*]:min-w-0 gap-6 md:grid-cols-2">
-            {/* Overdue Tasks */}
-            <Card className="macos-card border-none shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  Overdue Tasks
-                  {overdueTasks.length > 0 && (
-                    <span className="ml-auto text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">{overdueTasks.length}</span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 pb-4">
-                {overdueTasks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground px-6 py-2">No overdue tasks.</p>
-                ) : (
-                  <div className="divide-y divide-black/5 dark:divide-white/10 max-h-[220px] overflow-y-auto">
-                    {overdueTasks.slice(0, 8).map((s: Story) => {
-                      const client = clients.find((c: Client) => c.id === s.clientId);
-                      return (
-                        <div key={s.id} className="flex items-center gap-3 px-6 py-2.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{s.title}</p>
-                            <p className="text-xs text-muted-foreground">{client?.name} · Due {new Date(s.dueDate as any as string).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Employee Workload */}
-            <Card className="macos-card border-none shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  Employee Workload
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {workload.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No tasks assigned yet.</p>
-                ) : workload.map((u: any) => (
-                  <div
-                    key={u.name}
-                    className="space-y-1 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-1 rounded-lg transition-colors"
-                    onClick={() => setLocation(`/global-kanban?assignee=${encodeURIComponent(u.name)}`)}
-                  >
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{u.name}</span>
-                      <span className="text-muted-foreground text-xs">{u.active} active · {u.done} done</span>
-                    </div>
-                    <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all", u.active > 5 ? "bg-red-500" : u.active > 3 ? "bg-orange-400" : "bg-primary")}
-                        style={{ width: `${Math.min((u.active / Math.max(...workload.map((w: any) => w.active), 1)) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        );
-      })()}
-
       {/* HR/Owner: Leads Pipeline Summary */}
       {canManageTeam && (
         <div className="space-y-4 animate-in fade-in duration-500">
@@ -573,8 +526,8 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
-          {/* Payroll 6-month chart */}
-          <Card className="macos-card border-none">
+          {/* Payroll 6-month chart (only when there is payroll to show) */}
+          {payrollChartData.some((d) => d.salary || d.incentive) && <Card className="macos-card border-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Monthly Payroll — Last 6 Months</CardTitle>
             </CardHeader>
@@ -606,74 +559,12 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
       )}
 
-      {/* Bottlenecks Card */}
-      {bottleneckStories.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold px-1 flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-orange-500" />
-            Active Bottlenecks
-            <span className="text-xs bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full">{bottleneckStories.length}</span>
-          </h2>
-          <Card className="macos-card border-none shadow-sm overflow-hidden">
-            <CardContent className="p-0">
-              <div className="divide-y divide-black/5 dark:divide-white/10">
-                {bottleneckStories.map(({story, bottleneck}: any) => {
-                  const client = clients.find(c => c.id === story.clientId);
-                  const borderClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('border-'))?.replace('border-', 'border-l-4 border-') || 'border-l-4 border-gray-400';
-                  const bgClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('bg-')) || 'bg-muted';
-                  const textClass = bottleneck.color.split(' ').find((c: string) => c.startsWith('text-')) || 'text-foreground/80';
-                  
-                  return (
-                    <div key={story.id} className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4", borderClass, bgClass, textClass)}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{story.title}</p>
-                        <p className="text-xs opacity-80 mt-1">{client?.name} · Assignee: {story.person || 'Unassigned'}</p>
-                      </div>
-                      <div className="text-sm font-medium pl-4 text-right">
-                         <div className="flex items-center gap-1.5 justify-end">
-                            <span className="bg-white/60 dark:bg-white/[0.08] px-2 py-0.5 rounded-md shadow-sm border border-black/5 dark:border-white/10 uppercase tracking-wide text-[10px]">{bottleneck.type}</span>
-                         </div>
-                         <p className="text-xs mt-1 opacity-90">{bottleneck.description}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
-
-      {/* Recent Activity Feed */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold px-1">Latest Activity</h2>
-        <Card className="macos-card border-none shadow-sm">
-          <CardContent className="p-0">
-            <div className="divide-y divide-black/5 dark:divide-white/5">
-              {activityLog.map((log) => (
-                <div key={log.id} className="flex items-center gap-4 p-4 hover:bg-black/[0.02] transition-colors">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    {log.entityType === 'story' ? <Clock className="h-5 w-5" /> : <Users className="h-5 w-5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{log.details}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                       <span className="text-xs text-muted-foreground">by {user?.firstName || 'Team'} {user?.lastName || ''}</span>
-                       <span className="text-[10px] text-muted-foreground/50">•</span>
-                       <span className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-xs">View</Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

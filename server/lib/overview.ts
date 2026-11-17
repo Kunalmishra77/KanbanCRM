@@ -40,6 +40,8 @@ function judge(period: Period, x: { assigned: number; active: boolean; overdue: 
   if (!x.active) return { health: "inactive", reason: "No comments or updates in this period" };
   if (x.overdue > 0) return { health: "attention", reason: `${x.overdue} overdue` };
   if (period !== "today" && x.planned > 0 && x.plannedDone / x.planned < 0.5) return { health: "attention", reason: `Only ${x.plannedDone} of ${x.planned} planned stories done` };
+  // On track, and say how much of what is due is done (so "On track" with 0 of 10 due is never a surprise)
+  if (x.planned > 0) return { health: "good", reason: `${x.plannedDone} of ${x.planned} due ${period === "today" ? "today" : "in this period"} done` };
   return { health: "good", reason: "On track" };
 }
 

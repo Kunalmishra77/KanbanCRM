@@ -39,7 +39,7 @@ const stories = [st('st1', 'Sales call list', sales, 'Review'), st('st2', 'Fix l
 const person = (x) => ({ id: x.id, name: `${x.firstName} ${x.lastName}`, team: x.team || 'No team set', assigned: 1, open: 1, overdue: 0, review: 0, planned: 1, plannedDone: 0, completed: 0, comments: 0, actions: 1, lastActiveAt: iso(0), health: 'good', reason: 'On track' });
 const overview = {
   period: 'week', from: iso(-1), to: iso(5),
-  summary: { peopleWorking: 3, peopleActive: 3, planned: 3, plannedDone: 0, completed: 0, overdue: 0, waitingReview: 1, comments: 1, pendingRequests: 0, otHours: 0, awayToday: { leave: [], wfh: [] } },
+  summary: { peopleWorking: 3, peopleActive: 3, planned: 3, plannedDone: 0, completed: 0, overdue: 1, waitingReview: 1, comments: 1, pendingRequests: 0, otHours: 0, awayToday: { leave: [], wfh: [] } },
   teams: [{ team: 'Sales', people: 2, active: 2, planned: 2, plannedDone: 0, completed: 0, overdue: 0, review: 1, health: 'good', reason: 'On track' }, { team: 'Development', people: 1, active: 1, planned: 1, plannedDone: 0, completed: 0, overdue: 0, review: 0, health: 'good', reason: 'On track' }],
   people: [person(lead), person(sales), person(dev)],
   review: [{ storyId: 'st1', title: 'Sales call list', clientId: 'c1', client: 'Sample Co', assignee: 'Sam Seller', team: 'Sales', waitingDays: 1 }],
@@ -91,7 +91,7 @@ ok(await p.getByTestId('people-show-all').isVisible(), 'People active card: show
 // "My work" numbers (everyone): an employee like Deepak
 const salesOnly = stories.filter((x) => x.assignedTo === sales.id);
 p = await as(sales, salesOnly);
-const mw = async (key) => { await p.goto(BASE + '/'); await p.waitForTimeout(2000); await p.getByTestId('mywork-' + key).click(); await p.waitForTimeout(1500); return allBoard(p); };
+const mw = async (key) => { await p.goto(BASE + '/'); await p.waitForTimeout(2000); if (await p.getByTestId('dash-tab-me').isVisible().catch(() => false)) { await p.getByTestId('dash-tab-me').click(); await p.waitForTimeout(400); } await p.getByTestId('mywork-' + key).click(); await p.waitForTimeout(1500); return allBoard(p); };
 ok(JSON.stringify(await mw('overdue')) === JSON.stringify(['Late invoice chase']), 'My work Overdue opens my overdue stories', JSON.stringify(await allBoard(p)));
 await mw('done');
 ok(/scope=completed/.test(p.url()) || (await p.getByText('All stories assigned to you', { exact: false }).first().isVisible()), 'My day "Done today" opens my finished stories', p.url());
