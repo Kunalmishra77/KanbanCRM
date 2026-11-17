@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth";
 import { canDeleteStory, perms } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { RepeatControls } from "@/components/RepeatControls";
+import { assignedByLabel } from "@/lib/assignee";
 import { AttachmentStrip, FileActions, ImageViewer, isImage, type Attachment } from "@/components/Attachments";
 import { istDate } from "@shared/istDate";
 import { useToast } from "@/hooks/use-toast";
@@ -428,6 +429,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           story.person || 'Unassigned'
                         )}
                       </p>
+                      <p className="text-xs text-muted-foreground truncate" data-testid="details-assigned-by">{assignedByLabel(story as any, users, true)}</p>
                     </div>
                   </div>
                 </div>

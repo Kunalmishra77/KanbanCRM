@@ -72,6 +72,8 @@ export const stories = pgTable("stories", {
   description: text("description").notNull().default(''),
   assignedTo: varchar("assigned_to", { length: 255 }).references(() => users.id, { onDelete: 'set null' }),
   priority: text("priority").notNull().default('Medium'),
+  // Who gave it to the assignee: whoever created it or last changed the assignee (repeating copies: the task's creator)
+  assignedBy: varchar("assigned_by", { length: 255 }),
   estimatedEffortHours: integer("estimated_effort_hours").default(0).notNull(),
   actualHoursSpent: numeric("actual_hours_spent").default('0'),
   dueDate: timestamp("due_date").notNull(),

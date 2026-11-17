@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { format, differenceInHours } from "date-fns";
 import { getStoryBottleneck } from "@/lib/bottleneck";
 import { useUsers } from "@/lib/queries";
-import { assigneeName } from "@/lib/assignee";
+import { assigneeName, assignedByLabel } from "@/lib/assignee";
 
 interface StoryCardProps {
   story: Story;
@@ -101,6 +101,8 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
   const { data: users = [] } = useUsers();
   const resolvedName = assigneeName(story, users as any[]);
   const assignee = resolvedName !== "Unassigned" ? { name: resolvedName, avatarUrl: undefined as string | undefined } : undefined;
+  const by = assignedByLabel(story as any, users as any[]);
+  const byLong = assignedByLabel(story as any, users as any[], true);
   const status = getDeadlineStatus(story);
   const styles = DEADLINE_STYLES[status];
 
@@ -243,12 +245,15 @@ export function StoryCard({ story, index, onClick, clientName }: StoryCardProps)
                   )}
                 </div>
                 {assignee && (
-                  <Avatar className="h-6 w-6 ring-2 ring-white shadow-sm">
-                    <AvatarImage src={assignee.avatarUrl} />
-                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                      {assignee.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="flex items-center gap-1.5 min-w-0" title={`Assigned to ${assignee.name}${byLong ? ` · ${byLong}` : ""}`}>
+                    {by && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" data-testid="card-assigned-by">{by}</span>}
+                    <Avatar className="h-6 w-6 ring-2 ring-white shadow-sm shrink-0">
+                      <AvatarImage src={assignee.avatarUrl} />
+                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                        {assignee.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
                 )}
               </div>
             </CardContent>

@@ -25,3 +25,15 @@ export function assigneeName(story: AssignableStory, users: NamedUser[]) {
   }
   return story.person || "Unassigned";
 }
+
+/**
+ * Who gave this story to its assignee: "by Deepak" on cards, "Assigned by Deepak Phogat" in details.
+ * Someone who created a story for themselves shows "Self". Older stories without the record show nothing.
+ */
+export function assignedByLabel(story: { assignedTo?: string | null; assignedBy?: string | null }, users: NamedUser[], long = false) {
+  if (!story.assignedBy) return "";
+  if (story.assignedTo && story.assignedBy === story.assignedTo) return long ? "Self-assigned" : "Self";
+  const u = users.find((x) => x.id === story.assignedBy);
+  if (!u) return long ? "Assigned by a former member" : "";
+  return long ? `Assigned by ${fullName(u)}` : `by ${u.firstName || fullName(u)}`;
+}

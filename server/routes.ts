@@ -448,6 +448,7 @@ export async function registerRoutes(
         ...req.body,
         recurringTaskId: undefined, // only the repeating-task generator may link a story to a rule
         occurrenceDate: undefined,
+        assignedBy: req.user?.id ?? null, // who gave it to the assignee (never taken from the browser)
         dueDate: req.body.dueDate ? endOfDayIfDateOnly(new Date(req.body.dueDate)) : new Date(),
       };
       const data = insertStorySchema.parse(body);
@@ -478,6 +479,12 @@ export async function registerRoutes(
       const body = { ...req.body };
       delete body.recurringTaskId;
       delete body.occurrenceDate;
+      delete body.assignedBy;
+      // Giving the story to someone else records who did it
+      if (body.assignedTo !== undefined) {
+        const before = await storage.getStory(req.params.id);
+        if (before && (before.assignedTo ?? null) !== (body.assignedTo ?? null)) body.assignedBy = req.user.id;
+      }
       if (body.dueDate) {
         body.dueDate = endOfDayIfDateOnly(new Date(body.dueDate));
       }

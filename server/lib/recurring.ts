@@ -16,6 +16,7 @@ const storyRow = ({ rule, person, date: day, dueDate }: { rule: Rule; person: Pe
   title: rule.title,
   description: rule.description,
   assignedTo: person.id,
+  assignedBy: (rule as any).createdBy ?? null,
   person: personName(person),
   priority: rule.priority,
   estimatedEffortHours: 0,

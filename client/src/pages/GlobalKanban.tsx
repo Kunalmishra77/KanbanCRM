@@ -1,5 +1,5 @@
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { isAssignedTo, assigneeName } from "@/lib/assignee";
+import { isAssignedTo, assigneeName, assignedByLabel } from "@/lib/assignee";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, Loader2, X, Search, List, LayoutGrid, Clock, AlertTriangle, CheckCircle2, User, Receipt, Repeat } from "lucide-react";
@@ -686,8 +686,8 @@ export default function GlobalKanban() {
                                     <p className="text-xs font-bold text-foreground leading-tight">
                                       {matchedUser.firstName} {matchedUser.lastName}
                                     </p>
-                                    <p className="text-[10px] text-muted-foreground capitalize leading-tight">
-                                      {matchedUser.role || 'Member'}
+                                    <p className="text-[10px] text-muted-foreground leading-tight" data-testid="assigned-by">
+                                      {assignedByLabel(story, users)}
                                     </p>
                                   </div>
                                 </>
