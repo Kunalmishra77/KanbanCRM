@@ -32,10 +32,10 @@ check("11pm IST Sunday still belongs to that week", periodRange("week", new Date
 const today = run("today");
 const by = (o: ReturnType<typeof run>, id: string) => o.people.find((p) => p.id === id)!;
 check("founders are not scored", today.people.some((p) => p.id === "f"), false);
-check("Pooja today: attention because 1 overdue", [by(today, "p").health, by(today, "p").reason], ["attention", "1 overdue"]);
+check("Pooja today: attention because 1 late", [by(today, "p").health, by(today, "p").reason], ["attention", "1 late"]);
 check("system comments do not count as activity", by(today, "p").comments, 1);
 check("Divya today: assigned but silent -> inactive", by(today, "d").health, "inactive");
-check("silent AND overdue is worse than silent: attention", [(computeOverview({ users, stories: [st("o", "d", "To Do", "2026-11-01T00:00:00+05:30", "2026-11-01T00:00:00Z")], clients: [], comments: [], activity: [], period: "today", now }).people.find((p) => p.id === "d")!)].map((p) => [p.health, p.reason])[0], ["attention", "1 overdue and no activity in this period"]);
+check("silent AND overdue is worse than silent: attention", [(computeOverview({ users, stories: [st("o", "d", "To Do", "2026-11-01T00:00:00+05:30", "2026-11-01T00:00:00Z")], clients: [], comments: [], activity: [], period: "today", now }).people.find((p) => p.id === "d")!)].map((p) => [p.health, p.reason])[0], ["attention", "1 late and no update in this period"]);
 check("Ravi today: update counts as activity, nothing overdue -> good", [by(today, "r").health, by(today, "r").actions], ["good", 1]);
 check("Sam has nothing assigned -> idle", by(today, "s").health, "idle");
 check("worst people sort first", today.people.map((p) => p.id), ["p", "d", "s", "r"]);
@@ -77,5 +77,14 @@ check("only approved overtime counts, inside the period", [withReq("week").peopl
 check("overtime from earlier in the month is not in 'today'", withReq("today").people.find((p) => p.id === "r")!.otHours, 0);
 check("leave does not hide a person in the week view", withReq("week").people.find((p) => p.id === "p")!.health === "away", false);
 check("people on leave are not expected to be active in the team count", withReq("today").teams.find((x) => x.team === "Sales")!.active, 0);
+
+// Routine copies left undone are "missed", not late work
+const rc = (id: string, who: string, date: string) => ({ ...st(id, who, "To Do", `${date}T23:59:00+05:30`, `${date}T00:00:00Z`), title: "Daily calls", recurringTaskId: "rule1", occurrenceDate: date });
+const withRoutines = computeOverview({ users, stories: [rc("m1", "p", "2026-11-03"), rc("m2", "d", "2026-11-03"), st("w", "d", "To Do", "2026-11-09T00:00:00+05:30", "2026-11-04T01:00:00Z")], clients: [], comments: [cm("c9", "p", "2026-11-04T05:00:00Z")], activity: [{ userId: "d", createdAt: "2026-11-04T04:00:00Z" }], period: "today", now });
+check("a missed routine is not counted as late", [withRoutines.people.find((p) => p.id === "p")!.overdue, withRoutines.people.find((p) => p.id === "p")!.missed], [0, 1]);
+check("only missed routines -> 'missed' (amber), not 'attention'", [withRoutines.people.find((p) => p.id === "p")!.health, withRoutines.people.find((p) => p.id === "p")!.reason], ["missed", "1 routine missed"]);
+check("missed routines are grouped by task and day", withRoutines.missedRoutines.map((g) => [g.title, g.date, g.people.length]), [["Daily calls", "2026-11-03", 2]]);
+check("summary counts late and missed separately", [withRoutines.summary.overdue, withRoutines.summary.missed], [0, 2]);
+check("yesterday = the whole previous India day", [periodRange("yesterday", now).start.toISOString(), periodRange("yesterday", now).end.toISOString()], ["2026-11-02T18:30:00.000Z", "2026-11-03T18:30:00.000Z"]);
 
 console.log(`overview: ${n} checks passed`);

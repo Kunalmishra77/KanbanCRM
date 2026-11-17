@@ -204,6 +204,26 @@ if (phase === 'phase1') {
   r = await lena.post('/api/recurring-tasks', { clientId: C1, title: 'Lena for Max', repeat: 'daily', assigneeIds: [max.id] });
   ok(r.status === 400, 'a team lead cannot set up repeating work outside her team', r.status);
 
+  section('14. Mentions: answered / done');
+  let sm = (await sam.get('/api/mentions')).data || [];
+  const coraAsk = sm.find((m) => m.storyId === S.fromCora);
+  ok(coraAsk && coraAsk.state === 'answered', "Sam replied on that story after the mention -> 'answered'", JSON.stringify(coraAsk?.state));
+  r = await cora.post(`/api/stories/${S.own}/comments`, { body: '@Sam Seller FYI the client called' });
+  sm = (await sam.get('/api/mentions')).data || [];
+  const fyi = sm.find((m) => /FYI the client called/.test(m.body));
+  ok(fyi && fyi.state === 'new', 'a new mention is "new"');
+  ok((await sia.post(`/api/mentions/${fyi?.id}/done`)).status === 404, 'someone else cannot tick your mention');
+  ok((await sam.post(`/api/mentions/${fyi?.id}/done`)).status === 200, 'Sam ticks it Done');
+  sm = (await sam.get('/api/mentions')).data || [];
+  ok(sm.find((m) => m.id === fyi?.id)?.state === 'done', "it is now 'done'");
+  ok(!(await sam.notes()).some((n) => n.type === 'mention' && n.entityId === S.own && !n.isRead), 'its bell notification is marked read too');
+  const siaM = ((await sia.get('/api/mentions')).data || []).find((m) => m.storyId === S.own);
+  ok(siaM && siaM.state === 'answered', "Sia replied 'Checked' after being tagged -> answered");
+
+  section('15. Overview: yesterday and missed routines');
+  const yv = await cora.get('/api/overview?period=yesterday');
+  ok(yv.status === 200 && Array.isArray(yv.data.missedRoutines) && typeof yv.data.summary.missed === 'number', 'yesterday overview loads with missed routines', yv.status);
+
   fs.writeFileSync(STATE, JSON.stringify(S));
   console.log('\nphase1: restart the app now, then run phase2 (simulates the 10-minute / 12 AM job)');
 } else {

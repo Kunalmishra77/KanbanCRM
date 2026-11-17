@@ -371,6 +371,13 @@ export const recurringSkips = pgTable("recurring_skips", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [primaryKey({ columns: [t.recurringTaskId, t.userId, t.occurrenceDate] })]);
 
+// An @mention the person marked "Done" (no reply needed)
+export const mentionDone = pgTable("mention_done", {
+  commentId: uuid("comment_id").references(() => comments.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.commentId, t.userId] })]);
+
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date");
 export const recurringTaskInputSchema = z.object({
   clientId: z.string().uuid("Choose a client"),

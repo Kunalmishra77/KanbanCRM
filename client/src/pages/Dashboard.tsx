@@ -154,7 +154,7 @@ export default function Dashboard() {
       )}
 
       {activeTab === 'team' && (
-        <FounderOverview title={canViewOverview ? 'Company today' : `Team · ${(user as any)?.team}`} stories={stories} clients={clients} />
+        <FounderOverview title={canViewOverview ? 'Company' : `Team · ${(user as any)?.team}`} stories={stories} clients={clients} />
       )}
 
       {activeTab === 'me' && <MyWork stories={stories} clients={clients} />}

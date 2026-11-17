@@ -19,7 +19,7 @@ import {
   type Notification, type InsertNotification,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
   leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives,
-  recurringTasks, recurringSkips, employeeRequests, notifications
+  recurringTasks, recurringSkips, mentionDone, employeeRequests, notifications
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
 import { eq, desc, and, sql, inArray, gte, ne } from "drizzle-orm";
@@ -59,6 +59,10 @@ export interface IStorage {
   getOccurrenceKeys(date: string): Promise<Set<string>>;
   addRecurringSkip(ruleId: string, userId: string, date: string, by: string | null): Promise<void>;
   isMentionedOn(storyId: string, fullName: string): Promise<boolean>;
+  getMyLastCommentOn(userId: string, storyIds: string[]): Promise<Map<string, number>>;
+  getMentionDone(userId: string, commentIds: string[]): Promise<Set<string>>;
+  addMentionDone(userId: string, commentId: string): Promise<void>;
+  markMyStoryNotificationsRead(userId: string, storyId: string, types: string[]): Promise<void>;
   getRuleSkipKeys(ruleId: string, fromDate: string): Promise<Set<string>>;
   getUpcomingOccurrencePeople(ruleId: string, fromDate: string): Promise<Set<string>>;
   closePastRepeatingCopies(today: string): Promise<number>;
@@ -519,6 +523,30 @@ export class DatabaseStorage implements IStorage {
     const rows = await db.select({ id: comments.id }).from(comments)
       .where(and(eq(comments.storyId, storyId), sql`${comments.body} ilike ${pattern}`)).limit(1);
     return rows.length > 0;
+  }
+
+  /** For each story: when this person last commented on it (an @mention before that counts as answered). */
+  async getMyLastCommentOn(userId: string, storyIds: string[]): Promise<Map<string, number>> {
+    if (storyIds.length === 0) return new Map();
+    const rows = await db.select({ storyId: comments.storyId, at: sql<string>`max(${comments.createdAt})` }).from(comments)
+      .where(and(eq(comments.authorId, userId), inArray(comments.storyId, storyIds))).groupBy(comments.storyId);
+    return new Map(rows.map((r) => [r.storyId, new Date(r.at).getTime()]));
+  }
+
+  async getMentionDone(userId: string, commentIds: string[]): Promise<Set<string>> {
+    if (commentIds.length === 0) return new Set();
+    const rows = await db.select({ id: mentionDone.commentId }).from(mentionDone)
+      .where(and(eq(mentionDone.userId, userId), inArray(mentionDone.commentId, commentIds)));
+    return new Set(rows.map((r) => r.id));
+  }
+
+  async addMentionDone(userId: string, commentId: string): Promise<void> {
+    await db.insert(mentionDone).values({ userId, commentId }).onConflictDoNothing();
+  }
+
+  async markMyStoryNotificationsRead(userId: string, storyId: string, types: string[]): Promise<void> {
+    await db.update(notifications).set({ isRead: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.entityId, storyId), inArray(notifications.type, types), eq(notifications.isRead, false)));
   }
 
   /** Comments written by someone else that contain "@<this person's full name>". Private to that person. */

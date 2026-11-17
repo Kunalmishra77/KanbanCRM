@@ -727,6 +727,7 @@ export async function registerRoutes(
       const comment = await storage.createComment(data);
       const commented = await storage.getStory(req.params.storyId);
       if (commented) await notifyComment(commented, comment, req.user);
+      await storage.markMyStoryNotificationsRead(req.user.id, req.params.storyId, ['mention', 'story_comment']).catch(() => {});
 
       if (req.user?.id) {
         await storage.createActivityLog({
@@ -1352,10 +1353,34 @@ export async function registerRoutes(
   // Comments that @mention the signed-in person (never anyone else's)
   app.get("/api/mentions", isAuthenticated, async (req: any, res) => {
     try {
-      res.json(await storage.getMentions(req.user.id, nameOf(req.user), new Date(Date.now() - 14 * 86400000)));
+      // Each mention is "new" until the person replies on that story afterwards ("answered") or ticks it ("done")
+      const list = await storage.getMentions(req.user.id, nameOf(req.user), new Date(Date.now() - 14 * 86400000));
+      const [lastReply, done] = await Promise.all([
+        storage.getMyLastCommentOn(req.user.id, Array.from(new Set(list.map((m) => m.storyId)))),
+        storage.getMentionDone(req.user.id, list.map((m) => m.id)),
+      ]);
+      res.json(list.map((m) => ({
+        ...m,
+        state: done.has(m.id) ? 'done' : (lastReply.get(m.storyId) ?? 0) > new Date(m.createdAt).getTime() ? 'answered' : 'new',
+      })));
     } catch (error) {
       console.error('Mentions error:', error);
       res.status(500).json({ error: "Failed to fetch mentions" });
+    }
+  });
+
+  // "Done" on a mention that needs no reply. Only for a comment that really mentions this person.
+  app.post("/api/mentions/:commentId/done", isAuthenticated, async (req: any, res) => {
+    try {
+      const list = await storage.getMentions(req.user.id, nameOf(req.user), new Date(Date.now() - 60 * 86400000));
+      const m = list.find((x) => x.id === req.params.commentId);
+      if (!m) return res.status(404).json({ error: "Mention not found" });
+      await storage.addMentionDone(req.user.id, m.id);
+      await storage.markMyStoryNotificationsRead(req.user.id, m.storyId, ['mention']);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Mention done error:', error);
+      res.status(500).json({ error: "Failed to update the mention" });
     }
   });
 

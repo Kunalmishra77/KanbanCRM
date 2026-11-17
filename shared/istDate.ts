@@ -24,15 +24,18 @@ export function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export type Period = "today" | "week" | "month";
-export const isPeriod = (v: unknown): v is Period => v === "today" || v === "week" || v === "month";
+export type Period = "yesterday" | "today" | "week" | "month";
+export const isPeriod = (v: unknown): v is Period => v === "yesterday" || v === "today" || v === "week" || v === "month";
 
 /** Start (inclusive) and end (exclusive) of the period containing `now`, in India time. Weeks start on Monday. */
 export function periodRange(period: Period, now: Date | number = Date.now()): { start: Date; end: Date } {
   const today = istDate(now);
   let startDay = today;
   let endDay = addDays(today, 1);
-  if (period === "week") {
+  if (period === "yesterday") {
+    startDay = addDays(today, -1);
+    endDay = today;
+  } else if (period === "week") {
     const dow = new Date(today + "T00:00:00Z").getUTCDay(); // 0 = Sunday
     startDay = addDays(today, -((dow + 6) % 7));
     endDay = addDays(startDay, 7);

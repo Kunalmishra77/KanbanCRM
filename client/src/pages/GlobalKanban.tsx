@@ -184,8 +184,8 @@ export default function GlobalKanban() {
   const [filterAssigneeNames, setFilterAssigneeNames] = useState<string[]>([]);
   // Quick scope from links such as the dashboard overview. done | open | overdue | review, and for a period
   // (from/to): planned = due in the period, completed = finished in the period. Same rules as the overview's numbers.
-  type Scope = 'done' | 'open' | 'overdue' | 'review' | 'planned' | 'completed' | 'due7';
-  const SCOPES: Scope[] = ['done', 'open', 'overdue', 'review', 'planned', 'completed', 'due7'];
+  type Scope = 'done' | 'open' | 'overdue' | 'late' | 'missed' | 'unaccepted' | 'review' | 'planned' | 'completed' | 'due7';
+  const SCOPES: Scope[] = ['done', 'open', 'overdue', 'late', 'missed', 'unaccepted', 'review', 'planned', 'completed', 'due7'];
   const scopeParam = useMemo(() => {
     const v = new URLSearchParams(searchString).get('scope') as Scope | null;
     return v && SCOPES.includes(v) ? v : null;
@@ -316,6 +316,9 @@ export default function GlobalKanban() {
       if (scope === 'open' && story.status === 'Done') return false;
       if (scope === 'overdue' && (story.status === 'Done' || !story.dueDate || new Date(story.dueDate).getTime() >= Date.now())) return false;
       if (scope === 'review' && story.status !== 'Review') return false;
+      // late = real work past its due date; missed = routine (repeating) copies left undone
+      if ((scope === 'late' || scope === 'missed') && (story.status === 'Done' || !story.dueDate || new Date(story.dueDate).getTime() >= Date.now() || (scope === 'late') === !!story.recurringTaskId)) return false;
+      if (scope === 'unaccepted' && (!isAssignedByOther(story) || (story as any).acceptedAt)) return false;
       if (scope === 'due7') {
         const left = story.dueDate ? new Date(story.dueDate).getTime() - Date.now() : NaN;
         if (story.status === 'Done' || !Number.isFinite(left) || left < 0 || left > 7 * 86400000) return false;
@@ -690,7 +693,7 @@ export default function GlobalKanban() {
       {scope && (
         <div className="flex items-center gap-2" data-testid="scope-chip">
           <Badge variant="outline" className="gap-1.5 text-xs">
-            Showing {({ overdue: 'overdue stories', open: 'open stories', done: 'finished stories', review: 'stories waiting for review', planned: 'stories due in the period', completed: 'stories finished in the period', due7: 'stories due in the next 7 days' } as Record<string, string>)[scope]} only
+            Showing {({ overdue: 'overdue stories', open: 'open stories', done: 'finished stories', review: 'stories waiting for review', late: 'late work', missed: 'missed routines', unaccepted: 'stories not accepted yet', planned: 'stories due in the period', completed: 'stories finished in the period', due7: 'stories due in the next 7 days' } as Record<string, string>)[scope]} only
           </Badge>
           {clientStage && <Badge variant="outline" className="text-xs">{clientStage} clients</Badge>}
           <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => { setScope(null); setClientStage(null); }} data-testid="scope-clear">Show all</button>

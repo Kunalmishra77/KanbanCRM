@@ -1,11 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CalendarClock, CheckCircle2, Flame, Sun, Snowflake, AtSign, Inbox, Send, KanbanSquare } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, Flame, Sun, Snowflake, Inbox, Send, KanbanSquare, Eye, UserCheck } from "lucide-react";
 import { inBoard, isWaiting } from "@/lib/boards";
-import { useMentions } from "@/lib/overviewQueries";
-import { MentionText } from "@/components/MentionTextarea";
-import { formatDistanceToNow } from "date-fns";
+import { MentionInbox } from "@/components/MentionInbox";
 import { useAuth } from "@/lib/auth";
 import { isAssignedTo } from "@/lib/assignee";
 import { format } from "date-fns";
@@ -28,8 +26,6 @@ const TEMPS = [
 export function MyWork({ stories, clients }: { stories: Story[]; clients: Client[] }) {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const { data: mentions = [] } = useMentions();
-  const [showAllMentions, setShowAllMentions] = useState(false);
 
   const stats = useMemo(() => {
     const mine = stories.filter((s) => isAssignedTo(s, user));
@@ -50,6 +46,17 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
       given: openIn("given").length,
       givenNotAccepted: stories.filter((s) => inBoard(s, "given", user as any) && !(s as any).acceptedAt).length,
     };
+    // Work I gave to others: how it is going
+    const given = stories.filter((s) => inBoard(s, "given", user as any));
+    const givenOpen = given.filter((s) => s.status !== "Done");
+    const delegated = {
+      open: givenOpen.length,
+      notAccepted: givenOpen.filter((s) => !(s as any).acceptedAt).length,
+      late: givenOpen.filter((s) => !s.recurringTaskId && new Date(s.dueDate).getTime() < now).length,
+      missed: givenOpen.filter((s) => !!s.recurringTaskId && new Date(s.dueDate).getTime() < now).length,
+      review: givenOpen.filter((s) => s.status === "Review").length,
+      doneToday: given.filter((s) => s.status === "Done" && new Date(s.updatedAt as any).getTime() >= dayStart.getTime()).length,
+    };
     const byTemp = Object.fromEntries(
       TEMPS.map(({ stage }) => [stage, open.filter((s) => stageOf.get(s.clientId) === stage).length]),
     );
@@ -61,7 +68,7 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
       TEMPS.map(({ stage }) => [stage, myClients.filter((c) => c.stage === stage).length]),
     );
 
-    return { overdue: overdue.length, dueToday: dueToday.length, doneToday: doneToday.length, waiting: waiting.length, boards, byTemp, upNext, stageOf, clientsByTemp, myClients: myClients.length, dayStart: dayStart.toISOString() };
+    return { delegated, overdue: overdue.length, dueToday: dueToday.length, doneToday: doneToday.length, waiting: waiting.length, boards, byTemp, upNext, stageOf, clientsByTemp, myClients: myClients.length, dayStart: dayStart.toISOString() };
   }, [stories, clients, user]);
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "Client";
@@ -82,9 +89,37 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
     { key: "board-given", label: "Assigned by me", value: stats.boards.given, sub: stats.boards.givenNotAccepted ? `open · ${stats.boards.givenNotAccepted} not accepted yet` : "open · I gave to others", icon: Send, to: "/global-kanban?board=given" },
   ];
 
+  // People who mostly hand out work (founders, managers) see "Work I gave out" first
+  const d = stats.delegated;
+  const delegatesMost = d.open > 0 && d.open >= stats.boards.mine + stats.boards.assigned;
+  const givenBoard = (q: string) => `/global-kanban?board=given${q ? "&" + q : ""}`;
+  const delegatedBlock = d.open + d.doneToday > 0 && (
+    <Card className="macos-card border-none" data-testid="work-given-out">
+      <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Send className="h-4 w-4 text-primary" />Work I gave out</CardTitle></CardHeader>
+      <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-3 pt-0 sm:p-6 sm:pt-0">
+        {[
+          { key: "open", label: "open", value: d.open, to: givenBoard(""), tone: "text-foreground", icon: KanbanSquare },
+          { key: "unaccepted", label: "not accepted yet", value: d.notAccepted, to: givenBoard("scope=unaccepted"), tone: d.notAccepted ? "text-amber-600 dark:text-amber-300" : "text-muted-foreground", icon: UserCheck },
+          { key: "late", label: "late", value: d.late, to: givenBoard("scope=late"), tone: d.late ? "text-red-600 dark:text-red-300" : "text-muted-foreground", icon: AlertTriangle },
+          { key: "missed", label: "routines missed", value: d.missed, to: givenBoard("scope=missed"), tone: d.missed ? "text-orange-600 dark:text-orange-300" : "text-muted-foreground", icon: AlertTriangle },
+          { key: "review", label: "for my review", value: d.review, to: givenBoard("scope=review"), tone: d.review ? "text-violet-600 dark:text-violet-300" : "text-muted-foreground", icon: Eye },
+          { key: "done", label: "done today", value: d.doneToday, to: givenBoard(`scope=completed&from=${encodeURIComponent(stats.dayStart)}`), tone: d.doneToday ? "text-green-600 dark:text-green-300" : "text-muted-foreground", icon: CheckCircle2 },
+        ].map((t) => (
+          <button key={t.key} type="button" onClick={() => setLocation(t.to)} data-testid={`given-${t.key}`}
+            className="text-left rounded-xl border bg-white/60 dark:bg-white/[0.05] p-3 hover:shadow-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-0">
+            <p className={cn("text-2xl font-bold leading-none tabular-nums", t.tone)}>{t.value}</p>
+            <p className="text-xs text-muted-foreground mt-1 truncate">{t.label}</p>
+          </button>
+        ))}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <section className="space-y-3" data-testid="my-work">
       <h2 className="text-lg font-semibold tracking-tight">My day</h2>
+
+      {delegatesMost && delegatedBlock}
 
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 [&>*]:min-w-0">
@@ -120,20 +155,9 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
         ))}
       </div>
 
-      {mentions.length > 0 && (
-        <Card className="macos-card border-none border-l-4 !border-l-primary" data-testid="mentions-card">
-          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AtSign className="h-4 w-4 text-primary" /> Mentioned you ({mentions.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-1">
-            {(showAllMentions ? mentions : mentions.slice(0, 3)).map((m) => (
-              <button key={m.id} type="button" onClick={() => setLocation(`/global-kanban?story=${m.storyId}`)} className="w-full min-w-0 text-left rounded-lg px-2 py-2 hover:bg-black/5 dark:hover:bg-white/10 min-h-[44px]">
-                <span className="block text-sm break-words"><b>{m.authorName || "Someone"}</b>: <MentionText body={m.body} /></span>
-                <span className="block text-xs text-muted-foreground truncate">{m.storyTitle} · {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}</span>
-              </button>
-            ))}
-            {mentions.length > 3 && <button type="button" className="text-xs text-primary underline px-2" onClick={() => setShowAllMentions(!showAllMentions)}>{showAllMentions ? "show less" : `show all ${mentions.length}`}</button>}
-          </CardContent>
-        </Card>
-      )}
+      <MentionInbox />
+
+      {!delegatesMost && delegatedBlock}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
         <Card className="macos-card border-none">
