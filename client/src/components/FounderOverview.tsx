@@ -30,6 +30,8 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
   const [team, setTeam] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const { data, isLoading, error } = useOverview(period, true);
+  // Cards only for teams with people or work ("No team set" with nothing in it is just noise)
+  const visibleTeams = (data?.teams || []).filter((t) => t.team !== "No team set" || t.planned > 0 || t.completed > 0 || t.overdue > 0);
 
   const valid = !!data && Array.isArray(data.people) && Array.isArray(data.teams);
   const summary = { pendingRequests: 0, otHours: 0, ...(data?.summary ?? {}) } as NonNullable<typeof data>["summary"];
@@ -108,10 +110,10 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
             </div>
           )}
 
-          <div>
+          {visibleTeams.length > 1 && <div>
             <p className="text-sm font-semibold mb-2">Teams {team && <button className="ml-2 text-xs font-normal text-primary underline" onClick={() => setTeam(null)}>show all</button>}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 [&>*]:min-w-0" data-testid="overview-teams">
-              {data.teams.map((t) => {
+              {visibleTeams.map((t) => {
                 const done = pct(t.plannedDone, t.planned);
                 return (
                   <button key={t.team} onClick={() => setLocation(`/global-kanban?team=${encodeURIComponent(t.team)}`)} title={`Open ${t.team}'s stories on the Global Board`} data-testid={`team-${t.team}`} className={cn("text-left rounded-2xl border bg-white/70 dark:bg-white/[0.08] p-4 transition-shadow hover:shadow-md min-h-[44px]", team === t.team && "ring-2 ring-primary")}>
@@ -133,7 +135,7 @@ export function FounderOverview({ title = "Company overview" }: { title?: string
                 );
               })}
             </div>
-          </div>
+          </div>}
 
           <Card className="macos-card border-none">
             <CardHeader className="pb-2"><CardTitle className="text-sm">{activeOnly ? "Active people" : "People"} {team ? `· ${team}` : ""} ({people.length}){activeOnly && <button type="button" className="ml-2 text-xs font-normal text-primary underline" onClick={() => setActiveOnly(false)} data-testid="people-show-all">show all</button>}</CardTitle></CardHeader>

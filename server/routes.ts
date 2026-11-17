@@ -407,6 +407,9 @@ export async function registerRoutes(
     } catch (e: any) { console.warn('notifyAssigned failed:', e?.message || e); }
   };
 
+  // A plain calendar date ("2026-11-19") means that day in India
+  const asIndiaDate = (v: any) => new Date(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00+05:30` : v);
+
   const storyAccess = async (req: any, res: any, next: any) => {
     try {
       const story = await storage.getStory(req.params.id || req.params.storyId);
@@ -415,6 +418,40 @@ export async function registerRoutes(
     } catch (error) {
       next(error);
     }
+  };
+
+  // Open a story and its comments: everyone who may work on it, plus anyone @mentioned in its comments
+  // (they can read and reply, but not edit, accept or delete).
+  const storyReadAccess = async (req: any, res: any, next: any) => {
+    try {
+      const story = await storage.getStory(req.params.id || req.params.storyId);
+      if (story && (canSeeStory(req.user, story, await teamMatesFor(req.user)) || await storage.isMentionedOn(story.id, fullNameOf(req.user)))) return next();
+      return res.status(404).json({ error: "Story not found" });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // A new comment: tell everyone @mentioned in it, and the story's assignee and assigner (never the writer)
+  const notifyComment = async (story: any, comment: { body: string }, author: any) => {
+    try {
+      const people = await storage.getAllUsers();
+      const text = comment.body.toLowerCase();
+      const mentioned = people.filter((p) => {
+        const name = fullNameOf(p).toLowerCase();
+        return p.id !== author.id && name.length > 1 && text.includes('@' + name);
+      });
+      const mentionedIds = new Set(mentioned.map((p) => p.id));
+      const watchers = Array.from(new Set([story.assignedTo, story.assignedBy].filter(Boolean) as string[]))
+        .filter((id) => id !== author.id && !mentionedIds.has(id));
+      const who = fullNameOf(author);
+      const link = `/global-kanban?story=${story.id}`;
+      const snippet = comment.body.replace(/\s+/g, ' ').slice(0, 160);
+      await storage.createNotifications([
+        ...mentioned.map((p) => ({ userId: p.id, type: 'mention', entityId: story.id, entityType: 'story', link, title: `${who} mentioned you`, message: `${story.title.slice(0, 60)}: ${snippet}` })),
+        ...watchers.map((id) => ({ userId: id, type: 'story_comment', entityId: story.id, entityType: 'story', link, title: `${who} commented on a story`, message: `${story.title.slice(0, 60)}: ${snippet}` })),
+      ]);
+    } catch (e: any) { console.warn('notifyComment failed:', e?.message || e); }
   };
 
   // The browser reports errors that showed the "Something went wrong" screen, so they can be diagnosed later
@@ -440,7 +477,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/stories/:id", isAuthenticated, storyAccess, async (req: any, res) => {
+  app.get("/api/stories/:id", isAuthenticated, storyReadAccess, async (req: any, res) => {
     try {
       const story = await storage.getStory(req.params.id);
       if (!story) {
@@ -462,7 +499,7 @@ export async function registerRoutes(
         assignedBy: req.user?.id ?? null, // who gave it to the assignee (never taken from the browser)
         // Made for yourself = in My Work straight away; given to someone else = waits for them to accept
         acceptedAt: !req.body.assignedTo || req.body.assignedTo === req.user?.id ? new Date() : null,
-        dueDate: req.body.dueDate ? endOfDayIfDateOnly(new Date(req.body.dueDate)) : new Date(),
+        dueDate: req.body.dueDate ? endOfDayIfDateOnly(asIndiaDate(req.body.dueDate)) : new Date(),
       };
       const data = insertStorySchema.parse(body);
       const story = await storage.createStory(data);
@@ -506,7 +543,7 @@ export async function registerRoutes(
       // The assignee starting work on a waiting story accepts it
       if (!reassigned && before && !before.acceptedAt && before.assignedTo === req.user.id) body.acceptedAt = new Date();
       if (body.dueDate) {
-        body.dueDate = endOfDayIfDateOnly(new Date(body.dueDate));
+        body.dueDate = endOfDayIfDateOnly(asIndiaDate(body.dueDate));
       }
       // The progress bar moves the story along: 100% = Done; any progress on a "To Do" story = In Progress;
       // dropping a Done story below 100% reopens it. An explicit status in the same save always wins.
@@ -608,6 +645,10 @@ export async function registerRoutes(
         return res.status(403).json({ error: isAssignedByOther(existing ?? {}) ? "Only the person who assigned this story (or a founder) can delete it." : "You can only delete your own stories." });
       }
       const storyComments = await storage.getCommentsByStory(req.params.id);
+      // Removing a repeating copy = skipping that day: the background job must never recreate it
+      if (existing.recurringTaskId && existing.assignedTo && existing.occurrenceDate) {
+        await storage.addRecurringSkip(existing.recurringTaskId, existing.assignedTo, existing.occurrenceDate, req.user.id);
+      }
       const success = await storage.deleteStory(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Story not found" });
@@ -664,7 +705,7 @@ export async function registerRoutes(
   });
 
   // Comments (all protected with authentication)
-  app.get("/api/stories/:storyId/comments", isAuthenticated, storyAccess, async (req: any, res) => {
+  app.get("/api/stories/:storyId/comments", isAuthenticated, storyReadAccess, async (req: any, res) => {
     try {
       const commentsList = await storage.getCommentsByStory(req.params.storyId);
       res.json(commentsList);
@@ -674,7 +715,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/stories/:storyId/comments", isAuthenticated, storyAccess, async (req: any, res) => {
+  app.post("/api/stories/:storyId/comments", isAuthenticated, storyReadAccess, async (req: any, res) => {
     try {
       // Author identity always comes from the session, never from the request body
       const data = insertCommentSchema.parse({
@@ -684,6 +725,8 @@ export async function registerRoutes(
         authorName: req.user.firstName ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() : req.user.email,
       });
       const comment = await storage.createComment(data);
+      const commented = await storage.getStory(req.params.storyId);
+      if (commented) await notifyComment(commented, comment, req.user);
 
       if (req.user?.id) {
         await storage.createActivityLog({

@@ -218,26 +218,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <StatCard 
-          title="Pending Stories" 
-          value={(totalStories - completedStories).toString()} 
-          icon={Clock} 
-          trend={`${storiesDueSoon} due in 7 days`}
-          trendUp={false}
-          color="text-orange-600 dark:text-orange-300"
-          bgColor="bg-orange-100/50 dark:bg-orange-500/20"
-          onClick={() => setLocation('/global-kanban?scope=open')}
-        />
-        <StatCard 
-          title="Completion Rate" 
-          value={`${completionRate}%`} 
-          icon={CheckCircle2} 
-          trend={`${completedStories}/${totalStories} done`}
-          trendUp={true}
-          color="text-purple-600 dark:text-purple-300"
-          bgColor="bg-purple-100/50 dark:bg-purple-500/20"
-          onClick={() => setLocation('/insights/completion')}
-        />
-        <StatCard 
           title="Dropped Clients" 
           value={droppedClients.toString()} 
           icon={UserMinus} 

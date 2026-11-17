@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ListTodo, AlertTriangle, CalendarClock, CheckCircle2, Flame, Sun, Snowflake, AtSign } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, Flame, Sun, Snowflake, AtSign, Inbox, Send, KanbanSquare } from "lucide-react";
+import { inBoard, isWaiting } from "@/lib/boards";
 import { useMentions } from "@/lib/overviewQueries";
 import { MentionText } from "@/components/MentionTextarea";
 import { formatDistanceToNow } from "date-fns";
@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { Client, Story } from "@shared/schema";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const STATUSES = ["To Do", "In Progress", "Blocked", "Review", "Done"] as const;
 
 const TEMPS = [
   { stage: "Hot", icon: Flame, tone: "text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/20 border-red-200 dark:border-red-500/40" },
@@ -38,11 +37,18 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
     const now = Date.now();
 
     const overdue = open.filter((s) => new Date(s.dueDate).getTime() < now);
-    const dueSoon = open.filter((s) => {
-      const d = new Date(s.dueDate).getTime() - now;
-      return d >= 0 && d <= 7 * DAY_MS;
-    });
-    const byStatus = Object.fromEntries(STATUSES.map((st) => [st, mine.filter((s) => s.status === st).length]));
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = dayStart.getTime() + DAY_MS;
+    const dueToday = open.filter((s) => { const d = new Date(s.dueDate).getTime(); return d >= now && d < dayEnd; });
+    const doneToday = mine.filter((s) => s.status === "Done" && new Date(s.updatedAt as any).getTime() >= dayStart.getTime());
+    const waiting = stories.filter((s) => isWaiting(s, user as any));
+    const openIn = (b: "mine" | "assigned" | "given") => stories.filter((s) => inBoard(s, b, user as any) && s.status !== "Done");
+    const boards = {
+      mine: openIn("mine").length,
+      assigned: openIn("assigned").length,
+      given: openIn("given").length,
+      givenNotAccepted: stories.filter((s) => inBoard(s, "given", user as any) && !(s as any).acceptedAt).length,
+    };
     const byTemp = Object.fromEntries(
       TEMPS.map(({ stage }) => [stage, open.filter((s) => stageOf.get(s.clientId) === stage).length]),
     );
@@ -54,23 +60,30 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
       TEMPS.map(({ stage }) => [stage, myClients.filter((c) => c.stage === stage).length]),
     );
 
-    return { total: mine.length, open: open.length, overdue: overdue.length, dueSoon: dueSoon.length, byStatus, byTemp, upNext, stageOf, clientsByTemp, myClients: myClients.length };
+    return { overdue: overdue.length, dueToday: dueToday.length, doneToday: doneToday.length, waiting: waiting.length, boards, byTemp, upNext, stageOf, clientsByTemp, myClients: myClients.length, dayStart: dayStart.toISOString() };
   }, [stories, clients, user]);
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "Client";
 
   // Every number opens the stories behind it on the Global Board (mine=1: always the person's own)
   const mineBoard = (q = "") => `/global-kanban?mine=1${q ? "&" + q : ""}`;
+  // Today: the four things to look at first. Each opens exactly those stories.
   const tiles = [
-    { key: "assigned", label: "Assigned to me", value: stats.total, sub: `${stats.open} open`, icon: ListTodo, tone: "bg-primary/10 text-primary", to: mineBoard() },
-    { key: "overdue", label: "Overdue", value: stats.overdue, sub: "need attention", icon: AlertTriangle, tone: "bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-300", to: mineBoard("scope=overdue") },
-    { key: "due7", label: "Due in 7 days", value: stats.dueSoon, sub: "coming up", icon: CalendarClock, tone: "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300", to: mineBoard("scope=due7") },
-    { key: "done", label: "Completed", value: stats.byStatus["Done"], sub: "done", icon: CheckCircle2, tone: "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-300", to: mineBoard("scope=done") },
+    { key: "waiting", label: "Waiting for you", value: stats.waiting, sub: stats.waiting ? "accept when ready" : "nothing new", icon: Inbox, tone: "bg-primary/10 text-primary", to: "/global-kanban?board=assigned" },
+    { key: "today", label: "Due today", value: stats.dueToday, sub: "finish today", icon: CalendarClock, tone: "bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300", to: mineBoard("due=today") },
+    { key: "overdue", label: "Overdue", value: stats.overdue, sub: stats.overdue ? "need attention" : "all on time", icon: AlertTriangle, tone: "bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-300", to: mineBoard("scope=overdue") },
+    { key: "done", label: "Done today", value: stats.doneToday, sub: "well done", icon: CheckCircle2, tone: "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-300", to: mineBoard(`scope=completed&from=${encodeURIComponent(stats.dayStart)}`) },
+  ];
+  // My three boards, with how much is open on each
+  const boardTiles = [
+    { key: "board-mine", label: "My Work", value: stats.boards.mine, sub: "open · made by me for me", icon: KanbanSquare, to: "/global-kanban?board=mine" },
+    { key: "board-assigned", label: "Assigned to me", value: stats.boards.assigned, sub: stats.waiting ? `open · ${stats.waiting} new to accept` : "open · given by others", icon: Inbox, to: "/global-kanban?board=assigned" },
+    { key: "board-given", label: "Assigned by me", value: stats.boards.given, sub: stats.boards.givenNotAccepted ? `open · ${stats.boards.givenNotAccepted} not accepted yet` : "open · I gave to others", icon: Send, to: "/global-kanban?board=given" },
   ];
 
   return (
     <section className="space-y-3" data-testid="my-work">
-      <h2 className="text-lg font-semibold tracking-tight">My work</h2>
+      <h2 className="text-lg font-semibold tracking-tight">My day</h2>
 
       {mentions.length > 0 && (
         <Card className="macos-card border-none border-l-4 !border-l-primary" data-testid="mentions-card">
@@ -106,7 +119,20 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 [&>*]:min-w-0">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&>*]:min-w-0" data-testid="my-boards">
+        {boardTiles.map((t) => (
+          <button key={t.key} type="button" onClick={() => setLocation(t.to)} data-testid={`mywork-${t.key}`} title={`Open ${t.label}`}
+            className="text-left rounded-2xl border bg-white/70 dark:bg-white/[0.08] p-3 sm:p-4 flex items-center gap-3 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-w-0">
+            <t.icon className="h-5 w-5 text-muted-foreground shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">{t.label} <span className="text-primary">{t.value}</span></span>
+              <span className="block text-xs text-muted-foreground truncate">{t.sub}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 [&>*]:min-w-0">
         <Card className="macos-card border-none">
           <CardHeader className="pb-2"><CardTitle className="text-sm">My open stories by client temperature</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-3 gap-2 p-3 pt-0 sm:p-6 sm:pt-0">
@@ -116,19 +142,6 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
                 <p className="text-2xl font-bold leading-none">{stats.byTemp[stage]}</p>
                 <p className="text-xs mt-1">{stage}</p>
                 <p className="text-[10px] opacity-70 leading-tight">{stats.clientsByTemp[stage]} my client{stats.clientsByTemp[stage] === 1 ? "" : "s"}</p>
-              </button>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="macos-card border-none">
-          <CardHeader className="pb-2"><CardTitle className="text-sm">By status</CardTitle></CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {STATUSES.map((st) => (
-              <button key={st} type="button" onClick={() => setLocation(mineBoard(`status=${encodeURIComponent(st)}`))} data-testid={`mywork-status-${st}`} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                <Badge variant="secondary" className="text-xs font-medium cursor-pointer hover:bg-primary/10">
-                  {st}: {stats.byStatus[st]}
-                </Badge>
               </button>
             ))}
           </CardContent>

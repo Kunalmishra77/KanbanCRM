@@ -8,6 +8,7 @@ import { StoryModal } from "@/components/StoryModal";
 import { RepeatingTaskList } from "@/pages/RecurringTasks";
 import { CreateStoryModal } from "@/components/CreateStoryModal";
 import { useStories, useUpdateStory, useClients, useUsers } from "@/lib/queries";
+import { storiesAPI } from "@/lib/api";
 import { useSearch, useLocation } from "wouter";
 import { inBoard, isWaiting, boardOf, BOARDS, type Board } from "@/lib/boards";
 import { isAssignedByOther } from "@shared/roles";
@@ -113,7 +114,7 @@ const DEADLINE_STYLES: Record<DeadlineStatus, {
 const BOARD_COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Review', 'Done'];
 
 const BOARD_TITLES: Record<string, string> = {
-  mine: 'My Work', assigned: 'Assigned to me', given: 'Assigned by me', all: "Everyone's work", me: 'All my stories',
+  mine: 'My Work', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team Board', me: 'All my stories',
 };
 const BOARD_HINTS: Record<string, string> = {
   mine: 'Stories you made for yourself.',
@@ -144,7 +145,7 @@ export default function GlobalKanban() {
     const b = q.get('board') as Board | null;
     if (b && BOARDS.includes(b) && (b !== 'all' || canPickPeople)) return b;
     if (q.get('mine') === '1') return 'me';
-    if (q.get('team') || q.get('assignee') || q.get('scope') || q.get('stage')) return canPickPeople ? 'all' : 'me';
+    if (q.get('team') || q.get('assignee') || q.get('scope') || q.get('stage') || q.get('due')) return canPickPeople ? 'all' : 'me';
     return 'mine';
   };
   const [board, setBoard] = useState<BoardView>(() => boardFromUrl(new URLSearchParams(window.location.search)));
@@ -191,20 +192,22 @@ export default function GlobalKanban() {
     return { from: Number.isFinite(from) ? from : null, to: Number.isFinite(to) ? to : null };
   }, [searchString]);
   const [scope, setScope] = useState<Scope | null>(scopeParam);
+  type DueFilter = 'any' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'custom';
+  const [dueFilter, setDueFilter] = useState<DueFilter>('any');
   // ?stage=Hot|Warm|Cold (from "My open stories by client temperature"): stories of clients at that stage
   const [clientStage, setClientStage] = useState<string | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(searchString);
     setBoard(boardFromUrl(q));
     setClientStage(q.get('stage'));
+    const due = q.get('due');
+    if (due && ['overdue', 'today', 'tomorrow', 'week'].includes(due)) setDueFilter(due as any);
     const st = q.get('status');
     if (st && (BOARD_COLUMNS as string[]).includes(st)) { pickedInitialTab.current = true; statusFromUrl.current = true; setActiveStatusTab(st as KanbanStatus); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchString, canPickPeople]);
   // New filters: who assigned it, and when it is due
   const [filterAssignedBy, setFilterAssignedBy] = useState<string[]>([]);
-  type DueFilter = 'any' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'custom';
-  const [dueFilter, setDueFilter] = useState<DueFilter>('any');
   const [dueFrom, setDueFrom] = useState('');
   const [dueTo, setDueTo] = useState('');
   const dueRange = useMemo((): [number, number] | null => {
@@ -337,6 +340,11 @@ export default function GlobalKanban() {
   const lastBoard = useRef<string>('');
   useEffect(() => {
     if (lastBoard.current !== board) {
+      // A different board starts without the previous board's person filters (unless a link picked a person)
+      if (lastBoard.current) {
+        setFilterAssignedBy([]);
+        if (!new URLSearchParams(window.location.search).get('assignee')) setFilterAssigneeNames([]);
+      }
       lastBoard.current = board;
       if (statusFromUrl.current) statusFromUrl.current = false; else pickedInitialTab.current = false;
     }
@@ -437,8 +445,15 @@ export default function GlobalKanban() {
   // Deep link from the global search: /global-kanban?story=<id> opens that story
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("story");
-    if (!id || stories.length === 0 || !me) return;
+    if (!id || isLoading || !me) return;
     const match = stories.find((s) => s.id === id);
+    if (!match) {
+      // Not on any of my boards (e.g. I was @mentioned in it): open it on its own if I'm allowed to
+      storiesAPI.getOne(id).then((one: Story) => { setSelectedStory(one); setIsDetailsOpen(true); })
+        .catch(() => toast({ title: "Story not available", description: "It was deleted, or you don't have access to it.", variant: "destructive" }));
+      window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
     if (match) {
       // Show the board the story lives on (Assigned to me, My Work, ...)
       const b = boardOf(match, me as any);
@@ -448,7 +463,7 @@ export default function GlobalKanban() {
       window.history.replaceState(null, "", `${window.location.pathname}?${b === 'all' && !canPickPeople ? 'mine=1' : `board=${b}`}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stories, me]);
+  }, [stories, me, isLoading]);
 
   const handleStoryClick = (story: Story) => {
     setSelectedStory(story);
@@ -561,30 +576,10 @@ export default function GlobalKanban() {
         </div>
       </div>
 
-      {/* The boards */}
-      <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-muted/30 p-1 w-full sm:w-fit" role="tablist" aria-label="Boards" data-testid="board-tabs">
-        {(['mine', 'assigned', 'given', ...(canPickPeople ? ['all'] : [])] as Board[]).map((b) => (
-          <button
-            key={b}
-            type="button"
-            role="tab"
-            aria-selected={board === b}
-            onClick={() => openBoard(b)}
-            data-testid={`board-${b}`}
-            className={cn("shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 h-9 text-sm transition-colors",
-              board === b ? "bg-background shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground")}
-          >
-            {b === 'all' ? (seesAllStories ? 'Everyone' : `Whole ${myTeam} team`) : BOARD_TITLES[b]}
-            <span className="text-xs text-muted-foreground">{boardCounts[b]}</span>
-            {b === 'assigned' && waiting.length > 0 && (
-              <span className="rounded-full bg-primary text-white text-[10px] font-semibold h-[18px] px-1.5 inline-flex items-center justify-center" title={`${waiting.length} waiting for you to accept`}>{waiting.length} new</span>
-            )}
-          </button>
-        ))}
-      </div>
       {board === 'me' && (
         <div className="flex items-center gap-2 -mt-3">
           <Badge variant="outline" className="text-xs">All stories assigned to you (My Work + Assigned to me)</Badge>
+          <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => openBoard('mine')}>Back to My Work</button>
         </div>
       )}
 

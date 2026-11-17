@@ -55,11 +55,12 @@ export async function generateRecurringStories(date: string = istDate()): Promis
  */
 export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const today = istDate();
-  const [rules, users, requests, copies] = await Promise.all([
+  const [rules, users, requests, copies, skipped] = await Promise.all([
     storage.listRecurringTasks(),
     storage.getAllUsers(),
     storage.listEmployeeRequests(),
     storage.getRuleOccurrences(ruleId, today),
+    storage.getRuleSkipKeys(ruleId, today),
   ]);
   const raw = rules.find((r) => r.id === ruleId);
   if (!raw || !raw.active) return 0;
@@ -67,7 +68,8 @@ export async function generateNextOccurrences(ruleId: string): Promise<number> {
   const leaves = approvedLeaves(requests);
   // Someone who already has an unfinished copy waiting is fine; finished copies do not count
   const waiting = new Set(copies.filter((c) => c.status !== "Done").map((c) => c.assignedTo));
-  const existing = new Set(copies.map((c) => occurrenceKey(rule.id, c.assignedTo || "", c.occurrenceDate || "")));
+  // A copy someone removed for a day counts as existing: it never comes back that day
+  const existing = new Set([...copies.map((c) => occurrenceKey(rule.id, c.assignedTo || "", c.occurrenceDate || "")), ...Array.from(skipped)]);
   let people = users.map(asPerson).filter((p) => !waiting.has(p.id));
   const rows: ReturnType<typeof storyRow>[] = [];
   // Only TODAY: new copies for later days arrive in the 12:00 AM IST run, never earlier (user's rule, 16 Nov)

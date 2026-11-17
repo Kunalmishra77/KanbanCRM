@@ -93,29 +93,28 @@ const salesOnly = stories.filter((x) => x.assignedTo === sales.id);
 p = await as(sales, salesOnly);
 const mw = async (key) => { await p.goto(BASE + '/'); await p.waitForTimeout(2000); await p.getByTestId('mywork-' + key).click(); await p.waitForTimeout(1500); return allBoard(p); };
 ok(JSON.stringify(await mw('overdue')) === JSON.stringify(['Late invoice chase']), 'My work Overdue opens my overdue stories', JSON.stringify(await allBoard(p)));
-ok(JSON.stringify(await mw('due7')) === JSON.stringify(['Cold client follow-up', 'Sales call list', 'Soon task']), 'My work Due in 7 days opens those', JSON.stringify(await allBoard(p)));
-ok(JSON.stringify(await mw('done')) === JSON.stringify(['Old done']), 'My work Completed opens my finished stories', JSON.stringify(await allBoard(p)));
-ok((await mw('assigned')).length === salesOnly.length, 'My work Assigned to me opens all my stories');
-await p.goto(BASE + '/'); await p.waitForTimeout(2000);
-await p.getByTestId('mywork-status-Review').click(); await p.waitForTimeout(1500);
-ok((await p.getByRole('tab', { name: /^Review/ }).getAttribute('data-state')) === 'active' && JSON.stringify(await titles(p)) === JSON.stringify(['Sales call list']), 'status badge opens that column');
+await mw('done');
+ok(/scope=completed/.test(p.url()) || (await p.getByTestId('board-title').innerText()) === 'All my stories', 'My day "Done today" opens my finished stories', p.url());
+ok((await mw('board-mine')).length === salesOnly.length && (await p.getByTestId('board-title').innerText()) === 'My Work', 'My Work tile opens My Work (old stories without a recorded assigner count as mine)');
+await mw('waiting');
+ok((await p.getByTestId('board-title').innerText()) === 'Assigned to me', '"Waiting for you" opens Assigned to me');
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('my-temp-Hot').click(); await p.waitForTimeout(1500);
 ok(p.url().includes('/global-kanban') && p.url().includes('stage=Hot'), 'Hot stories tile opens the board, not clients', p.url());
 ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Late invoice chase', 'Next month plan', 'Sales call list', 'Soon task']), 'shows my open stories of Hot clients only', JSON.stringify(await allBoard(p)));
 // A founder's "Assigned to me" shows only the founder's own stories
 p = await as(founder, stories);
-ok(JSON.stringify(await mw('assigned')) === JSON.stringify(['Founder own']), "founder: Assigned to me is only the founder's own", JSON.stringify(await allBoard(p)));
+ok(JSON.stringify(await mw('board-mine')) === JSON.stringify(['Founder own']), "founder: My Work is only the founder's own", JSON.stringify(await allBoard(p)));
 
 // Team lead: links about a teammate must not be hidden by "My stories"
 const salesStories = stories.filter((s) => s.id !== 'st2' && s.id !== 'st9');
 p = await as(lead, salesStories);
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('stat-open-Sam Seller').click(); await p.waitForTimeout(1500);
-ok((await p.getByTestId('board-all').getAttribute('aria-selected')) === 'true', "lead: a teammate's link switches to the whole team");
+ok((await p.getByTestId('board-title').innerText()) === 'Team Board', "lead: a teammate's link opens the Team Board");
 ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Cold client follow-up', 'Late invoice chase', 'Next month plan', 'Sales call list', 'Soon task']), "lead: shows the teammate's open stories", JSON.stringify(await allBoard(p)));
 await p.goto(BASE + '/global-kanban'); await p.waitForTimeout(2000);
-ok((await p.getByTestId('board-mine').getAttribute('aria-selected')) === 'true', 'lead: opening the board directly starts on My Work');
+ok((await p.getByTestId('board-title').innerText()) === 'My Work', 'lead: opening the board directly starts on My Work');
 
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 await b.close(); server.close();

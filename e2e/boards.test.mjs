@@ -70,12 +70,12 @@ ok(titles.includes('My own plan') && titles.includes('Old story without record')
 ok(!titles.some((t) => /Sam|Founder|Olu/.test(t)), 'My Work: nothing assigned by others / to others', JSON.stringify(titles));
 ok(await visible('Assigned to me'), 'menu has "Assigned to me"');
 ok((await pg.getByTestId('nav-waiting-count').first().innerText()) === '1', 'menu shows 1 waiting');
-ok(/My Work\s*2/.test(await pg.getByTestId('board-mine').innerText()) && /Assigned to me\s*3/.test(await pg.getByTestId('board-assigned').innerText()) && /Assigned by me\s*1/.test(await pg.getByTestId('board-given').innerText()), 'tab counts 2 / 3 / 1',
-  [await pg.getByTestId('board-mine').innerText(), await pg.getByTestId('board-assigned').innerText(), await pg.getByTestId('board-given').innerText()].join(' | '));
-ok(!(await pg.getByTestId('board-all').isVisible().catch(() => false)), 'employees have no "Everyone" tab');
+ok(!(await pg.getByTestId('board-tabs').isVisible().catch(() => false)), 'no duplicate tab bar inside the page (the menu switches boards)');
+ok(await visible('Assigned by me'), 'menu has "Assigned by me"');
+ok(!(await visible('Team Board')), 'employees have no Team Board');
 await pg.screenshot({ path: `${out}/boards-mywork.png` });
 
-await pg.getByTestId('board-assigned').click(); await pg.waitForTimeout(800);
+await pg.locator('aside').getByText('Assigned to me', { exact: true }).first().click(); await pg.waitForTimeout(800);
 ok((await pg.getByTestId('board-title').innerText()) === 'Assigned to me', 'switches to "Assigned to me"');
 ok(new URL(pg.url()).search === '?board=assigned', 'URL follows the board', pg.url());
 const waitingBox = pg.getByTestId('waiting-for-you');
@@ -116,7 +116,7 @@ titles = await allTabsText();
 ok(titles.length === 1 && titles[0] === 'Founder task due tomorrow', 'Assigned by Vik filter', JSON.stringify(titles));
 
 // assigned by me
-await pg.getByTestId('board-given').click(); await pg.waitForTimeout(800);
+await pg.locator('aside').getByText('Assigned by me', { exact: true }).first().click(); await pg.waitForTimeout(800);
 titles = await allTabsText();
 ok(titles.length === 1 && titles[0] === 'Work I gave Olu', 'Assigned by me lists what I gave', JSON.stringify(titles));
 await pg.getByRole('tab', { name: /^To Do/ }).click(); await pg.waitForTimeout(200);

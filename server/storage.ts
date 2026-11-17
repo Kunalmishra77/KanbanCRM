@@ -19,7 +19,7 @@ import {
   type Notification, type InsertNotification,
   users, clients, stories, comments, activityLog, invoices, founderInvestments, sentEmails, internalDocuments,
   leads, leadComments, revenueTargets, clientCommunications, announcements, salaryRecords, incentives,
-  recurringTasks, employeeRequests, notifications
+  recurringTasks, recurringSkips, employeeRequests, notifications
 } from "../shared/schema.js";
 import { db } from "../db/index.js";
 import { eq, desc, and, sql, inArray, gte, ne } from "drizzle-orm";
@@ -57,6 +57,9 @@ export interface IStorage {
   updateRecurringTask(id: string, data: Partial<RecurringTaskInput>): Promise<RecurringTask | undefined>;
   deleteRecurringTask(id: string): Promise<boolean>;
   getOccurrenceKeys(date: string): Promise<Set<string>>;
+  addRecurringSkip(ruleId: string, userId: string, date: string, by: string | null): Promise<void>;
+  isMentionedOn(storyId: string, fullName: string): Promise<boolean>;
+  getRuleSkipKeys(ruleId: string, fromDate: string): Promise<Set<string>>;
   getUpcomingOccurrencePeople(ruleId: string, fromDate: string): Promise<Set<string>>;
   closePastRepeatingCopies(today: string): Promise<number>;
   getRuleOccurrences(ruleId: string, fromDate: string): Promise<{ assignedTo: string | null; occurrenceDate: string | null; status: string }[]>;
@@ -384,9 +387,23 @@ export class DatabaseStorage implements IStorage {
     return rows.length > 0;
   }
 
+  /** Copies that exist for this day, plus copies someone removed that day (those must not come back). */
   async getOccurrenceKeys(date: string): Promise<Set<string>> {
-    const rows = await db.select({ r: stories.recurringTaskId, u: stories.assignedTo, d: stories.occurrenceDate }).from(stories).where(eq(stories.occurrenceDate, date));
-    return new Set(rows.filter((x) => x.r && x.u).map((x) => `${x.r}|${x.u}|${x.d}`));
+    const [rows, skips] = await Promise.all([
+      db.select({ r: stories.recurringTaskId, u: stories.assignedTo, d: stories.occurrenceDate }).from(stories).where(eq(stories.occurrenceDate, date)),
+      db.select({ r: recurringSkips.recurringTaskId, u: recurringSkips.userId, d: recurringSkips.occurrenceDate }).from(recurringSkips).where(eq(recurringSkips.occurrenceDate, date)),
+    ]);
+    return new Set([...rows, ...skips].filter((x) => x.r && x.u).map((x) => `${x.r}|${x.u}|${x.d}`));
+  }
+
+  async addRecurringSkip(ruleId: string, userId: string, date: string, by: string | null): Promise<void> {
+    await db.insert(recurringSkips).values({ recurringTaskId: ruleId, userId, occurrenceDate: date, skippedBy: by }).onConflictDoNothing();
+  }
+
+  async getRuleSkipKeys(ruleId: string, fromDate: string): Promise<Set<string>> {
+    const rows = await db.select({ u: recurringSkips.userId, d: recurringSkips.occurrenceDate }).from(recurringSkips)
+      .where(and(eq(recurringSkips.recurringTaskId, ruleId), gte(recurringSkips.occurrenceDate, fromDate)));
+    return new Set(rows.map((x) => `${ruleId}|${x.u}|${x.d}`));
   }
 
   /** People who already have a story from this rule dated fromDate or later. */
@@ -492,6 +509,16 @@ export class DatabaseStorage implements IStorage {
 
   async getActivitySince(since: Date): Promise<ActivityLog[]> {
     return db.select().from(activityLog).where(gte(activityLog.createdAt, since)).orderBy(desc(activityLog.createdAt));
+  }
+
+  /** Was this person @mentioned in a comment on this story? (They may then open it and reply.) */
+  async isMentionedOn(storyId: string, fullName: string): Promise<boolean> {
+    const name = fullName.replace(/\s+/g, ' ').trim();
+    if (!name) return false;
+    const pattern = '%@' + name.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
+    const rows = await db.select({ id: comments.id }).from(comments)
+      .where(and(eq(comments.storyId, storyId), sql`${comments.body} ilike ${pattern}`)).limit(1);
+    return rows.length > 0;
   }
 
   /** Comments written by someone else that contain "@<this person's full name>". Private to that person. */
@@ -865,7 +892,7 @@ function withListCache(target: DatabaseStorage): DatabaseStorage {
           return fresh;
         };
       }
-      if (/^(get|list)/.test(prop)) return (value as Function).bind(obj);
+      if (/^(get|list|is)/.test(prop)) return (value as Function).bind(obj); // reads never clear the cache
       // A change: run it, then forget the cached lists (also when it fails part-way)
       return (...args: unknown[]) => {
         clear();

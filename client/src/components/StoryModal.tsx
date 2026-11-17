@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
-import { canDeleteStory, perms } from "@shared/roles";
+import { canDeleteStory, perms, ownsStory, givenBy } from "@shared/roles";
 import { MentionTextarea, MentionText } from "@/components/MentionTextarea";
 import { RepeatControls } from "@/components/RepeatControls";
 import { assignedByLabel } from "@/lib/assignee";
@@ -153,6 +153,9 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const canEmail = perms.isFounder(user);
   const { data: sentEmails = [], isLoading: isLoadingSentEmails, refetch: refetchEmails } = useSentEmails(canEmail ? story?.id || '' : '');
   const { data: users = [] } = useUsers();
+  // Somebody only @mentioned here (not assignee, assigner, their team lead or a manager) can read and reply
+  const canWorkOn = !story || perms.viewAllStories(user) || ownsStory(story as any, user as any) || givenBy(story as any, user as any)
+    || (perms.isTeamLead(user) && !!(user as any)?.team && (users as any[]).some((u) => u.team === (user as any).team && ownsStory(story as any, u)));
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: deleteStory } = useDeleteStory();
@@ -458,6 +461,12 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                   </div>
                 </div>
 
+                {!canWorkOn && (
+                  <div className="rounded-xl border bg-muted/40 p-3 text-sm" data-testid="mention-reader">
+                    You were @mentioned on this story: you can read it and reply in the comments. Only the people working on it can change it.
+                  </div>
+                )}
+
                 {isWaiting(story as any, user as any) && (
                   <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-3 space-y-2" data-testid="modal-accept">
                     <p className="text-sm">Somebody else gave you this story. Accept it when you have room for it, or write them a comment.</p>
@@ -525,6 +534,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                         </>
                       ) : (
                         <>
+                          {canWorkOn && (<>
                           <Button
                             variant="outline"
                             size="icon"
@@ -547,6 +557,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                           >
                             <Clock className="h-4 w-4" />
                           </Button>
+                          </>)}
                           {canDeleteStory(user, story) && (
                           <Button
                             variant="outline"
@@ -793,7 +804,8 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                               setLocalProgress(newProgress); // the bar follows the finger; saved once it stops
                               saveProgress(newProgress, 600);
                             }}
-                            className="flex-1 min-w-[140px] h-2 accent-primary cursor-pointer"
+                            className="flex-1 min-w-[140px] h-2 accent-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={!canWorkOn}
                             data-testid="input-progress-slider"
                           />
                           <div className="flex gap-1">
@@ -806,6 +818,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
                                   "h-7 px-2 text-xs",
                                   localProgress === val && "bg-primary/10 text-primary"
                                 )}
+                                disabled={!canWorkOn}
                                 onClick={() => {
                                   setLocalProgress(val);
                                   saveProgress(val, 0);
@@ -1107,9 +1120,11 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent className="macos-panel">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Story</AlertDialogTitle>
+            <AlertDialogTitle>{story.recurringTaskId ? "Skip this day?" : "Delete Story"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{story.title}"? This will also delete all comments associated with this story. This action cannot be undone.
+              {story.recurringTaskId
+                ? <>This removes this day's copy of "{story.title}" and it will not come back for this day. The task still repeats on its next day; to stop it, use <b>Pause</b> on the repeating task.</>
+                : <>Are you sure you want to delete "{story.title}"? This will also delete all comments associated with this story. This action cannot be undone.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1123,7 +1138,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
               }}
               data-testid="button-confirm-delete-story"
             >
-              Delete
+              {story.recurringTaskId ? "Skip this day" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

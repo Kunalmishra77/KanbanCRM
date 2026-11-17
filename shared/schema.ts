@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, uuid, numeric, jsonb, index, date, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, uuid, numeric, jsonb, index, date, unique, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -361,6 +361,15 @@ export const recurringTasks = pgTable("recurring_tasks", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// A repeating copy removed for one day ("Skip today"): never created again for that person and day
+export const recurringSkips = pgTable("recurring_skips", {
+  recurringTaskId: uuid("recurring_task_id").references(() => recurringTasks.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  occurrenceDate: varchar("occurrence_date", { length: 10 }).notNull(),
+  skippedBy: varchar("skipped_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.recurringTaskId, t.userId, t.occurrenceDate] })]);
 
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date");
 export const recurringTaskInputSchema = z.object({

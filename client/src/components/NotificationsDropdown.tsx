@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Bell, Users, FileText, CheckCircle, Edit, Trash2, MessageSquare, CalendarClock, XCircle, Send, Megaphone, Inbox } from "lucide-react";
+import { Bell, Users, FileText, CheckCircle, Edit, Trash2, MessageSquare, CalendarClock, XCircle, Send, Megaphone, Inbox, AtSign } from "lucide-react";
 import { ToastAction } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -40,7 +40,8 @@ function notificationIcon(n: NotificationRow) {
   if (n.type === "announcement") return <Megaphone className="h-4 w-4 text-primary" />;
   if (n.type === "story_assigned") return <Inbox className="h-4 w-4 text-primary" />;
   if (n.type === "story_accepted") return <CheckCircle className="h-4 w-4 text-green-500" />;
-  if (n.type === "story_feedback") return <MessageSquare className="h-4 w-4 text-purple-500" />;
+  if (n.type === "story_feedback" || n.type === "story_comment") return <MessageSquare className="h-4 w-4 text-purple-500" />;
+  if (n.type === "mention") return <AtSign className="h-4 w-4 text-primary" />;
   return <Bell className="h-4 w-4 text-primary" />;
 }
 
