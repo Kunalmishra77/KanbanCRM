@@ -24,7 +24,7 @@ const u = (id, firstName, lastName, userType = 'employee') => ({ id, firstName, 
 const me = u('sh', 'Shira', 'Writer'), boss = u('dp', 'Dev', 'Planner'), founder = u('vf', 'Vik', 'Founder', 'founder');
 const users = [me, boss, founder];
 const client = { id: 'c1', name: 'Sample Co', industry: 'IT', stage: 'Hot', averageProgress: '0', expectedRevenue: '0', revenueTotal: '0', createdAt: iso(-5), updatedAt: iso(-1) };
-const st = (id, title, assignedBy) => ({ id, clientId: 'c1', title, description: 'x', assignedTo: 'sh', assignedBy, person: 'Shira Writer', priority: 'Medium', estimatedEffortHours: 0, actualHoursSpent: '0', dueDate: iso(2), status: 'To Do', progressPercent: 0, tags: [], createdAt: iso(-1), updatedAt: iso(-1) });
+const st = (id, title, assignedBy) => ({ id, clientId: 'c1', title, description: 'x', assignedTo: 'sh', assignedBy, acceptedAt: iso(-1), person: 'Shira Writer', priority: 'Medium', estimatedEffortHours: 0, actualHoursSpent: '0', dueDate: iso(2), status: 'To Do', progressPercent: 0, tags: [], createdAt: iso(-1), updatedAt: iso(-1) });
 const stories = [st('s1', 'Blog post from Dev', 'dp'), st('s2', 'Ad copy from Vik', 'vf'), st('s3', 'My own note', 'sh'), st('s4', 'Old story', null)];
 
 const b = await chromium.launch({ channel: 'chrome' });

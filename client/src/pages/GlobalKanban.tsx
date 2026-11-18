@@ -116,13 +116,13 @@ const BOARD_COLUMNS: KanbanStatus[] = ['To Do', 'In Progress', 'Blocked', 'Revie
 const BOARD_TITLES: Record<string, string> = {
   mine: 'My Work', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team Board', me: 'All my stories',
 };
-const SWITCH_LABELS: Record<string, string> = { mine: 'Mine', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team' };
+const SWITCH_LABELS: Record<string, string> = { me: 'All my work', mine: 'Mine', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team' };
 const BOARD_HINTS: Record<string, string> = {
   mine: 'Stories you made for yourself.',
   assigned: 'Work others gave you. Accept new ones when you have room for them.',
   given: 'Stories you gave to others, and how far they are.',
   all: "Everyone's stories.",
-  me: 'Everything assigned to you.',
+  me: 'Everything you have to do: your own stories and work others gave you.',
 };
 
 export default function GlobalKanban() {
@@ -144,14 +144,15 @@ export default function GlobalKanban() {
   const [, setLocation] = useLocation();
   const boardFromUrl = (q: URLSearchParams): BoardView => {
     const b = q.get('board') as Board | null;
+    if ((b as string) === 'me') return 'me';
     if (b && BOARDS.includes(b) && (b !== 'all' || canPickPeople)) return b;
     if (q.get('mine') === '1') return 'me';
     if (q.get('team') || q.get('assignee') || q.get('scope') || q.get('stage') || q.get('due')) return canPickPeople ? 'all' : 'me';
-    return 'mine';
+    return 'me'; // everything I have to do, whoever made it
   };
   const [board, setBoard] = useState<BoardView>(() => boardFromUrl(new URLSearchParams(window.location.search)));
   // Switching boards starts with clean person filters (they differ per board)
-  const openBoard = (b: Board) => { setFilterAssignedBy([]); setFilterAssigneeNames([]); setLocation(`/global-kanban?board=${b}`); };
+  const openBoard = (b: Board | 'me') => { setFilterAssignedBy([]); setFilterAssigneeNames([]); setLocation(`/global-kanban?board=${b}`); };
   const showTeamWork = board === 'all' && canPickPeople;
   // Which filters apply on this board (the same rule decides whether their picker is shown)
   const usesTeams = board === 'all' && seesAllStories;
@@ -213,6 +214,12 @@ export default function GlobalKanban() {
   }, [searchString, canPickPeople]);
   // New filters: who assigned it, and when it is due
   const [filterAssignedBy, setFilterAssignedBy] = useState<string[]>([]);
+  const [showOldRoutines, setShowOldRoutines] = useState(false);
+  // Earlier days' finished routine copies (kept, but hidden under Done until asked for)
+  const todayYmd = format(new Date(), 'yyyy-MM-dd');
+  function isOldRoutineDone(s: Story) {
+    return s.status === 'Done' && !!s.recurringTaskId && !!s.occurrenceDate && s.occurrenceDate < todayYmd;
+  }
   const [dueFrom, setDueFrom] = useState('');
   const [dueTo, setDueTo] = useState('');
   const dueRange = useMemo((): [number, number] | null => {
@@ -297,7 +304,9 @@ export default function GlobalKanban() {
     return stories.filter((story: Story) => {
       if (board === 'me' ? !(me && isAssignedTo(story, me as any)) : !inBoard(story, board, me as any)) return false;
       // Not accepted yet: shown in "Waiting for you" above the columns, not in them
-      if (board === 'assigned' && isWaiting(story, me as any)) return false;
+      if ((board === 'assigned' || (board === 'me' && !scope)) && isWaiting(story, me as any)) return false;
+      // Done: earlier days' routine copies are tucked away unless asked for (they made Done look like today's didn't come)
+      if (!showOldRoutines && !scope && isOldRoutineDone(story)) return false;
       if (usesAssignedBy && filterAssignedBy.length > 0) {
         const self = !story.assignedBy || story.assignedBy === story.assignedTo;
         if (!filterAssignedBy.some((v) => (v === '__self' ? self : !self && story.assignedBy === v))) return false;
@@ -342,7 +351,8 @@ export default function GlobalKanban() {
       }
       return true;
     });
-  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, board, me, clientStage, clients, filterAssignedBy, dueFilter, dueRange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stories, filterClientIds, filterAssigneeNames, users, scope, period, filterTeams, board, me, clientStage, clients, filterAssignedBy, dueFilter, dueRange, showOldRoutines]);
 
   // Open the first column that has stories (again whenever the board changes), unless a link picked one
   const lastBoard = useRef<string>('');
@@ -363,10 +373,18 @@ export default function GlobalKanban() {
     if (first) setActiveStatusTab(first);
   }, [filteredStories, board]);
 
+  const hiddenOldRoutines = useMemo(() => (showOldRoutines || scope ? 0 : stories.filter((s) =>
+    isOldRoutineDone(s) && (board === 'me' ? !!me && isAssignedTo(s, me as any) : inBoard(s, board as Board, me as any))).length),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [stories, board, me, showOldRoutines, scope, todayYmd]);
+
   // Per-board numbers for the tabs, and the stories waiting to be accepted
   const boardCounts = useMemo(() => {
-    const c: Record<Board, number> = { mine: 0, assigned: 0, given: 0, all: stories.length };
-    for (const s of stories) for (const b of ['mine', 'assigned', 'given'] as Board[]) if (inBoard(s, b, me as any)) c[b]++;
+    const c: Record<string, number> = { me: 0, mine: 0, assigned: 0, given: 0, all: stories.length };
+    for (const s of stories) {
+      for (const b of ['mine', 'assigned', 'given'] as Board[]) if (inBoard(s, b, me as any)) c[b]++;
+      if (me && isAssignedTo(s, me as any)) c.me++;
+    }
     return c;
   }, [stories, me]);
   const waiting = useMemo(() => stories.filter((s) => isWaiting(s, me as any))
@@ -464,7 +482,8 @@ export default function GlobalKanban() {
     }
     if (match) {
       // Show the board the story lives on (Assigned to me, My Work, ...)
-      const b = boardOf(match, me as any);
+      const found = boardOf(match, me as any);
+      const b = found === 'mine' || found === 'assigned' ? 'me' : found;
       setSelectedStory(match);
       setIsDetailsOpen(true);
       // Keep the board in the address (it is read from there) and drop ?story so a reload doesn't reopen it
@@ -586,7 +605,7 @@ export default function GlobalKanban() {
 
       {/* One page, one menu item: the switch picks whose stories */}
       <div className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-muted/30 p-1 w-full sm:w-fit" role="tablist" aria-label="Whose stories" data-testid="board-tabs">
-        {(['mine', 'assigned', 'given', ...(canPickPeople ? ['all'] : [])] as Board[]).map((b) => (
+        {(['me', 'mine', 'assigned', 'given', ...(canPickPeople ? ['all'] : [])] as (Board | 'me')[]).map((b) => (
           <button
             key={b}
             type="button"
@@ -605,14 +624,7 @@ export default function GlobalKanban() {
           </button>
         ))}
       </div>
-      {board === 'me' && (
-        <div className="flex items-center gap-2 -mt-3">
-          <Badge variant="outline" className="text-xs">All stories assigned to you (My Work + Assigned to me)</Badge>
-          <button type="button" className="text-xs text-primary underline min-h-[36px]" onClick={() => openBoard('mine')}>Back to My Work</button>
-        </div>
-      )}
-
-      {board === 'assigned' && (
+      {(board === 'assigned' || board === 'me') && (
         <WaitingForYou
           stories={waiting}
           users={users as any[]}
@@ -723,6 +735,11 @@ export default function GlobalKanban() {
             const statusStories = filteredStories.filter(s => s.status === col);
             return (
               <TabsContent key={col} value={col} className="space-y-3 focus-visible:outline-none">
+                {col === 'Done' && (hiddenOldRoutines > 0 || showOldRoutines) && (
+                  <button type="button" onClick={() => setShowOldRoutines(!showOldRoutines)} className="text-xs text-primary underline min-h-[32px]" data-testid="toggle-old-routines">
+                    {showOldRoutines ? "Hide earlier days' routine copies" : `Show ${hiddenOldRoutines} earlier routine cop${hiddenOldRoutines === 1 ? 'y' : 'ies'} (previous days)`}
+                  </button>
+                )}
                 {statusStories.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-xl bg-muted/5">
                     <CheckCircle2 className="h-8 w-8 text-muted-foreground/60 mb-2" />
@@ -775,6 +792,11 @@ export default function GlobalKanban() {
                               {isAssignedByOther(story) && !(story as any).acceptedAt && (
                                 <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 border-amber-300 text-amber-700 dark:text-amber-300" data-testid="not-accepted">
                                   Not accepted yet
+                                </Badge>
+                              )}
+                              {story.recurringTaskId && story.occurrenceDate && (
+                                <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${story.occurrenceDate === todayYmd ? 'border-primary/40 text-primary' : 'text-muted-foreground'}`} data-testid="routine-day">
+                                  {story.occurrenceDate === todayYmd ? "Today's copy" : `${format(new Date(story.occurrenceDate + 'T12:00:00'), 'd MMM')} copy`}
                                 </Badge>
                               )}
                               {story.tags && story.tags.map(tag => (
@@ -931,6 +953,11 @@ export default function GlobalKanban() {
         </Tabs>
       ) : (
         <div className="overflow-x-auto pb-4 h-[calc(100vh-190px)] sm:h-[calc(100vh-220px)] min-h-[420px] sm:min-h-[500px]">
+          {(hiddenOldRoutines > 0 || showOldRoutines) && (
+            <button type="button" onClick={() => setShowOldRoutines(!showOldRoutines)} className="text-xs text-primary underline min-h-[32px] mb-1">
+              {showOldRoutines ? "Hide earlier days' routine copies in Done" : `Done hides ${hiddenOldRoutines} earlier routine cop${hiddenOldRoutines === 1 ? 'y' : 'ies'} · show`}
+            </button>
+          )}
           <KanbanBoard
             stories={filteredStories}
             onStoryMove={handleStoryMove}

@@ -64,7 +64,8 @@ const allTabsText = async () => { // every status tab's titles (list view shows 
 };
 
 await pg.goto(BASE + '/global-kanban'); await pg.waitForTimeout(2500);
-ok((await pg.getByTestId('board-mine').getAttribute('aria-selected')) === 'true', 'opens on "Mine" inside My Work');
+ok((await pg.getByTestId('board-me').getAttribute('aria-selected')) === 'true', 'opens on "All my work" inside My Work');
+await pg.getByTestId('board-mine').click(); await pg.waitForTimeout(800);
 let titles = await allTabsText();
 ok(titles.includes('My own plan') && titles.includes('Old story without record'), 'My Work: own + unrecorded stories', JSON.stringify(titles));
 ok(!titles.some((t) => /Sam|Founder|Olu/.test(t)), 'My Work: nothing assigned by others / to others', JSON.stringify(titles));
@@ -124,7 +125,7 @@ await pg.screenshot({ path: `${out}/boards-given.png` });
 
 // delete rule in the story window
 await pg.goto(BASE + '/global-kanban?story=s3'); await pg.waitForTimeout(2200);
-ok((await pg.getByTestId('board-assigned').getAttribute('aria-selected')) === 'true', 'story link opens on its board');
+ok((await pg.getByTestId('board-me').getAttribute('aria-selected')) === 'true', 'story link opens under All my work');
 ok(!(await pg.getByTestId('button-delete-story').isVisible().catch(() => false)), 'cannot delete work somebody else gave you');
 await pg.keyboard.press('Escape'); await pg.waitForTimeout(400);
 await pg.goto(BASE + '/global-kanban?story=s1'); await pg.waitForTimeout(2200);
@@ -133,7 +134,7 @@ await pg.keyboard.press('Escape');
 
 // dashboard "My work" links still show everything assigned to me
 await pg.goto(BASE + '/global-kanban?mine=1&scope=open'); await pg.waitForTimeout(2200);
-ok(await pg.getByText('All stories assigned to you', { exact: false }).first().isVisible(), 'mine=1 links: all my stories');
+ok((await pg.getByTestId('board-me').getAttribute('aria-selected')) === 'true', 'mine=1 links: all my work');
 
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 await b.close(); server.close();

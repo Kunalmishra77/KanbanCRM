@@ -47,7 +47,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
     { icon: LayoutDashboard, label: "Dashboard", href: "/", access: "all" },
     { icon: Users, label: "Clients", href: "/clients", access: "all" },
     // One menu item: inside, a switch picks Mine / Assigned to me / Assigned by me / Team. The red count = new work to accept.
-    { icon: KanbanSquare, label: "My Work", href: "/global-kanban?board=mine", access: "all", badge: waitingCount },
+    { icon: KanbanSquare, label: "My Work", href: "/global-kanban", access: "all", badge: waitingCount },
     { icon: Target, label: "Leads", href: "/leads", access: "all" },
     { icon: CalendarClock, label: "Employee Services", href: "/services", access: "all" },
     { icon: Megaphone, label: "Announcements", href: "/announcements", access: "all" },

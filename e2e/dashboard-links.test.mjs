@@ -114,7 +114,7 @@ await p.getByTestId('stat-open-Sam Seller').click(); await p.waitForTimeout(1500
 ok((await p.getByTestId('board-all').getAttribute('aria-selected')) === 'true', "lead: a teammate's link opens the Team view");
 ok(JSON.stringify(await allBoard(p)) === JSON.stringify(['Cold client follow-up', 'Late invoice chase', 'Next month plan', 'Sales call list', 'Soon task']), "lead: shows the teammate's open stories", JSON.stringify(await allBoard(p)));
 await p.goto(BASE + '/global-kanban'); await p.waitForTimeout(2000);
-ok((await p.getByTestId('board-mine').getAttribute('aria-selected')) === 'true', 'lead: opening the board directly starts on Mine');
+ok((await p.getByTestId('board-me').getAttribute('aria-selected')) === 'true', 'lead: opening the board directly starts on All my work');
 
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 await b.close(); server.close();
