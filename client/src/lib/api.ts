@@ -73,7 +73,8 @@ export const storiesAPI = {
   delete: (id: string) => fetchAPI(`/stories/${id}`, {
     method: 'DELETE',
   }),
-  accept: (id: string) => fetchAPI(`/stories/${id}/accept`, { method: 'POST' }),
+  accept: (id: string, dueDate?: string) => fetchAPI(`/stories/${id}/accept`, { method: 'POST', body: JSON.stringify(dueDate ? { dueDate } : {}) }),
+  decline: (id: string, reason: string) => fetchAPI(`/stories/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }),
   feedback: (id: string, message: string) => fetchAPI(`/stories/${id}/feedback`, {
     method: 'POST',
     body: JSON.stringify({ message }),

@@ -118,8 +118,8 @@ const BOARD_TITLES: Record<string, string> = {
 };
 const SWITCH_LABELS: Record<string, string> = { me: 'All my work', mine: 'Mine', assigned: 'Assigned to me', given: 'Assigned by me', all: 'Team' };
 const BOARD_HINTS: Record<string, string> = {
-  mine: 'Stories you made for yourself.',
-  assigned: 'Work others gave you. Accept new ones when you have room for them.',
+  mine: 'Everything you committed to: your own stories, work you accepted and your routines.',
+  assigned: 'New work others gave you: accept it (pick when you will do it) or decline with a reason.',
   given: 'Stories you gave to others, and how far they are.',
   all: "Everyone's stories.",
   me: 'Everything you have to do: your own stories and work others gave you.',
@@ -157,7 +157,7 @@ export default function GlobalKanban() {
   // Which filters apply on this board (the same rule decides whether their picker is shown)
   const usesTeams = board === 'all' && seesAllStories;
   const usesPeople = showTeamWork || board === 'given';
-  const usesAssignedBy = board !== 'mine' && board !== 'given';
+  const usesAssignedBy = board !== 'given' && board !== 'assigned';
   // Team filter (founders / chief of staff): Sales, Marketing, ...
   const [filterTeams, setFilterTeams] = useState<string[]>([]);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -643,7 +643,7 @@ export default function GlobalKanban() {
           onChange={setFilterClientIds}
           testId="filter-clients"
         />
-        {board !== 'mine' && board !== 'given' && assignedByOptions.length > 1 && (
+        {usesAssignedBy && assignedByOptions.length > 1 && (
           <MultiPicker
             allLabel="Assigned by anyone"
             noun="assigner"
@@ -715,6 +715,15 @@ export default function GlobalKanban() {
       {/* RENDER VIEW */}
       {viewMode === 'repeating' ? (
         <RepeatingTaskList />
+      ) : board === 'assigned' ? (
+        // Assigned to me is an inbox: the new-work box above is the whole view
+        waiting.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-xl bg-muted/5 text-center px-4" data-testid="assigned-empty">
+            <CheckCircle2 className="h-8 w-8 text-muted-foreground/60 mb-2" />
+            <p className="text-sm font-medium text-muted-foreground">No new work waiting for you.</p>
+            <p className="text-xs text-muted-foreground mt-1">Work you accepted is under <button type="button" className="text-primary underline" onClick={() => openBoard('mine')}>Mine</button>.</p>
+          </div>
+        ) : null
       ) : viewMode === 'list' ? (
         <Tabs value={activeStatusTab} onValueChange={(val) => setActiveStatusTab(val as KanbanStatus)} className="w-full space-y-4">
           <TabsList className="mb-2 bg-muted/40 w-full sm:w-auto overflow-x-auto justify-start h-auto p-1 gap-1">

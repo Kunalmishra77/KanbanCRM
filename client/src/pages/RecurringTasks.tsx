@@ -67,10 +67,10 @@ export function RepeatingTaskList() {
                 <Button variant="outline" className="h-10 flex-1 gap-1" disabled={toggle.isPending} onClick={() => toggle.mutate({ id: t.id, active: !t.active })}>
                   {t.active ? <><Pause className="h-4 w-4" />Pause</> : <><Play className="h-4 w-4" />Resume</>}
                 </Button>
-                {!isFounder ? null : confirming === t.id ? (
-                  <Button variant="destructive" className="h-10 flex-1" onClick={() => { remove.mutate(t.id); setConfirming(null); }} data-testid={`confirm-delete-${t.title}`}>Confirm delete</Button>
+                {!(isFounder || perms.manageAllRepeating(user as any) || (t as any).createdBy === (user as any)?.id) ? null : confirming === t.id ? (
+                  <Button variant="destructive" className="h-10 flex-1" onClick={() => { remove.mutate(t.id); setConfirming(null); }} data-testid={`confirm-delete-${t.title}`}>Delete for good (also its open copies)</Button>
                 ) : (
-                  <Button variant="outline" className="h-10 w-12 text-destructive" aria-label={`Delete ${t.title}`} onClick={() => setConfirming(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                  <Button variant="outline" className="h-10 w-12 text-destructive" aria-label={`Delete ${t.title} for good`} title="Delete for good" onClick={() => setConfirming(t.id)}><Trash2 className="h-4 w-4" /></Button>
                 )}
               </div>
             </CardContent>

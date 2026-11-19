@@ -153,10 +153,24 @@ export function useUpdateStory() {
 export function useAcceptStory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => storiesAPI.accept(id),
+    mutationFn: ({ id, dueDate }: { id: string; dueDate?: string }) => storiesAPI.accept(id, dueDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+/** "Assigned to me": decline with a reason (the story goes back to whoever assigned it). */
+export function useDeclineStory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => storiesAPI.decline(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'comments' });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }

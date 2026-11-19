@@ -96,7 +96,7 @@ ok(JSON.stringify(await mw('overdue')) === JSON.stringify(['Late invoice chase']
 await mw('done');
 ok(/scope=completed/.test(p.url()) || (await p.getByText('All stories assigned to you', { exact: false }).first().isVisible()), 'My day "Done today" opens my finished stories', p.url());
 ok((await mw('board-mine')).length === salesOnly.length && (await p.getByTestId('board-mine').getAttribute('aria-selected')) === 'true', 'My Work tile opens My Work (old stories without a recorded assigner count as mine)');
-await mw('waiting');
+await p.goto(BASE + '/'); await p.waitForTimeout(2000); await p.getByTestId('mywork-waiting').click(); await p.waitForTimeout(1500);
 ok((await p.getByTestId('board-assigned').getAttribute('aria-selected')) === 'true', '"Waiting for you" opens Assigned to me');
 await p.goto(BASE + '/'); await p.waitForTimeout(2000);
 await p.getByTestId('my-temp-Hot').click(); await p.waitForTimeout(1500);

@@ -31,7 +31,7 @@ export const useCreateRecurringTask = () =>
 export const useToggleRecurringTask = () =>
   useInvalidating(({ id, active }: { id: string; active: boolean }) => call("PATCH", `/api/recurring-tasks/${id}`, { active }), () => "Updated", "Could not update");
 export const useDeleteRecurringTask = () =>
-  useInvalidating((id: string) => call("DELETE", `/api/recurring-tasks/${id}`), () => "Repeating task deleted. Tasks already created stay.", "Could not delete");
+  useInvalidating((id: string) => call("DELETE", `/api/recurring-tasks/${id}`), () => "Repeating task deleted for good. Its unfinished copies are gone; finished ones stay in history.", "Could not delete");
 
 // ---- personal notifications (the bell) ----
 export type NotificationRow = { id: string; type: string; title: string; message: string; link: string | null; entityType?: string | null; entityId?: string | null; isRead: boolean; createdAt: string };

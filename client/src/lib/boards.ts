@@ -1,6 +1,6 @@
 // Which board a story belongs to for the signed-in person.
-//  - My Work:        stories they made for themselves (and old stories with no record of who assigned them)
-//  - Assigned to me: stories somebody else gave them (repeating copies of a task someone else set up too)
+//  - Mine:           everything they committed to: own stories, accepted work, routines (and old unrecorded stories)
+//  - Assigned to me: new work somebody gave them, waiting for Accept (with a date and time) or Decline (with a reason)
 //  - Assigned by me: stories they gave to somebody else
 import { ownsStory } from "@shared/roles";
 import type { Story } from "@shared/schema";
@@ -14,8 +14,10 @@ const byOther = (s: Pick<Story, "assignedBy">, me: Me) => !!s.assignedBy && s.as
 export function inBoard(s: Story, board: Board, me: Me): boolean {
   if (board === "all") return true;
   const mine = ownsStory(s, me);
-  if (board === "mine") return mine && !byOther(s, me);
-  if (board === "assigned") return mine && byOther(s, me);
+  // Mine = everything I committed to: my own stories, work I accepted, routines (they need no accepting)
+  if (board === "mine") return mine && (!byOther(s, me) || !!(s as any).acceptedAt);
+  // Assigned to me = new work somebody gave me that I haven't accepted or declined yet
+  if (board === "assigned") return mine && byOther(s, me) && !(s as any).acceptedAt;
   return !mine && !!me?.id && s.assignedBy === me.id; // given
 }
 

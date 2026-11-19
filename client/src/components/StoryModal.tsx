@@ -13,7 +13,8 @@ import { Clock, Paperclip, Send, Wand2, Mail, X, Loader2, Image, FileText, Trash
 import { format } from "date-fns";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers, useStory, useAcceptStory } from "@/lib/queries";
+import { useComments, useCreateComment, useUpdateStory, useDeleteStory, useSentEmails, useCreateSentEmail, useUsers, useStory } from "@/lib/queries";
+import { AcceptDecline } from "@/components/AcceptDecline";
 import { isWaiting } from "@/lib/boards";
 import {
   AlertDialog,
@@ -159,7 +160,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
   const { mutate: createComment, isPending: isPostingComment } = useCreateComment();
   const { mutate: updateStory } = useUpdateStory();
   const { mutate: deleteStory } = useDeleteStory();
-  const acceptStory = useAcceptStory();
+  const giverName = (() => { const g = (users as any[]).find((u) => u.id === (story as any)?.assignedBy); return g ? `${g.firstName || ''} ${g.lastName || ''}`.trim() : 'Someone'; })();
   const { mutate: createSentEmail, isPending: isSendingEmail } = useCreateSentEmail();
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
@@ -469,16 +470,12 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
 
                 {isWaiting(story as any, user as any) && (
                   <div className="rounded-xl border border-primary/30 bg-primary/[0.05] p-3 space-y-2" data-testid="modal-accept">
-                    <p className="text-sm">Somebody else gave you this story. Accept it when you have room for it, or write them a comment.</p>
-                    <Button size="sm" className="w-full h-9 text-white" disabled={acceptStory.isPending}
-                      onClick={() => acceptStory.mutate(story.id, { onSuccess: () => toast({ title: "Accepted", description: "It is now in your To Do." }) })}
-                      data-testid="modal-accept-btn">
-                      {acceptStory.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}Accept
-                    </Button>
+                    <p className="text-sm">{giverName} gave you this story. Accept it and pick when you'll do it, or decline with a reason.</p>
+                    <AcceptDecline story={story as any} giverName={giverName} onDone={() => onOpenChange(false)} />
                   </div>
                 )}
 
-                {story.recurringTaskId && <RepeatControls ruleId={story.recurringTaskId} />}
+                {story.recurringTaskId && <RepeatControls ruleId={story.recurringTaskId} setBy={giverName} />}
 
                 <div className="mt-auto">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tags</h4>
@@ -1123,7 +1120,7 @@ export function StoryModal({ story: initialStory, client, open, onOpenChange }: 
             <AlertDialogTitle>{story.recurringTaskId ? "Skip this day?" : "Delete Story"}</AlertDialogTitle>
             <AlertDialogDescription>
               {story.recurringTaskId
-                ? <>This removes this day's copy of "{story.title}" and it will not come back for this day. The task still repeats on its next day; to stop it, use <b>Pause</b> on the repeating task.</>
+                ? <>This removes only this day's copy of "{story.title}" (it won't come back today). The task still repeats on its next day. To stop it for good, use <b>Delete for good</b> under <b>Repeats</b> in this story.</>
                 : <>Are you sure you want to delete "{story.title}"? This will also delete all comments associated with this story. This action cannot be undone.</>}
             </AlertDialogDescription>
           </AlertDialogHeader>

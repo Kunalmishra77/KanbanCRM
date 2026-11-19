@@ -592,13 +592,21 @@ export async function registerRoutes(
     try {
       const existing = await storage.getStory(req.params.id);
       if (!existing || existing.assignedTo !== req.user.id) return res.status(403).json({ error: "Only the person this story is assigned to can accept it." });
-      const story = existing.acceptedAt ? existing : await storage.updateStory(req.params.id, { acceptedAt: new Date() } as any);
+      // "When will you do it?": the chosen date and time becomes the due date
+      const when = req.body?.dueDate ? asIndiaDate(req.body.dueDate) : null;
+      if (when && Number.isNaN(when.getTime())) return res.status(400).json({ error: "Pick a valid date and time." });
+      const patch: any = {};
+      if (!existing.acceptedAt) patch.acceptedAt = new Date();
+      if (when) patch.dueDate = endOfDayIfDateOnly(when);
+      const story = Object.keys(patch).length ? await storage.updateStory(req.params.id, patch) : existing;
       if (!existing.acceptedAt) {
-        await storage.createActivityLog({ entityType: 'story', entityId: existing.id, action: 'accepted', userId: req.user.id, details: `Accepted story: ${existing.title}` });
+        const by = patch.dueDate ? ` · will do it by ${new Date(patch.dueDate).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : '';
+        await storage.createActivityLog({ entityType: 'story', entityId: existing.id, action: 'accepted', userId: req.user.id, details: `Accepted story: ${existing.title}${by}` });
+        await storage.markMyStoryNotificationsRead(req.user.id, existing.id, ['story_assigned']).catch(() => {});
         if (existing.assignedBy && existing.assignedBy !== req.user.id) {
           await storage.createNotifications([{
             userId: existing.assignedBy, type: "story_accepted", entityId: existing.id, entityType: "story", link: `/global-kanban?story=${existing.id}`,
-            title: `${fullNameOf(req.user)} accepted a story`, message: existing.title.slice(0, 160),
+            title: `${fullNameOf(req.user)} accepted a story`, message: `${existing.title.slice(0, 140)}${by}`,
           }]);
         }
       }
@@ -606,6 +614,36 @@ export async function registerRoutes(
     } catch (error) {
       console.error('Accept story error:', error);
       res.status(500).json({ error: "Failed to accept story" });
+    }
+  });
+
+  // "Assigned to me": decline with a reason. The story goes back to whoever assigned it (in their Mine),
+  // the reason is saved as a comment and they get a notification, so they can do it or give it to someone else.
+  app.post("/api/stories/:id/decline", isAuthenticated, storyAccess, async (req: any, res) => {
+    try {
+      const reason = String(req.body?.reason ?? '').trim().slice(0, 2000);
+      if (!reason) return res.status(400).json({ error: "Please write why you can't take it." });
+      const existing = await storage.getStory(req.params.id);
+      if (!existing || existing.assignedTo !== req.user.id) return res.status(403).json({ error: "Only the person this story is assigned to can decline it." });
+      if (!existing.assignedBy || existing.assignedBy === req.user.id) return res.status(400).json({ error: "You made this story yourself: delete it instead." });
+      if (existing.recurringTaskId) return res.status(400).json({ error: "Repeating work can't be declined. Ask the person who set it up to pause or delete it." });
+      const giver = await storage.getUser(existing.assignedBy);
+      if (!giver) return res.status(400).json({ error: "The person who assigned it no longer exists." });
+      await storage.createComment(insertCommentSchema.parse({
+        storyId: existing.id, authorId: req.user.id, authorName: fullNameOf(req.user), body: `Declined: ${reason}`,
+      }));
+      const story = await storage.updateStory(existing.id, { assignedTo: giver.id, assignedBy: giver.id, person: fullNameOf(giver), acceptedAt: new Date() } as any);
+      await storage.createActivityLog({ entityType: 'story', entityId: existing.id, action: 'declined', userId: req.user.id, details: `Declined story: ${existing.title}` });
+      await storage.markMyStoryNotificationsRead(req.user.id, existing.id, ['story_assigned']).catch(() => {});
+      await storage.createNotifications([{
+        userId: giver.id, type: "story_declined", entityId: existing.id, entityType: "story", link: `/global-kanban?story=${existing.id}`,
+        title: `${fullNameOf(req.user)} declined a story`, message: `${existing.title.slice(0, 80)}: ${reason.slice(0, 160)}`,
+      }]);
+      res.json(story);
+    } catch (error) {
+      if (error instanceof ZodError) return res.status(400).json({ error: error.errors });
+      console.error('Decline story error:', error);
+      res.status(500).json({ error: "Failed to decline the story" });
     }
   });
 
@@ -1216,14 +1254,16 @@ export async function registerRoutes(
     }
   });
 
-  // A repeating task never ends because a copy is done; people pause it instead. Only founders delete one.
+  // Delete a repeating task for good (whoever set it up, founders, the chief of staff: ownRule checks that).
+  // Its unfinished copies go too, so nothing of it is left to do; finished copies stay as history.
   app.delete("/api/recurring-tasks/:id", isAuthenticated, ownRule, async (req: any, res) => {
     try {
-      if (!perms.isFounder(req.user)) return res.status(403).json({ error: "Pause it instead: only founders can delete a repeating task." });
       const rule = (await storage.listRecurringTasks()).find((t) => t.id === req.params.id);
+      if (!rule) return res.status(404).json({ error: "Repeating task not found" });
+      const removed = await storage.deleteOpenRuleCopies(rule.id);
       if (!(await storage.deleteRecurringTask(req.params.id))) return res.status(404).json({ error: "Repeating task not found" });
-      if (rule) await logRule(req, rule, 'deleted', `Deleted repeating task: ${rule.title}`);
-      res.status(204).send(); // stories already created stay where they are
+      await logRule(req, rule, 'deleted', `Deleted repeating task for good: ${rule.title} (${removed} unfinished cop${removed === 1 ? 'y' : 'ies'} removed)`);
+      res.status(204).send();
     } catch (error) {
       console.error('Delete recurring task error:', error);
       res.status(500).json({ error: "Failed to delete the repeating task" });

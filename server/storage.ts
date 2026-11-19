@@ -58,6 +58,7 @@ export interface IStorage {
   deleteRecurringTask(id: string): Promise<boolean>;
   getOccurrenceKeys(date: string): Promise<Set<string>>;
   addRecurringSkip(ruleId: string, userId: string, date: string, by: string | null): Promise<void>;
+  deleteOpenRuleCopies(ruleId: string): Promise<number>;
   isMentionedOn(storyId: string, fullName: string): Promise<boolean>;
   getMyLastCommentOn(userId: string, storyIds: string[]): Promise<Map<string, number>>;
   getMentionDone(userId: string, commentIds: string[]): Promise<Set<string>>;
@@ -398,6 +399,12 @@ export class DatabaseStorage implements IStorage {
       db.select({ r: recurringSkips.recurringTaskId, u: recurringSkips.userId, d: recurringSkips.occurrenceDate }).from(recurringSkips).where(eq(recurringSkips.occurrenceDate, date)),
     ]);
     return new Set([...rows, ...skips].filter((x) => x.r && x.u).map((x) => `${x.r}|${x.u}|${x.d}`));
+  }
+
+  /** A repeating task deleted for good: its copies nobody finished go with it (finished ones stay as history). */
+  async deleteOpenRuleCopies(ruleId: string): Promise<number> {
+    const rows = await db.delete(stories).where(and(eq(stories.recurringTaskId, ruleId), ne(stories.status, 'Done'))).returning({ id: stories.id });
+    return rows.length;
   }
 
   async addRecurringSkip(ruleId: string, userId: string, date: string, by: string | null): Promise<void> {

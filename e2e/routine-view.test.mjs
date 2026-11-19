@@ -60,9 +60,9 @@ ok((await pg.getByTestId('routine-day').allInnerTexts()).some((t) => /copy$/.tes
 await pg.screenshot({ path: `${out}/routine-done-shown.png` });
 // the split views still work
 await pg.getByTestId('board-mine').click(); await pg.waitForTimeout(800);
-ok(JSON.stringify(await tab('To Do')) === JSON.stringify(['Google Ads']), 'Mine: only routines I set up');
+ok(JSON.stringify(await tab('To Do')) === JSON.stringify(['Google Ads', 'Lead Generation']), 'Mine: my routines, including the one Sam set up for me');
 await pg.getByTestId('board-assigned').click(); await pg.waitForTimeout(800);
-ok(JSON.stringify(await tab('To Do')) === JSON.stringify(['Lead Generation']), "Assigned to me: the routine Sam set up for me");
+ok(await pg.getByTestId('assigned-empty').isVisible(), 'Assigned to me: nothing new (routines need no accepting)');
 
 console.log(`\n${pass} passed, ${fail.length} failed`); for (const f of fail) console.log('FAIL', f);
 await b.close(); server.close();

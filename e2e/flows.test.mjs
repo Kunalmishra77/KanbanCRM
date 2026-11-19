@@ -196,8 +196,15 @@ if (phase === 'phase1') {
   ok(own && own.assignedBy === sam.id, "own repeating copy is in Sam's My Work");
   r = await sam.del(`/api/stories/${own?.id}`);
   ok(r.status === 204, 'Sam removes today\'s copy of his own task', r.status);
-  r = await sam.del(`/api/recurring-tasks/${S.samRule}`);
-  ok(r.status === 403, 'only founders delete a whole repeating task (Sam must pause)', r.status);
+  ok((await sam.del(`/api/recurring-tasks/${S.rule}`)).status === 404, "Sam cannot delete Cora's repeating task");
+  // Sam's second own routine: deleted for good, its open copy goes with it
+  r = await sam.post('/api/recurring-tasks', { clientId: C1, title: 'Sam weekly check', repeat: 'daily', assigneeIds: [sam.id] });
+  S.samRule2 = r.data?.task?.id;
+  ok((await sam.stories()).some((x) => x.recurringTaskId === S.samRule2), "today's copy of the new routine is there");
+  r = await sam.del(`/api/recurring-tasks/${S.samRule2}`);
+  ok(r.status === 204, 'the person who set it up can delete it for good', r.status);
+  ok(!(await sam.stories()).some((x) => x.recurringTaskId === S.samRule2), 'its unfinished copy is gone too');
+  ok(!((await sam.get('/api/recurring-tasks')).data || []).some((t) => t.id === S.samRule2), 'the repeating task is gone');
   r = await sam.post('/api/recurring-tasks', { clientId: C1, title: 'Sneaky for Sia', repeat: 'daily', assigneeIds: [sia.id] });
   const forSia = (await sia.stories()).some((s) => s.title === 'Sneaky for Sia');
   ok(!forSia, 'an employee cannot set up repeating work for someone else');
@@ -220,6 +227,27 @@ if (phase === 'phase1') {
   const siaM = ((await sia.get('/api/mentions')).data || []).find((m) => m.storyId === S.own);
   ok(siaM && siaM.state === 'answered', "Sia replied 'Checked' after being tagged -> answered");
 
+  section('16. Accept with a date / decline with a reason');
+  r = await cora.post('/api/stories', story('Cora: prepare deck', sam.id));
+  const deck = r.data.id;
+  const when = new Date(Date.now() + 3 * 86400000); when.setUTCHours(9, 0, 0, 0);
+  r = await sam.post(`/api/stories/${deck}/accept`, { dueDate: when.toISOString() });
+  ok(r.status === 200 && !!r.data.acceptedAt && new Date(r.data.dueDate).getTime() === when.getTime(), 'accept sets the date and time Sam picked', JSON.stringify({ s: r.status, due: r.data?.dueDate }));
+  ok((await cora.notes()).some((n) => n.entityId === deck && n.type === 'story_accepted' && /will do it by/.test(n.message)), 'Cora is told when Sam will do it');
+  r = await cora.post('/api/stories', story('Cora: extra report', sam.id));
+  const extra = r.data.id;
+  ok((await sam.post(`/api/stories/${extra}/decline`, { reason: '' })).status === 400, 'decline needs a reason');
+  ok((await sia.post(`/api/stories/${extra}/decline`, { reason: 'x' })).status === 404, 'nobody else can decline it');
+  r = await sam.post(`/api/stories/${extra}/decline`, { reason: 'Full this week, 6 stories due' });
+  ok(r.status === 200 && r.data.assignedTo === cora.id && r.data.assignedBy === cora.id, 'declined: it goes back to Cora', JSON.stringify({ s: r.status, to: r.data?.assignedTo }));
+  ok(!(await sam.stories()).some((x) => x.id === extra), "it leaves Sam's lists");
+  ok(((await cora.get(`/api/stories/${extra}/comments`)).data || []).some((c) => /Declined: Full this week/.test(c.body)), 'the reason is saved as a comment');
+  ok((await cora.notes()).some((n) => n.entityId === extra && n.type === 'story_declined' && /Full this week/.test(n.message)), 'Cora is notified with the reason');
+  r = await sam.post('/api/stories', story('Sam self task', sam.id));
+  ok((await sam.post(`/api/stories/${r.data.id}/decline`, { reason: 'x' })).status === 400, 'your own story cannot be declined');
+  const copy = (await sam.stories()).find((x) => x.recurringTaskId === S.rule);
+  if (copy) ok((await sam.post(`/api/stories/${copy.id}/decline`, { reason: 'x' })).status === 400, 'repeating work cannot be declined');
+
   section('15. Overview: yesterday and missed routines');
   const yv = await cora.get('/api/overview?period=yesterday');
   ok(yv.status === 200 && Array.isArray(yv.data.missedRoutines) && typeof yv.data.summary.missed === 'number', 'yesterday overview loads with missed routines', yv.status);
@@ -234,6 +262,7 @@ if (phase === 'phase1') {
   ok(samCopies.length === 0, "a copy removed today never comes back (Cora's task)", samCopies.length);
   const ownCopies = all.filter((s) => s.recurringTaskId === S.samRule);
   ok(ownCopies.length === 0, "a copy removed today never comes back (Sam's own task)", ownCopies.length);
+  ok(!all.some((s) => s.recurringTaskId === S.samRule2), 'a repeating task deleted for good never comes back');
   const others = all.filter((s) => s.recurringTaskId === S.rule);
   ok(others.length === 2, 'the other copies are untouched (no duplicates)', others.length);
 }

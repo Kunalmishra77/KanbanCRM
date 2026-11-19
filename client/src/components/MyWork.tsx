@@ -84,8 +84,8 @@ export function MyWork({ stories, clients }: { stories: Story[]; clients: Client
   ];
   // My three boards, with how much is open on each
   const boardTiles = [
-    { key: "board-mine", label: "My Work", value: stats.boards.mine, sub: "open · made by me for me", icon: KanbanSquare, to: "/global-kanban?board=mine" },
-    { key: "board-assigned", label: "Assigned to me", value: stats.boards.assigned, sub: stats.waiting ? `open · ${stats.waiting} new to accept` : "open · given by others", icon: Inbox, to: "/global-kanban?board=assigned" },
+    { key: "board-mine", label: "Mine", value: stats.boards.mine, sub: "open · everything I committed to", icon: KanbanSquare, to: "/global-kanban?board=mine" },
+    { key: "board-assigned", label: "Assigned to me", value: stats.waiting, sub: stats.waiting ? "new · accept or decline" : "nothing new", icon: Inbox, to: "/global-kanban?board=assigned" },
     { key: "board-given", label: "Assigned by me", value: stats.boards.given, sub: stats.boards.givenNotAccepted ? `open · ${stats.boards.givenNotAccepted} not accepted yet` : "open · I gave to others", icon: Send, to: "/global-kanban?board=given" },
   ];
 

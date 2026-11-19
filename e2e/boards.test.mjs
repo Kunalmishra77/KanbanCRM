@@ -33,6 +33,7 @@ let stories = [
   st('s4', 'Old story without record', 'dp', null),
   st('s5', 'Work I gave Olu', 'ot', 'dp', { acceptedAt: null }),
   st('s6', 'Founder task due tomorrow', 'dp', 'vf', { dueDate: endOfTomorrow() }),
+  st('s7', 'Second ask from Sam', 'dp', 'su', { acceptedAt: null }),
 ];
 const calls = [];
 
@@ -42,10 +43,12 @@ await ctx.route('**/api/**', async (route) => {
   const req = route.request();
   const p = new URL(req.url()).pathname;
   if (p === '/api/events') return route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: 'retry: 600000\n\n' });
-  const m = p.match(/^\/api\/stories\/([^/]+)\/(accept|feedback)$/);
+  const m = p.match(/^\/api\/stories\/([^/]+)\/(accept|feedback|decline)$/);
   if (m && req.method() === 'POST') {
     calls.push({ id: m[1], kind: m[2], body: req.postData() });
-    if (m[2] === 'accept') stories = stories.map((s) => (s.id === m[1] ? { ...s, acceptedAt: new Date().toISOString() } : s));
+    const body = JSON.parse(req.postData() || '{}');
+    if (m[2] === 'accept') stories = stories.map((s) => (s.id === m[1] ? { ...s, acceptedAt: new Date().toISOString(), dueDate: body.dueDate || s.dueDate } : s));
+    if (m[2] === 'decline') stories = stories.map((s) => (s.id === m[1] ? { ...s, assignedTo: s.assignedBy, acceptedAt: new Date().toISOString() } : s));
     return route.fulfill({ status: m[2] === 'accept' ? 200 : 201, contentType: 'application/json', body: JSON.stringify(stories.find((s) => s.id === m[1]) || {}) });
   }
   const one = stories.find((s) => p === `/api/stories/${s.id}`);
@@ -67,9 +70,9 @@ await pg.goto(BASE + '/global-kanban'); await pg.waitForTimeout(2500);
 ok((await pg.getByTestId('board-me').getAttribute('aria-selected')) === 'true', 'opens on "All my work" inside My Work');
 await pg.getByTestId('board-mine').click(); await pg.waitForTimeout(800);
 let titles = await allTabsText();
-ok(titles.includes('My own plan') && titles.includes('Old story without record'), 'My Work: own + unrecorded stories', JSON.stringify(titles));
-ok(!titles.some((t) => /Sam|Founder|Olu/.test(t)), 'My Work: nothing assigned by others / to others', JSON.stringify(titles));
-ok((await pg.getByTestId('nav-waiting-count').first().innerText()) === '1', 'menu shows 1 waiting');
+ok(['My own plan', 'Old story without record', 'Accepted work from Sam', 'Founder task due tomorrow'].every((t) => titles.includes(t)), 'Mine: own stories + work I accepted', JSON.stringify(titles));
+ok(!titles.some((t) => /New work from Sam|Second ask|Olu/.test(t)), 'Mine: not new (unanswered) work, not work I gave away', JSON.stringify(titles));
+ok((await pg.getByTestId('nav-waiting-count').first().innerText()) === '2', 'menu shows 2 new');
 ok(await pg.getByTestId('board-tabs').isVisible(), 'one switch inside My Work');
 ok(!(await pg.locator('aside').getByText('Assigned by me', { exact: true }).isVisible().catch(() => false)), 'menu has a single My Work item (no extra board items)');
 ok(!(await pg.getByTestId('board-all').isVisible().catch(() => false)), 'employees have no Team switch');
@@ -79,29 +82,37 @@ await pg.getByTestId('board-assigned').click(); await pg.waitForTimeout(800);
 ok((await pg.getByTestId('board-assigned').getAttribute('aria-selected')) === 'true', 'switches to "Assigned to me"');
 ok(new URL(pg.url()).search === '?board=assigned', 'URL follows the board', pg.url());
 const waitingBox = pg.getByTestId('waiting-for-you');
-ok(await waitingBox.isVisible() && /New work from Sam/.test(await waitingBox.innerText()) && /From Sam Boss/.test(await waitingBox.innerText()), 'waiting box lists the new story and who gave it');
-titles = await allTabsText();
-ok(!titles.includes('New work from Sam') && titles.includes('Accepted work from Sam') && titles.includes('Founder task due tomorrow'), 'columns: accepted work only', JSON.stringify(titles));
-ok(await pg.getByTestId('filter-assigned-by').isVisible(), 'Assigned by filter shown');
+ok(await waitingBox.isVisible() && /New work from Sam/.test(await waitingBox.innerText()) && /From Sam Boss/.test(await waitingBox.innerText()), 'inbox lists the new stories and who gave them');
+ok((await pg.getByTestId('waiting-item').count()) === 2, 'two waiting');
+ok(!(await pg.getByRole('tab', { name: /^To Do/ }).isVisible().catch(() => false)), 'Assigned to me is just the inbox (no columns)');
 await pg.screenshot({ path: `${out}/boards-assigned.png` });
 
-// feedback keeps it waiting
-await pg.getByTestId('waiting-feedback').click(); await pg.waitForTimeout(400);
-ok(await pg.getByTestId('feedback-send').isDisabled(), 'feedback needs text');
-await pg.getByTestId('feedback-text').fill('Full this week, can start Monday');
-await pg.screenshot({ path: `${out}/boards-feedback.png` });
-await pg.getByTestId('feedback-send').click(); await pg.waitForTimeout(800);
-ok(calls.some((c) => c.kind === 'feedback' && c.id === 's2' && /Monday/.test(c.body)), 'feedback sent', JSON.stringify(calls));
-ok(await waitingBox.isVisible(), 'after feedback the story still waits');
+// decline with a reason
+const second = pg.getByTestId('waiting-item').filter({ hasText: 'Second ask from Sam' });
+await second.getByTestId('waiting-decline').click(); await pg.waitForTimeout(400);
+ok(await pg.getByTestId('decline-confirm').isDisabled(), 'decline needs a reason');
+await pg.getByTestId('decline-reason').fill('Full this week, 6 stories due');
+await pg.screenshot({ path: `${out}/boards-decline.png` });
+await pg.getByTestId('decline-confirm').click(); await pg.waitForTimeout(1200);
+ok(calls.some((c) => c.kind === 'decline' && c.id === 's7' && /Full this week/.test(c.body)), 'decline sent with the reason', JSON.stringify(calls));
+ok((await pg.getByTestId('waiting-item').count()) === 1, 'declined story leaves the inbox');
 
-// accept
-await pg.getByTestId('waiting-accept').click(); await pg.waitForTimeout(1200);
-ok(calls.some((c) => c.kind === 'accept' && c.id === 's2'), 'accept sent');
-ok(!(await waitingBox.isVisible().catch(() => false)), 'waiting box gone after accepting');
+// accept with a date and time
+await pg.getByTestId('waiting-accept').click(); await pg.waitForTimeout(400);
+ok(await pg.getByTestId('accept-when').isVisible(), 'accept asks when you will do it');
+const pick = new Date(Date.now() + 4 * 86400000); pick.setHours(15, 30, 0, 0);
+const pad = (n) => String(n).padStart(2, '0');
+await pg.getByTestId('accept-when').fill(`${pick.getFullYear()}-${pad(pick.getMonth() + 1)}-${pad(pick.getDate())}T15:30`);
+await pg.screenshot({ path: `${out}/boards-accept.png` });
+await pg.getByTestId('accept-confirm').click(); await pg.waitForTimeout(1200);
+const acc = calls.find((c) => c.kind === 'accept' && c.id === 's2');
+ok(acc && new Date(JSON.parse(acc.body).dueDate).getTime() === pick.getTime(), 'accept sends the picked date and time', acc?.body);
+ok(!(await waitingBox.isVisible().catch(() => false)) && await pg.getByTestId('assigned-empty').isVisible(), 'inbox empty: "No new work waiting"');
+await pg.getByTestId('board-mine').click(); await pg.waitForTimeout(800);
 titles = await allTabsText();
-ok(titles.includes('New work from Sam'), 'accepted story now in the columns', JSON.stringify(titles));
+ok(titles.includes('New work from Sam'), 'accepted story is now in Mine', JSON.stringify(titles));
 
-// due date filter
+// due date filter (on Mine)
 await pg.getByTestId('filter-due').selectOption('tomorrow'); await pg.waitForTimeout(300);
 titles = await allTabsText();
 ok(titles.length === 1 && titles[0] === 'Founder task due tomorrow', 'Due tomorrow filter', JSON.stringify(titles));
@@ -109,7 +120,7 @@ await pg.getByTestId('filter-due').selectOption('custom'); await pg.waitForTimeo
 ok(await pg.getByTestId('filter-due-from').isVisible() && await pg.getByTestId('filter-due-to').isVisible(), 'custom range shows two date boxes');
 await pg.getByTestId('filter-due').selectOption('any'); await pg.waitForTimeout(300);
 
-// assigned by filter
+// assigned by filter (on Mine)
 await pg.getByTestId('filter-assigned-by').click(); await pg.waitForTimeout(300);
 await pg.getByRole('option', { name: /Vik Founder/ }).or(pg.getByText(/Vik Founder/).last()).first().click(); await pg.keyboard.press('Escape'); await pg.waitForTimeout(300);
 titles = await allTabsText();
