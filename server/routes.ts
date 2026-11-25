@@ -7,7 +7,7 @@ import { insertUserSchema, insertClientSchema, updateClientSchema, insertStorySc
 import { sendDeadlineReminders, sendEmail, isEmailConfigured } from "./emailService.js";
 import { ZodError } from "zod";
 import { computeOverview, nameOf } from "./lib/overview.js";
-import { isPeriod, periodRange, istDate, addDays, endOfDayIfDateOnly } from "../shared/istDate.js";
+import { isPeriod, periodRange, istDate, addDays, endOfDayIfDateOnly, type Period } from "../shared/istDate.js";
 import { isTeam } from "../shared/teams.js";
 import { isWorkPattern } from "../shared/schedule.js";
 import { recurringTaskInputSchema, employeeRequestInputSchema } from "../shared/schema.js";
@@ -1366,13 +1366,23 @@ export async function registerRoutes(
     try {
       const asTeamLead = !perms.viewOverview(req.user) && perms.isTeamLead(req.user) && !!req.user.team;
       if (!perms.viewOverview(req.user) && !asTeamLead) return res.status(403).json({ error: "Founders, the Chief of Staff and team leads only." });
-      const period = isPeriod(req.query.period) ? req.query.period : "today";
+      // A custom range: ?from=YYYY-MM-DD&to=YYYY-MM-DD (India dates, both days included, at most a year)
+      const ymdOk = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+      let range: { start: Date; end: Date } | undefined;
+      if (ymdOk(req.query.from) && ymdOk(req.query.to)) {
+        const a = req.query.from <= req.query.to ? req.query.from : req.query.to;
+        const b = req.query.from <= req.query.to ? req.query.to : req.query.from;
+        range = { start: new Date(`${a}T00:00:00+05:30`), end: new Date(`${addDays(b, 1)}T00:00:00+05:30`) };
+        if (Number.isNaN(range.start.getTime()) || range.end.getTime() - range.start.getTime() > 366 * 86400000) return res.status(400).json({ error: "Pick a range of up to a year." });
+      }
+      const period = range ? "custom" as const : isPeriod(req.query.period) ? req.query.period : "today";
       // Fetch a bit more than the period so "last active" has something to show
-      const since = new Date(Math.min(periodRange(period).start.getTime(), Date.now() - 35 * 86400000));
+      const startMs = (range ? range.start : periodRange(period as Period).start).getTime();
+      const since = new Date(Math.min(startMs, Date.now() - 35 * 86400000));
       const [users, stories, clients, comments, activity, requests] = await Promise.all([
         storage.getAllUsers(), storage.getStories(), storage.getClients(), storage.getCommentsSince(since), storage.getActivitySince(since), storage.listEmployeeRequests(),
       ]);
-      if (!asTeamLead) return res.json(computeOverview({ users, stories, clients, comments, activity, requests, period }));
+      if (!asTeamLead) return res.json(computeOverview({ users, stories, clients, comments, activity, requests, period, range }));
       // A team lead gets the same overview, cut down to their own team
       const mates = teamMatesOf(req.user, users);
       const ids = new Set(mates.map((u) => u.id));
@@ -1383,7 +1393,7 @@ export async function registerRoutes(
         comments: comments.filter((c: any) => storyIds.has(c.storyId)),
         activity: activity.filter((a: any) => ids.has(a.userId)),
         requests: requests.filter((r: any) => ids.has(r.userId)),
-        period,
+        period, range,
       });
       res.json({ ...view, teams: view.teams.filter((t) => t.team === req.user.team) });
     } catch (error) {

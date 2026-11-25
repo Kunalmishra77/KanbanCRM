@@ -42,6 +42,7 @@ let mentions = [
   { id: 'm3', storyId: 's3', storyTitle: 'Task 3', clientId: 'c1', authorName: 'Chitra Test', body: '@Fay Founder old one', createdAt: iso(-2), state: 'answered' },
 ];
 const posted = [];
+const overviewUrls = [];
 const health = (i) => (i % 3 === 0 ? 'attention' : i % 5 === 1 ? 'inactive' : i === 13 ? 'idle' : 'good');
 const people = users.map((u, i) => ({ id: u.id, name: `${u.firstName} Test`, team: u.team, assigned: 4, open: 3, overdue: i % 3 === 0 ? 1 : 0, review: 0, planned: 2, plannedDone: i % 2, completed: 1, comments: i % 5 === 1 ? 0 : 2, actions: i % 5 === 1 ? 0 : 5, lastActiveAt: i % 5 === 1 ? null : iso(-0.1), health: health(i), reason: health(i) === 'attention' ? '1 overdue' : '1 of 2 due today done', away: null, otHours: 0 }));
 const overview = {
@@ -57,6 +58,7 @@ async function as(me, { width = 1366, overviewDelay = 0 } = {}) {
   await ctx.route('**/api/**', async (route) => {
     const p = new URL(route.request().url()).pathname;
     if (p === '/api/events') return route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: 'retry: 600000\n\n' });
+    if (p === '/api/overview') overviewUrls.push(route.request().url());
     if (p === '/api/overview' && overviewDelay) await new Promise((r) => setTimeout(r, overviewDelay));
     const md = p.match(/^\/api\/mentions\/(.+)\/done$/);
     if (md) { mentions = mentions.map((m) => (m.id === md[1] ? { ...m, state: 'done' } : m)); return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }); }
@@ -94,6 +96,13 @@ await pg.screenshot({ path: `${out}/dash-founder-team.png`, fullPage: true });
 const h = await pg.evaluate(() => document.documentElement.scrollHeight);
 console.log('founder team tab height:', h);
 await pg.getByTestId('overview-people').screenshot({ path: `${out}/dash-founder-people.png` });
+// custom date range
+await pg.getByTestId('period-custom').click(); await pg.waitForTimeout(400);
+ok(await pg.getByTestId('overview-from').isVisible() && await pg.getByTestId('overview-to').isVisible(), 'Pick dates shows From and To');
+await pg.getByTestId('overview-from').fill('2026-11-01'); await pg.getByTestId('overview-to').fill('2026-11-15'); await pg.waitForTimeout(1200);
+ok(overviewUrls.some((u) => /from=2026-11-01&to=2026-11-15/.test(u)), 'the overview loads for exactly those dates', overviewUrls.slice(-2).join(' | '));
+await pg.getByTestId('overview-range').screenshot({ path: `${out}/dash-range.png` });
+await pg.getByTestId('period-today').click(); await pg.waitForTimeout(800);
 await pg.getByTestId('summary-noupdate').click(); await pg.waitForTimeout(500);
 ok(/No update (today|yesterday)/.test(await pg.getByTestId('overview-people').locator('..').innerText()), '"no update" button filters the people list');
 await pg.getByTestId('dash-tab-me').click(); await pg.waitForTimeout(800);

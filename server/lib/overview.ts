@@ -34,7 +34,7 @@ export const nameOf = (u: { firstName: string | null; lastName: string | null })
  *  - missed:     only daily/weekly routine copies were left undone (a habit problem, not late client work)
  *  - good:       otherwise
  */
-function judge(period: Period, x: { assigned: number; active: boolean; overdue: number; missed?: number; planned: number; plannedDone: number; away?: "leave" | "wfh" | null }): { health: Health; reason: string } {
+function judge(period: Period | "custom", x: { assigned: number; active: boolean; overdue: number; missed?: number; planned: number; plannedDone: number; away?: "leave" | "wfh" | null }): { health: Health; reason: string } {
   const routines = x.missed ? ` · ${x.missed} routine${x.missed === 1 ? "" : "s"} missed` : "";
   if (period === "today" && x.away === "leave") return { health: "away", reason: "On approved leave today" };
   if (x.assigned === 0) return { health: "idle", reason: "No stories assigned" };
@@ -48,9 +48,9 @@ function judge(period: Period, x: { assigned: number; active: boolean; overdue: 
   return { health: "good", reason: "On track" };
 }
 
-export function computeOverview(input: { users: U[]; stories: S[]; clients: C[]; comments: Cm[]; activity: A[]; requests?: R[]; period: Period; now?: Date }) {
+export function computeOverview(input: { users: U[]; stories: S[]; clients: C[]; comments: Cm[]; activity: A[]; requests?: R[]; period: Period | "custom"; range?: { start: Date; end: Date }; now?: Date }) {
   const now = input.now ?? new Date();
-  const { start, end } = periodRange(input.period, now);
+  const { start, end } = input.range ?? periodRange(input.period === "custom" ? "today" : input.period, now);
   const inPeriod = (d: Date | string) => t(d) >= start.getTime() && t(d) < Math.min(end.getTime(), now.getTime() + 1);
   const clientName = new Map(input.clients.map((c) => [c.id, c.name]));
   const storyById = new Map(input.stories.map((s) => [s.id, s]));

@@ -660,12 +660,12 @@ export default function GlobalKanban() {
           data-testid="filter-due"
           className={cn("h-9 rounded-lg border border-border bg-background px-2 text-sm cursor-pointer", dueFilter !== 'any' && "border-primary text-primary font-medium")}
         >
-          <option value="any">Any due date</option>
+          <option value="any">Due: any date</option>
           <option value="overdue">Overdue</option>
           <option value="today">Due today</option>
           <option value="tomorrow">Due tomorrow</option>
           <option value="week">Due this week</option>
-          <option value="custom">Pick dates…</option>
+          <option value="custom">Pick dates (from – to)…</option>
         </select>
         {dueFilter === 'custom' && (
           <span className="inline-flex items-center gap-1 text-sm" data-testid="filter-due-range">

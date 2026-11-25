@@ -259,6 +259,10 @@ if (phase === 'phase1') {
   section('15. Overview: yesterday and missed routines');
   const yv = await cora.get('/api/overview?period=yesterday');
   ok(yv.status === 200 && Array.isArray(yv.data.missedRoutines) && typeof yv.data.summary.missed === 'number', 'yesterday overview loads with missed routines', yv.status);
+  const cr = await cora.get('/api/overview?from=2026-11-01&to=2026-11-15');
+  ok(cr.status === 200 && cr.data.period === 'custom' && cr.data.from === '2026-10-31T18:30:00.000Z' && cr.data.to === '2026-11-15T18:30:00.000Z', 'custom range: 1-15 Nov, India dates, both days included', JSON.stringify({ s: cr.status, p: cr.data?.period, f: cr.data?.from, t: cr.data?.to }));
+  ok((await cora.get('/api/overview?from=2024-01-01&to=2026-11-15')).status === 400, 'a range longer than a year is refused');
+  ok((await sam.get('/api/overview?from=2026-11-01&to=2026-11-15')).status === 403, 'employees still cannot load the company overview');
 
   fs.writeFileSync(STATE, JSON.stringify(S));
   console.log('\nphase1: restart the app now, then run phase2 (simulates the 10-minute / 12 AM job)');

@@ -14,7 +14,7 @@ export type TeamRow = {
   planned: number; plannedDone: number; completed: number; overdue: number; missed: number; review: number; health: Health; reason: string;
 };
 export type Overview = {
-  period: Period; from: string; to: string;
+  period: Period | "custom"; from: string; to: string;
   summary: { peopleWorking: number; peopleActive: number; planned: number; plannedDone: number; completed: number; overdue: number; missed: number; waitingReview: number; comments: number; pendingRequests: number; otHours: number; awayToday: { leave: string[]; wfh: string[] } };
   teams: TeamRow[]; people: PersonRow[];
   review: { storyId: string; title: string; clientId: string; client: string; assignee: string; team: string; waitingDays: number }[];
@@ -29,10 +29,11 @@ async function getJson<T>(url: string): Promise<T> {
   return r.json();
 }
 
-export function useOverview(period: Period, enabled: boolean) {
+export function useOverview(period: Period | "custom", enabled: boolean, range?: { from: string; to: string }) {
+  const custom = period === "custom" && range?.from && range?.to;
   return useQuery<Overview>({
-    queryKey: ["overview", period],
-    queryFn: () => getJson<Overview>(`/api/overview?period=${period}`),
+    queryKey: ["overview", period, custom ? range!.from : "", custom ? range!.to : ""],
+    queryFn: () => getJson<Overview>(custom ? `/api/overview?from=${range!.from}&to=${range!.to}` : `/api/overview?period=${period === "custom" ? "today" : period}`),
     enabled,
     staleTime: 60_000,
   });

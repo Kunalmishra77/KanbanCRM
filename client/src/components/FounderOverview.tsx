@@ -8,13 +8,16 @@ import type { Story, Client } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format, differenceInCalendarDays } from "date-fns";
 
-const PERIODS: { id: Period; label: string }[] = [
+type P = Period | "custom";
+const PERIODS: { id: P; label: string }[] = [
   { id: "yesterday", label: "Yesterday" },
   { id: "today", label: "Today" },
   { id: "week", label: "This week" },
   { id: "month", label: "This month" },
+  { id: "custom", label: "Pick dates" },
 ];
-const WORD: Record<Period, string> = { yesterday: "yesterday", today: "today", week: "this week", month: "this month" };
+const WORD: Record<P, string> = { yesterday: "yesterday", today: "today", week: "this week", month: "this month", custom: "in these dates" };
+const ymdLocal = (d: Date) => format(d, "yyyy-MM-dd");
 
 const HEALTH: Record<Health, { label: string; dot: string; chip: string }> = {
   good: { label: "On track", dot: "bg-green-500", chip: "bg-green-50 dark:bg-green-500/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/40" },
@@ -56,14 +59,16 @@ function Placeholder({ h }: { h: string }) {
  * Mornings (before 12 PM) open on yesterday's results, since "today" has barely started.
  */
 export function FounderOverview({ title = "Company overview", stories = [], clients = [] }: { title?: string; stories?: Story[]; clients?: Client[] }) {
-  const [period, setPeriod] = useState<Period>(() => (new Date().getHours() < 12 ? "yesterday" : "today"));
+  const [period, setPeriod] = useState<P>(() => (new Date().getHours() < 12 ? "yesterday" : "today"));
+  const [rangeFrom, setRangeFrom] = useState(() => ymdLocal(new Date(Date.now() - 6 * 86400000)));
+  const [rangeTo, setRangeTo] = useState(() => ymdLocal(new Date()));
   const [team, setTeam] = useState<string | null>(null);
   const [onlyNoUpdate, setOnlyNoUpdate] = useState(false);
   const [activeOnly, setActiveOnly] = useState(false);
   const [showAllStuck, setShowAllStuck] = useState(false);
   const [showAllMissed, setShowAllMissed] = useState(false);
   const [, setLocation] = useLocation();
-  const { data, isLoading, error } = useOverview(period, true);
+  const { data, isLoading, error } = useOverview(period, true, { from: rangeFrom, to: rangeTo });
   const valid = !!data && Array.isArray(data.people) && Array.isArray(data.teams);
   const go = (q: string) => setLocation(`/global-kanban?${q}`);
   const word = WORD[period];
@@ -106,7 +111,7 @@ export function FounderOverview({ title = "Company overview", stories = [], clie
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <p className="text-xs text-muted-foreground min-h-[16px]">
-            {data ? (period === "yesterday" || period === "today" ? format(new Date(data.from), "EEEE d MMM") : `${format(new Date(data.from), "d MMM")} – ${format(new Date(new Date(data.to).getTime() - 1), "d MMM")}`) : ""}
+            {data ? (period === "yesterday" || period === "today" ? format(new Date(data.from), "EEEE d MMM") : `${format(new Date(data.from), "d MMM")} – ${format(new Date(new Date(data.to).getTime() - 1), "d MMM yyyy")}`) : ""}
             {period === "yesterday" && new Date().getHours() < 12 && " · mornings show yesterday's results"}
           </p>
         </div>
@@ -119,6 +124,17 @@ export function FounderOverview({ title = "Company overview", stories = [], clie
           ))}
         </div>
       </div>
+      {period === "custom" && (
+        <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="overview-range">
+          <span className="text-muted-foreground">From</span>
+          <input type="date" value={rangeFrom} max={rangeTo} onChange={(e) => e.target.value && setRangeFrom(e.target.value)} className="h-9 rounded-lg border border-border bg-background px-2" data-testid="overview-from" aria-label="From date" />
+          <span className="text-muted-foreground">to</span>
+          <input type="date" value={rangeTo} min={rangeFrom} onChange={(e) => e.target.value && setRangeTo(e.target.value)} className="h-9 rounded-lg border border-border bg-background px-2" data-testid="overview-to" aria-label="To date" />
+          {[{ l: "Last 7 days", d: 6 }, { l: "Last 30 days", d: 29 }].map((q) => (
+            <button key={q.l} type="button" className="text-xs text-primary underline min-h-[32px]" onClick={() => { setRangeFrom(ymdLocal(new Date(Date.now() - q.d * 86400000))); setRangeTo(ymdLocal(new Date())); }}>{q.l}</button>
+          ))}
+        </div>
+      )}
 
       {(error || (data && !valid)) && <p className="text-sm text-red-600 dark:text-red-300">Could not load the overview{error ? `: ${(error as Error).message}` : "."}</p>}
 
