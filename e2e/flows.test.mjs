@@ -205,6 +205,14 @@ if (phase === 'phase1') {
   ok(r.status === 204, 'the person who set it up can delete it for good', r.status);
   ok(!(await sam.stories()).some((x) => x.recurringTaskId === S.samRule2), 'its unfinished copy is gone too');
   ok(!((await sam.get('/api/recurring-tasks')).data || []).some((t) => t.id === S.samRule2), 'the repeating task is gone');
+  // a finished copy of a repeating task that was deleted for good can still be deleted (was a 500 on 24 Nov)
+  r = await sam.post('/api/recurring-tasks', { clientId: C1, title: 'Sam temp routine', repeat: 'daily', assigneeIds: [sam.id] });
+  const tmpRule = r.data?.task?.id;
+  const tmpCopy = (await sam.stories()).find((x) => x.recurringTaskId === tmpRule);
+  await sam.patch(`/api/stories/${tmpCopy?.id}`, { status: 'Done' });
+  ok((await sam.del(`/api/recurring-tasks/${tmpRule}`)).status === 204, 'delete the routine for good (finished copy stays)');
+  ok((await sam.stories()).some((x) => x.id === tmpCopy?.id), 'its finished copy stays as history');
+  ok((await sam.del(`/api/stories/${tmpCopy?.id}`)).status === 204, 'that leftover copy can be deleted without an error');
   r = await sam.post('/api/recurring-tasks', { clientId: C1, title: 'Sneaky for Sia', repeat: 'daily', assigneeIds: [sia.id] });
   const forSia = (await sia.stories()).some((s) => s.title === 'Sneaky for Sia');
   ok(!forSia, 'an employee cannot set up repeating work for someone else');

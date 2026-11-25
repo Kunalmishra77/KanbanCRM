@@ -28,7 +28,9 @@ export function RepeatControls({ ruleId, setBy }: { ruleId: string; setBy?: stri
       {isLoading ? null : !rule ? (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <Repeat className="h-4 w-4 text-primary shrink-0" />
-          Repeating task set up by {setBy || "someone else"}. Only they (or a founder) can pause or delete it.
+          {perms.manageAllRepeating(me) || setBy === `${me?.firstName || ""} ${me?.lastName || ""}`.trim()
+            ? "This repeating task was deleted, so no more copies will come. This copy stays as history."
+            : `Repeating task set up by ${setBy || "someone else"}. Only they (or a founder) can pause or delete it.`}
         </p>
       ) : (
         <div className="space-y-2">

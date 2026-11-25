@@ -684,7 +684,9 @@ export async function registerRoutes(
       }
       const storyComments = await storage.getCommentsByStory(req.params.id);
       // Removing a repeating copy = skipping that day: the background job must never recreate it
-      if (existing.recurringTaskId && existing.assignedTo && existing.occurrenceDate) {
+      // (only while the repeating task still exists: a copy of one deleted for good is just an old story)
+      if (existing.recurringTaskId && existing.assignedTo && existing.occurrenceDate
+        && (await storage.listRecurringTasks()).some((r) => r.id === existing.recurringTaskId)) {
         await storage.addRecurringSkip(existing.recurringTaskId, existing.assignedTo, existing.occurrenceDate, req.user.id);
       }
       const success = await storage.deleteStory(req.params.id);
